@@ -1,0 +1,393 @@
+# ============================================================================
+# Zenith Helm Chart — values-prod.yaml
+# Production-grade overrides for Fortune 500 deployment.
+# ============================================================================
+
+replicaCount: 6
+
+image:
+  registry: ghcr.io
+  repository: zuccadev-labs/zenith-backend
+  pullPolicy: IfNotPresent
+  tag: "v1.0.0"
+
+imagePullSecrets:
+  - name: ghcr-pull-secret
+
+# ── Service ──────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8080
+  grpcPort: 50051
+  metricsPort: 9090
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+
+# ── Ingress ──────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "EECDH+AESGCM:EDH+AESGCM"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    external-dns.alpha.kubernetes.io/hostname: "api.zenith.io"
+  hosts:
+    - host: api.zenith.io
+      tlsSecretName: zenith-tls
+      paths:
+        - path: /
+          pathType: Prefix
+
+# ── Resources (prod: tuned for c6i.2xlarge nodes) ────────────────────────────
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "1Gi"
+  limits:
+    cpu: "4000m"
+    memory: "4Gi"
+
+# ── HPA ──────────────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 6
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 65
+  targetMemoryUtilizationPercentage: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 30
+  extraMetrics:
+    - type: Pods
+      target:
+        type: AverageValue
+        averageValue: "10000m"
+    # RPS per pod (custom metric via Prometheus Adapter)
+    - type: Object
+      target:
+        type: Value
+        describedObject:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          name: zenith
+        metric:
+          name: requests_per_second
+
+# ── PDB ──────────────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 3
+
+# ── Strategy ─────────────────────────────────────────────────────────────────
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 3
+    maxUnavailable: 0
+
+# ── Topology spread (multi-AZ) ───────────────────────────────────────────────
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: zenith
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: zenith
+
+# ── Affinity (anti-affinity) ─────────────────────────────────────────────────
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values: ["zenith"]
+        topologyKey: kubernetes.io/hostname
+
+# ── Network Policy (microsegmentation) ───────────────────────────────────────
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+  monitoringNamespace: monitoring
+  egress:
+    mongodb:
+      hosts:
+        - labels:
+            app: mongodb
+            port: 27017
+    vault:
+      namespace: vault
+      port: 8200
+    mqtt:
+      labels:
+        app: emqx
+      port: 1883
+
+# ── Zenith App Config ────────────────────────────────────────────────────────
+zenith:
+  appId: "zenith-prod"
+  port: 8080
+  features:
+    iot:         true
+    vectordb:    true
+    agents:      true
+    timeseries:  true
+    workflow:    true
+    multiTenant: true
+    compliance:  true
+    saas:        true
+    ecommerce:   true
+  database:
+    surreal:
+      url: "http://mongodb.zenith-prod.svc.cluster.local:27017"
+      namespace: "zenith"
+      database: "production"
+  qdrant:
+    url: "http://qdrant.zenith-prod.svc.cluster.local:6333"
+  mqtt:
+    url: "mqtt://emqx.zenith-prod.svc.cluster.local:1883"
+    namespace: "zenith"
+  scylla:
+    hosts: ["scylla.zenith-prod.svc.cluster.local:9042"]
+    keyspace: zenith
+    ttlDays: 90
+  ollama:
+    url: "http://ollama.zenith-prod.svc.cluster.local:11434"
+    embedModel: "nomic-embed-text"
+    agentModel: "llama3.1"
+
+# ── Secret management (Vault Agent injection) ────────────────────────────────
+vault:
+  enabled: true
+  role: zenith-prod
+
+# ── Env vars ─────────────────────────────────────────────────────────────────
+env:
+  - name: DENO_ENV
+    value: production
+  - name: LOG_LEVEL
+    value: info
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: http://otel-collector.monitoring.svc.cluster.local:4317
+  - name: OTEL_SERVICE_NAME
+    value: zenith-backend
+  - name: PROMETHEUS_REMOTE_WRITE_URL
+    value: http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+  - name: LOKI_PUSH_URL
+    value: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+# ── Service Monitor ──────────────────────────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /metrics
+  labels:
+    release: prometheus
+
+# ── PrometheusRule (alerts) ──────────────────────────────────────────────────
+prometheusRule:
+  enabled: true
+  namespace: monitoring
+  labels:
+    release: prometheus
+  groups:
+    - name: zenith.rules
+      interval: 30s
+      rules:
+        # Availability
+        - alert: ZenithDown
+          expr: up{job="zenith"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Zenith is down"
+            description: "Zenith pod {{ $labels.pod }} has been down for 2 minutes."
+            runbook_url: "https://docs.zenith.io/runbooks/05_api_outage"
+
+        - alert: ZenithHighErrorRate
+          expr: |
+            sum(rate(http_requests_total{job="zenith",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="zenith"}[5m]))
+            > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Zenith error rate > 5%"
+            description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+
+        # Latency
+        - alert: ZenithHighLatencyP95
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{job="zenith"}[5m])) by (le, route)
+            ) > 1
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "p95 latency > 1s on {{ $labels.route }}"
+
+        # Saturation
+        - alert: ZenithHighCPU
+          expr: |
+            rate(container_cpu_usage_seconds_total{pod=~"zenith-.*"}[5m]) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Zenith pod {{ $labels.pod }} CPU > 90%"
+
+        - alert: ZenithHighMemory
+          expr: |
+            container_memory_working_set_bytes{pod=~"zenith-.*"}
+            / container_spec_memory_limit_bytes{pod=~"zenith-.*"}
+            > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Zenith pod {{ $labels.pod }} memory > 90%"
+
+        # SLO burn rate
+        - alert: ZenithSLOBurnRateFast
+          expr: |
+            (
+              sum(rate(http_requests_total{job="zenith",status=~"5.."}[1h]))
+              /
+              sum(rate(http_requests_total{job="zenith"}[1h]))
+            ) > (14.4 * 0.001)
+          for: 2m
+          labels:
+            severity: critical
+            slo: availability
+          annotations:
+            summary: "SLO burn rate > 14.4x (1h budget exhausted in 2 days)"
+
+        - alert: ZenithSLOBurnRateSlow
+          expr: |
+            (
+              sum(rate(http_requests_total{job="zenith",status=~"5.."}[6h]))
+              /
+              sum(rate(http_requests_total{job="zenith"}[6h]))
+            ) > (6 * 0.001)
+          for: 5m
+          labels:
+            severity: warning
+            slo: availability
+          annotations:
+            summary: "SLO burn rate > 6x (1d budget exhausted in 4 days)"
+
+        # Dependency health
+        - alert: ZenithMongoDBDown
+          expr: up{job="mongodb"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            team: dba
+          annotations:
+            summary: "MongoDB primary is down"
+            runbook_url: "https://docs.zenith.io/runbooks/03_mongodb_failover"
+
+        - alert: ZenithVaultSealed
+          expr: vault_sealed == 1
+          for: 1m
+          labels:
+            severity: critical
+            team: security
+          annotations:
+            summary: "Vault is sealed"
+            runbook_url: "https://docs.zenith.io/runbooks/04_vault_unsealing"
+
+# ── Service Account ──────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  automount: true
+  name: "zenith"
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/ZenithProdRole"
+    iam.amazonaws.com/role: "ZenithProdRole"
+
+# ── Termination grace (for in-flight requests) ───────────────────────────────
+terminationGracePeriodSeconds: 90
+
+# ── Revision history (rollback depth) ────────────────────────────────────────
+revisionHistoryLimit: 20
+
+# ── Secret (DO NOT commit real values; use external secrets operator) ────────
+secret:
+  create: false
+  extraKeys: {}
+
+# ── Probes ───────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30
+  successThreshold: 1
+
+# ── Security Context ─────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+  sysctls:
+    - name: net.core.somaxconn
+      value: "65535"
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  capabilities:
+    drop:
+      - ALL

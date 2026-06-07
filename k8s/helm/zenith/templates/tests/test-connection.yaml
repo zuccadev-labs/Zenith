@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "zenith.fullname" . }}-test-connection
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "zenith.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: wget
+      image: busybox:1.36
+      command: ['sh', '-c']
+      args:
+        - >-
+          wget --quiet --tries=1 --spider
+          http://{{ include "zenith.fullname" . }}:{{ .Values.service.port }}/health
+          && echo "OK: zenith is reachable"
+          || (echo "FAIL: zenith is unreachable"; exit 1)

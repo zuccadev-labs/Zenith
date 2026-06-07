@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zenith.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "zenith.labels" . | nindent 4 }}
+data:
+  zenith.yaml: |-
+    app:
+      id: {{ .Values.zenith.appId | quote }}
+      port: {{ .Values.zenith.port }}
+    features:
+      iot: {{ .Values.zenith.features.iot }}
+      vectordb: {{ .Values.zenith.features.vectordb }}
+      agents: {{ .Values.zenith.features.agents }}
+      timeseries: {{ .Values.zenith.features.timeseries }}
+      workflow: {{ .Values.zenith.features.workflow }}
+      multiTenant: {{ .Values.zenith.features.multiTenant }}
+      compliance: {{ .Values.zenith.features.compliance }}
+      saas: {{ .Values.zenith.features.saas }}
+      ecommerce: {{ .Values.zenith.features.ecommerce }}
+    database:
+      surrealdb:
+        url: {{ .Values.zenith.database.surreal.url | quote }}
+        namespace: {{ .Values.zenith.database.surreal.namespace | quote }}
+        database: {{ .Values.zenith.database.surreal.database | quote }}
+    qdrant:
+      url: {{ .Values.zenith.qdrant.url | quote }}
+    mqtt:
+      url: {{ .Values.zenith.mqtt.url | quote }}
+      namespace: {{ .Values.zenith.mqtt.namespace | quote }}
+    scylla:
+      hosts:
+        {{- toYaml .Values.zenith.scylla.hosts | nindent 8 }}
+      keyspace: {{ .Values.zenith.scylla.keyspace | quote }}
+      ttlDays: {{ .Values.zenith.scylla.ttlDays }}
+    ollama:
+      url: {{ .Values.zenith.ollama.url | quote }}
+      embedModel: {{ .Values.zenith.ollama.embedModel | quote }}
+      agentModel: {{ .Values.zenith.ollama.agentModel | quote }}
+{{- range .Values.extraConfig }}
+  {{ .name }}: |-
+    {{- .content | nindent 4 }}
+{{- end }}

@@ -18,6 +18,7 @@
 | 09 | [Backup & restore](09_backup_restore.md)            | | ✓ | ✓ |
 | 10 | [Scaling & capacity](10_scaling_capacity.md)        | | | ✓ |
 | 11 | [Certificate rotation](11_certificate_rotation.md) | | | ✓ |
+| 99 | [SRE cheat sheet](99_sre_cheatsheet.md)             | ✓ | ✓ | ✓ |
 
 ## Severity escalation
 

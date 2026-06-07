@@ -1,0 +1,11 @@
+.helmignore
+.git/
+.gitignore
+*.swp
+*.bak
+*.tmp
+*.orig
+*.rej
+.DS_Store
+README.md
+LICENSE

@@ -1,0 +1,271 @@
+# Prometheus alerting rules — Zenith BaaS
+# Drop into the PrometheusRule CRD or prometheus.yml rule_files.
+
+groups:
+  # ----------------------------------------------------------------
+  # 1. Availability (SLO: 99.95% over 30 days)
+  # ----------------------------------------------------------------
+  - name: zenith.availability
+    interval: 30s
+    rules:
+      - alert: ZenithDown
+        expr: up{job="zenith"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Zenith instance {{ $labels.instance }} is down"
+          description: "Zenith has been unreachable for 2 minutes. Customer impact is likely."
+          runbook_url: https://docs.zenith.io/runbooks/05_api_outage
+
+      - alert: ZenithAllInstancesDown
+        expr: sum(up{job="zenith"}) == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "ALL Zenith instances are down — full outage"
+          description: "Total Zenith outage. Activate incident response immediately."
+          runbook_url: https://docs.zenith.io/runbooks/02_incident_response
+
+      - alert: ZenithHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="zenith",code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="zenith"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Zenith 5xx rate is {{ $value | humanizePercentage }}"
+          description: "5xx error rate > 5% for 5 minutes."
+          runbook_url: https://docs.zenith.io/runbooks/05_api_outage
+
+      - alert: ZenithSLOBurnRateFast
+        expr: |
+          (
+            sum(rate(http_requests_total{job="zenith",code=~"5.."}[1h]))
+            /
+            sum(rate(http_requests_total{job="zenith"}[1h]))
+          ) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "SLO burn rate > 14.4x (1h budget exhausted in 2 days)"
+
+      - alert: ZenithSLOBurnRateSlow
+        expr: |
+          (
+            sum(rate(http_requests_total{job="zenith",code=~"5.."}[6h]))
+            /
+            sum(rate(http_requests_total{job="zenith"}[6h]))
+          ) > (6 * 0.001)
+        for: 5m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "SLO burn rate > 6x (1d budget exhausted in 4 days)"
+
+  # ----------------------------------------------------------------
+  # 2. Latency (SLO: p95 < 400ms)
+  # ----------------------------------------------------------------
+  - name: zenith.latency
+    interval: 30s
+    rules:
+      - alert: ZenithHighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="zenith"}[5m])) by (le, route)
+          ) > 0.4
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "p95 > 400ms on route {{ $labels.route }}"
+
+      - alert: ZenithHighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{job="zenith"}[5m])) by (le, route)
+          ) > 1
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "p99 > 1s on route {{ $labels.route }}"
+
+      - alert: ZenithLoginLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="zenith",route="/login"}[5m])) by (le)
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Login p95 > 150ms — degrades UX"
+
+  # ----------------------------------------------------------------
+  # 3. Saturation
+  # ----------------------------------------------------------------
+  - name: zenith.saturation
+    interval: 30s
+    rules:
+      - alert: ZenithHighCPU
+        expr: |
+          (
+            rate(container_cpu_usage_seconds_total{pod=~"zenith-.*",container!=""}[5m])
+            / container_spec_cpu_quota{pod=~"zenith-.*",container=""} * container_spec_cpu_period{pod=~"zenith-.*",container=""}
+          ) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Zenith pod {{ $labels.pod }} CPU > 90% for 10m"
+
+      - alert: ZenithHighMemory
+        expr: |
+          container_memory_working_set_bytes{pod=~"zenith-.*",container=""}
+          / container_spec_memory_limit_bytes{pod=~"zenith-.*",container=""}
+          > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Zenith pod {{ $labels.pod }} memory > 90% for 10m"
+
+      - alert: ZenithOOMKilled
+        expr: increase(kube_pod_container_status_last_terminated_reason{reason="OOMKilled",pod=~"zenith-.*"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Zenith pod {{ $labels.pod }} OOMKilled"
+
+      - alert: ZenithHpaAtMax
+        expr: kube_horizontalpodautoscaler_status_current_replicas{deployment="zenith"} >= kube_horizontalpodautoscaler_spec_max_replicas{deployment="zenith"}
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Zenith HPA at max replicas — consider raising ceiling"
+
+  # ----------------------------------------------------------------
+  # 4. Dependencies
+  # ----------------------------------------------------------------
+  - name: zenith.dependencies
+    interval: 30s
+    rules:
+      - alert: ZenithMongoDBDown
+        expr: up{job="mongodb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: dba
+        annotations:
+          summary: "MongoDB primary is down"
+          runbook_url: https://docs.zenith.io/runbooks/03_mongodb_failover
+
+      - alert: ZenithMongoDBReplicationLag
+        expr: mongodb_replset_member_replication_lag > 30
+        for: 5m
+        labels:
+          severity: warning
+          team: dba
+        annotations:
+          summary: "MongoDB replication lag > 30s on {{ $labels.member }}"
+
+      - alert: ZenithMongoDBConnectionsHigh
+        expr: mongodb_ss_connections{conn_type="current"} > 800
+        for: 5m
+        labels:
+          severity: warning
+          team: dba
+        annotations:
+          summary: "MongoDB connection count > 800"
+
+      - alert: ZenithVaultSealed
+        expr: vault_sealed == 1
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Vault is sealed"
+          runbook_url: https://docs.zenith.io/runbooks/04_vault_unsealing
+
+      - alert: ZenithVaultUnhealthy
+        expr: vault_core_unsealed == 0 or up{job="vault"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Vault is unhealthy"
+
+      - alert: ZenithRedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Redis instance is down"
+
+  # ----------------------------------------------------------------
+  # 5. Security
+  # ----------------------------------------------------------------
+  - name: zenith.security
+    interval: 30s
+    rules:
+      - alert: ZenithAuthFailuresSpike
+        expr: |
+          sum(rate(http_requests_total{job="zenith",code="401"}[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Auth failure rate > 100/s — possible credential stuffing"
+
+      - alert: ZenithRateLimitedSpike
+        expr: sum(rate(http_requests_total{job="zenith",code="429"}[5m])) > 1000
+        for: 5m
+        labels:
+          severity: info
+          team: security
+        annotations:
+          summary: "Rate limit hits > 1000/s — possible abuse"
+
+      - alert: ZenithMasterKeyUsed
+        expr: sum(rate(zenith_master_key_usage_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Master key is being used — should be rare"
+
+      - alert: ZenithPluginSignatureInvalid
+        expr: increase(zenith_plugin_signature_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Plugin signature verification failed — possible tampering"

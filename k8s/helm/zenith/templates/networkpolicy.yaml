@@ -1,0 +1,90 @@
+{{- if .Values.networkPolicy.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "zenith.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "zenith.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "zenith.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress controller.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .Values.networkPolicy.ingressNamespace | default "ingress-nginx" }}
+      ports:
+        - port: {{ .Values.zenith.port }}
+          protocol: TCP
+        - port: {{ .Values.service.grpcPort }}
+          protocol: TCP
+        - port: {{ .Values.service.metricsPort | default 9090 }}
+          protocol: TCP
+    # Allow Prometheus scraping from monitoring namespace.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .Values.networkPolicy.monitoringNamespace | default "monitoring" }}
+      ports:
+        - port: {{ .Values.service.metricsPort | default 9090 }}
+          protocol: TCP
+    # Allow pod-to-pod communication within the same namespace.
+    - from:
+        - podSelector: {}
+  egress:
+    # DNS.
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # MongoDB.
+    {{- range .Values.networkPolicy.egress.mongodb.hosts }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .labels.app }}
+      ports:
+        - port: {{ .labels.port | default 27017 }}
+          protocol: TCP
+    {{- end }}
+    # Vault.
+    {{- with .Values.networkPolicy.egress.vault }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .namespace | default "vault" }}
+      ports:
+        - port: {{ .port | default 8200 }}
+          protocol: TCP
+    {{- end }}
+    # S3 / GCS (HTTPS).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP
+    # MQTT broker.
+    {{- with .Values.networkPolicy.egress.mqtt }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .labels.app | default "emqx" }}
+      ports:
+        - port: {{ .port | default 1883 }}
+          protocol: TCP
+    {{- end }}
+{{- end }}

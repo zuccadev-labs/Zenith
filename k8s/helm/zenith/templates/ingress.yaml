@@ -1,0 +1,39 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullName := include "zenith.fullname" . -}}
+{{- $svcPort := .Values.service.port -}}
+{{- range .Values.ingress.hosts }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-{{ .host | replace "." "-" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "zenith.labels" $ | nindent 4 }}
+  annotations:
+    {{- range $key, $value := $.Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ $.Values.ingress.className }}
+  {{- with .tlsSecretName }}
+  tls:
+    - hosts:
+        - {{ $.host | quote }}
+      secretName: {{ . | quote }}
+  {{- end }}
+  rules:
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+          {{- end }}
+{{- end }}
+{{- end }}
