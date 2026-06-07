@@ -32,7 +32,15 @@ ehthumbs.db
 # These are standalone upstream/reference projects checked out alongside
 # Zenith for development; they are not part of the Zenith codebase.
 /lab-infra/repos/
-/zenith-backend/zenith-cluster/
+
+# ----- Embedded .git/ directories inside subprojects -----
+# Prevents accidental tracking of inner repo metadata (e.g. from a Rust
+# workspace that was `git init`-ed in place). The root .git/ is unaffected.
+/**/.git/
+
+# ----- Rust build output -----
+**/target/
+**/Cargo.lock
 
 # ============================================================
 # Node.js / JavaScript toolchain
