@@ -1,0 +1,20 @@
+{
+  "name": "@zuccadev-labs/zenith-cli",
+  "version": "0.1.0",
+  "description": "Zenith CLI — Developer, Agent and Backend operations",
+  "exports": "./mod.ts",
+  "tasks": {
+    "dev": "deno run -A mod.ts",
+    "compile": "deno compile -A --output ../bin/zenith.exe mod.ts",
+    "test": "deno test --allow-net --allow-read --allow-env"
+  },
+  "imports": {
+    "@std/cli": "jsr:@std/cli@^1.0.0",
+    "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true
+  }
+}

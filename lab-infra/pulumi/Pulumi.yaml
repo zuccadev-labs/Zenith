@@ -1,0 +1,3 @@
+name: zenith-lab-infra
+runtime: nodejs
+description: Aprovisionamiento de Zenith Lab VM en Proxmox usando TypeScript (ejecutable vía Deno)

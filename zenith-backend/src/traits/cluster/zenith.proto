@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package zenith;
+
+service ZenithFederation {
+  // Enruta un llamado RPC dinámico al clúster (DB, Cloud, AI, Shell)
+  rpc Call (RpcRequest) returns (RpcResponse);
+  
+  // Endpoint de latidos de vida (Healthcheck)
+  rpc Ping (PingRequest) returns (PingResponse);
+}
+
+message RpcRequest {
+  string targetAppId = 1;
+  string action = 2;          // Ej: "db.find", "shell.exec", "ai.agent"
+  string payloadJson = 3;     // Payload JSON para máxima flexibilidad sin romper esquema
+}
+
+message RpcResponse {
+  bool success = 1;
+  string dataJson = 2;        // Respuesta en JSON
+  string error = 3;           // Mensaje de error si success es falso
+  int32 errorCode = 4;
+}
+
+message PingRequest {
+  string nodeId = 1;
+}
+
+message PingResponse {
+  bool alive = 1;
+  string version = 2;
+}

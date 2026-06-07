@@ -1,0 +1,97 @@
+---
+# ──────────────────────────────────────────────────────────────────────
+#  postal-init.yml — Zenith Lab First Boot Ansible Playbook
+#  Se ejecuta UNA SOLA VEZ en el primer arranque de la VM.
+#  Pre-condición: MariaDB y RabbitMQ ya saludables (garantizado por ExecStart).
+# ──────────────────────────────────────────────────────────────────────
+- name: Initialize Postal Mail Server
+  hosts: localhost
+  connection: local
+  become: yes
+  vars:
+    postal_db_password: "{{ lookup('env', 'POSTAL_DB_PASSWORD') }}"
+    postal_admin_email: "{{ lookup('env', 'POSTAL_ADMIN_EMAIL') }}"
+    postal_admin_password: "{{ lookup('env', 'POSTAL_ADMIN_PASSWORD') }}"
+    postal_rabbitmq_password: "{{ lookup('env', 'POSTAL_RABBITMQ_PASSWORD') }}"
+
+  tasks:
+
+    - name: Wait for MariaDB to accept connections
+      command: >
+        docker exec zenith-postal-mariadb
+        mysqladmin ping -h localhost -u postal -p"{{ postal_db_password }}"
+      register: mariadb_status
+      until: mariadb_status.rc == 0
+      retries: 30
+      delay: 5
+      changed_when: false
+
+    - name: Wait for RabbitMQ to be healthy
+      command: docker exec zenith-postal-rabbitmq rabbitmq-diagnostics -q ping
+      register: rabbitmq_status
+      until: rabbitmq_status.rc == 0
+      retries: 20
+      delay: 5
+      changed_when: false
+
+    - name: Ensure postal.yml is a file (not directory)
+      shell: |
+        if [ -d /opt/zenith-lab/postal.yml ]; then
+          rmdir /opt/zenith-lab/postal.yml
+          envsubst < /opt/zenith-lab/repos/postal-config/postal.yml > /opt/zenith-lab/postal.yml
+          echo "regenerated"
+        else
+          echo "already_file"
+        fi
+      register: postal_yml_check
+      changed_when: "'regenerated' in postal_yml_check.stdout"
+
+    - name: Wait for Postal web-server to be ready
+      command: docker exec zenith-postal curl -sf http://localhost:5000/ -o /dev/null
+      register: postal_web_status
+      until: postal_web_status.rc == 0
+      retries: 20
+      delay: 5
+      changed_when: false
+      failed_when: false
+
+    - name: Run Postal database initialization
+      command: docker exec zenith-postal postal initialize
+      register: postal_init
+      changed_when: >
+        'initialized' in postal_init.stdout or
+        'created' in postal_init.stdout or
+        postal_init.rc == 0
+      failed_when: >
+        postal_init.rc != 0 and
+        'already exists' not in postal_init.stderr and
+        'already' not in postal_init.stdout
+
+    - name: Create Postal admin user
+      shell: |
+        printf '%s\nAdmin\nZenith\n%s\n' \
+          "{{ postal_admin_email }}" \
+          "{{ postal_admin_password }}" \
+        | docker exec -i zenith-postal postal make-user
+      register: postal_user
+      changed_when: postal_user.rc == 0
+      failed_when: >
+        postal_user.rc != 0 and
+        'already exists' not in postal_user.stderr and
+        'already' not in postal_user.stdout
+
+    - name: Restart Postal worker after initialization
+      command: docker restart zenith-postal-worker
+      changed_when: true
+
+    - name: Verify Postal worker is running
+      command: docker ps --filter name=zenith-postal-worker --filter status=running --format "{{.Names}}"
+      register: worker_status
+      retries: 10
+      delay: 5
+      until: "'zenith-postal-worker' in worker_status.stdout"
+      changed_when: false
+
+    - name: Print final status
+      debug:
+        msg: "✅ Postal initialized successfully. Worker running: {{ worker_status.stdout }}"

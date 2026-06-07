@@ -1,0 +1,25 @@
+# ──────────────────────────────────────────────────────────
+#  CoreDNS — Corefile para Zenith Lab
+#  VM IP: 192.168.14.50
+#  Dominio local: zen.ll
+# ──────────────────────────────────────────────────────────
+
+# Zona autoritativa: zen.ll
+zen.ll:53 {
+    log
+    errors
+    file /etc/coredns/zones/zen.ll.zone zen.ll
+}
+
+# Zona catch-all: todo lo que NO sea zen.ll → upstream
+.:53 {
+    log
+    errors
+    forward . 1.1.1.1 8.8.8.8 {
+        policy sequential
+        health_check 5s
+    }
+    cache 300
+    loop
+    reload
+}

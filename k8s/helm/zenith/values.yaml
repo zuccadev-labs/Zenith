@@ -1,0 +1,229 @@
+# ============================================================================
+# Zenith Helm Chart — values.yaml
+# Valores por defecto (override con values.prod.yaml en producción)
+# ============================================================================
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/zuccadev-labs/zenith-backend
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "zenith"
+
+# ── Service Account ──────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: "zenith"
+
+# ── Service ──────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 1337
+  grpcPort: 50051
+
+# ── Ingress ──────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: api.zenith.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # tls:
+  #   - secretName: zenith-tls
+  #     hosts:
+  #       - api.zenith.example.com
+
+# ── Resources ────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+  limits:
+    cpu: "2000m"
+    memory: "1Gi"
+
+# ── Horizontal Pod Autoscaler ────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Escala IoT workers por mensajes MQTT (custom metrics via KEDA si disponible)
+
+# ── Pod Disruption Budget (alta disponibilidad) ──────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# ── Zenith App Configuration ─────────────────────────────────────────────────
+zenith:
+  appId: "zenith-production"
+  port: 1337
+  # masterKey: se inyecta desde secret (ver secretRef)
+  # jwtSecret: se inyecta desde secret
+
+  # Feature flags — activar según necesidad
+  features:
+    iot:         true
+    vectordb:    true
+    agents:      true
+    timeseries:  true
+    workflow:    true
+    multiTenant: false
+    compliance:  false
+    saas:        false
+    ecommerce:   false
+
+  # Database
+  database:
+    # URI inyectada desde secret
+    surreal:
+      url: "http://surrealdb:8000"
+      namespace: "zenith"
+      database: "production"
+
+  # Vector DB
+  qdrant:
+    url: "http://qdrant:6333"
+
+  # MQTT
+  mqtt:
+    url: "mqtt://emqx:1883"
+    namespace: "zenith"
+
+  # TimeSeries (ScyllaDB)
+  scylla:
+    hosts: ["scylla:9042"]
+    keyspace: "zenith"
+    ttlDays: 90
+
+  # Ollama
+  ollama:
+    url: "http://ollama:11434"
+    embedModel: "nomic-embed-text"
+    agentModel: "llama3.1"
+
+# ── Environment Variables ────────────────────────────────────────────────────
+env:
+  - name: DENO_ENV
+    value: production
+  - name: LOG_LEVEL
+    value: info
+
+# ── Secret References (Kubernetes Secrets) ───────────────────────────────────
+# Crea el secret con:
+#   kubectl create secret generic zenith-secrets \
+#     --from-literal=MASTER_KEY=<key> \
+#     --from-literal=JWT_SECRET=<secret> \
+#     --from-literal=SURREAL_PASS=<pass> \
+#     --from-literal=QDRANT_API_KEY=<key>
+envFrom:
+  - secretRef:
+      name: zenith-secrets
+
+# ── Health Checks ─────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 1337
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 1337
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: 1337
+  failureThreshold: 30
+  periodSeconds: 5
+
+# ── Pod Security ──────────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# ── Affinity / Topology ───────────────────────────────────────────────────────
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: ["zenith"]
+          topologyKey: kubernetes.io/hostname
+
+# ── Node Selector ─────────────────────────────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+
+# ── Volumes (para certificados mTLS y archivos de config) ────────────────────
+volumes: []
+volumeMounts: []
+
+# ── ServiceMonitor (Prometheus Operator) ─────────────────────────────────────
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  interval: 30s
+  path: /metrics
+
+# ── PrometheusRule (alertas automáticas) ─────────────────────────────────────
+prometheusRule:
+  enabled: false
+  groups:
+    - name: zenith.rules
+      rules:
+        - alert: ZenithHighErrorRate
+          expr: rate(http_requests_total{job="zenith",status=~"5.."}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Zenith error rate > 5%"
+        - alert: ZenithCircuitOpen
+          expr: zenith_circuit_breaker_state{state="OPEN"} > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Zenith circuit breaker OPEN for {{ $labels.circuit }}"
+        - alert: ZenithDLQGrowing
+          expr: zenith_job_dlq_size > 10
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Zenith DLQ has {{ $value }} failed jobs"

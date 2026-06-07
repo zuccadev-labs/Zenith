@@ -1,0 +1,139 @@
+# ============================================================
+# Zenith — Root .gitignore
+# ============================================================
+# Monorepo multi-package (Deno + Node + K8s + Helm)
+
+# ----- OS / Editor cruft -----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+.fuse_hidden*
+.Trash-*
+.Spotlight-V100
+.AppleDouble
+ehthumbs.db
+
+# ----- User-scoped scratch / planning (per user request) -----
+/code-review/
+/scratch_cli_test/
+/implementation_plan.md
+/stack.txt
+/check.log
+/prompt.md
+/test_e2e.ts
+
+# ----- Embedded external repositories (not part of Zenith monorepo) -----
+# These are standalone upstream/reference projects checked out alongside
+# Zenith for development; they are not part of the Zenith codebase.
+/lab-infra/repos/
+/zenith-backend/zenith-cluster/
+
+# ============================================================
+# Node.js / JavaScript toolchain
+# ============================================================
+**/node_modules/
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+**/bun.lockb
+**/.npm/
+**/.yarn/
+**/.pnpm-store/
+**/.next/
+**/.nuxt/
+**/.svelte-kit/
+**/.turbo/
+**/.cache/
+**/coverage/
+**/dist/
+**/build/
+**/out/
+**/.tsbuildinfo
+**/tsconfig.tsbuildinfo
+
+# Keep template tsconfig.json in sub-packages
+!**/tsconfig.json
+
+# ============================================================
+# Deno
+# ============================================================
+**/deno.lock
+**/_build/
+# Deno KV local database
+**/kv.sqlite
+**/kv.sqlite-shm
+**/kv.sqlite-wal
+
+# ============================================================
+# Barrits (barrits cache + build artifacts)
+# ============================================================
+**/.barrits/
+!**/.barrits/.gitkeep
+
+# ============================================================
+# Secrets & env files (NEVER commit)
+# ============================================================
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets/
+**/*.pem
+**/*.key
+**/*.crt
+**/*.p12
+**/*.pfx
+**/.ssh/
+
+# ============================================================
+# Logs / runtime data
+# ============================================================
+*.log
+logs/
+.pnp.*
+.zenith-storage/
+.zenith-data/
+*.pid
+*.seed
+*.pid.lock
+
+# ============================================================
+# Test artifacts
+# ============================================================
+coverage/
+.nyc_output/
+.jest/
+playwright-report/
+test-results/
+lighthouse-report/
+*.lcov
+
+# ============================================================
+# Docker
+# ============================================================
+**/.dockerignore.bak
+
+# ============================================================
+# Cloud / K8s local state
+# ============================================================
+**/kubeconfig
+**/.kube/
+
+# ============================================================
+# OS / misc
+# ============================================================
+*.tmp
+*.bak
+*.orig
+*.rej
+*.swp
+.AppleDouble
+.DS_Store

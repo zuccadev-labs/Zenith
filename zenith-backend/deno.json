@@ -1,0 +1,100 @@
+{
+  "name": "@zuccadev-labs/zenith",
+  "version": "0.1.0",
+  "description": "Zenith - The Deterministic BaaS for the AI Era",
+  "exports": "./src/mod.ts",
+  "tasks": {
+    "dev": "deno run -A scripts/zen.ts dev",
+    "start": "deno run -A src/mod.ts --mode=production",
+    "compile": "deno run -A scripts/zen.ts compile",
+    "build": "deno run -A scripts/zen.ts compile",
+    "lab:up": "docker compose -f lab-infra/docker-compose.yml up -d",
+    "lab:down": "docker compose -f lab-infra/docker-compose.yml down",
+    "test": "deno test --allow-all --no-check",
+    "test:unit": "deno test --allow-all --no-check tests/unit/",
+    "test:integration": "deno test --allow-all --no-check --unstable-kv --ignore=tests/integration/engine.test.ts tests/integration/",
+    "test:all": "deno test --allow-all --no-check --unstable-kv --ignore=tests/integration/engine.test.ts tests/",
+    "lint": "deno lint",
+    "lint:fix": "deno lint --fix",
+    "check": "deno check src/**/*.ts",
+    "coverage": "deno test --allow-all --no-check --unstable-kv --ignore=tests/integration/engine.test.ts --coverage=coverage/ tests/",
+    "coverage:report": "deno coverage coverage/ --html --lcov --output=coverage/",
+    "verify": "deno task lint && deno task check && deno task test:all && deno task coverage:check",
+    "verify:fast": "deno task check && deno task test:all"
+  },
+  "imports": {
+    "@zenith/core": "./src/core/cloud.ts",
+    "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@0.1.0",
+    "mongodb": "npm:mongodb@^6.5.0",
+    "cassandra-driver": "npm:cassandra-driver@^4.7.2",
+    "pg": "npm:pg@^8.11.5",
+    "@aws-sdk/client-s3": "npm:@aws-sdk/client-s3@^3.577.0",
+    "@aws-sdk/s3-request-presigner": "npm:@aws-sdk/s3-request-presigner@^3.577.0",
+    "argon2": "npm:argon2@^0.40.1",
+    "@node-rs/argon2": "npm:@node-rs/argon2@^1.8.3",
+    "jsonwebtoken": "npm:jsonwebtoken@^9.0.2",
+    "@types/jsonwebtoken": "npm:@types/jsonwebtoken@^9.0.6",
+    "graphql": "npm:graphql@^16.8.0",
+    "viem": "npm:viem@^2.0.0",
+    "tweetnacl": "npm:tweetnacl@^1.0.3",
+    "bs58": "npm:bs58@^5.0.0",
+    "@grpc/grpc-js": "npm:@grpc/grpc-js@^1.10.0",
+    "@grpc/proto-loader": "npm:@grpc/proto-loader@^0.7.0",
+    "@opentelemetry/api": "npm:@opentelemetry/api@^1.8.0",
+    "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.21.0",
+    "@opentelemetry/exporter-trace-otlp-http": "npm:@opentelemetry/exporter-trace-otlp-http@^0.50.0",
+    "@opentelemetry/resources": "npm:@opentelemetry/resources@^1.21.0",
+    "@std/assert": "jsr:@std/assert@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0",
+    "@std/encoding": "jsr:@std/encoding@^1.0.0",
+    "@std/cli": "jsr:@std/cli@^1.0.0",
+    "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/url": "jsr:@std/url@^1.0.0"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true
+  },
+  "lint": {
+    "include": ["src/", "tests/", "example/"],
+    "exclude": [
+      "node_modules/",
+      "coverage/",
+      "dist/",
+      "_build/",
+      ".claude/"
+    ],
+    "rules": {
+      "tags": ["recommended"],
+      "include": [
+        "no-unused-vars",
+        "no-import-prefix",
+        "verbatim-module-syntax",
+        "no-empty",
+        "no-unversioned-import",
+        "prefer-const",
+        "ban-types",
+        "no-irregular-whitespace",
+        "no-control-regex"
+      ],
+      "exclude": [
+        "no-explicit-any",
+        "require-await",
+        "ban-ts-comment",
+        "no-slow-types"
+      ]
+    }
+  },
+  "fmt": {
+    "include": ["src/", "tests/", "example/", "docs/"],
+    "exclude": ["node_modules/", "coverage/", "dist/", "_build/"],
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "useTabs": false,
+    "semiColons": true,
+    "singleQuote": false,
+    "proseWrap": "preserve"
+  },
+  "exclude": ["node_modules/", "coverage/", "dist/", "_build/"],
+  "nodeModulesDir": "auto"
+}

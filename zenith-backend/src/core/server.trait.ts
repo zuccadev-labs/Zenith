@@ -1,0 +1,104 @@
+import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { buildDynamicRouter, createRequestHandler, extractContext, applyCORS, validateAppId, resolveAuthentication, applyRateLimit } from "./mod.ts";
+import type { ZenithConfig } from "./types.ts";
+import { ApiKeyManager } from "../security/api-keys/manager.ts";
+import { InMemoryStore } from "../security/api-keys/store.ts";
+import { PerKeyRateLimiter } from "../security/api-keys/middleware.ts";
+import { bootstrapApiKey } from "../security/api-keys/bootstrap.ts";
+
+export const ServerTrait = createTraitDescriptor({
+  name: "ZenithCoreServer",
+  provides: ["getHandler"],
+  consumes: ["database-crud", "authentication", "media-stream", "schema-validation", "telemetry", "access-control", "rest-crud", "rate-limiting"],
+  state: ["serverInstance"],
+  runtimes: ["deno"],
+  create: (deps: Record<string, unknown>) => {
+    let _publicKey = "";
+    // [H-2/H-3 mitigation] API key manager + rate limiter compartidos por app.
+    // En Fase 1.G, el InMemoryStore será reemplazado por MongoDBStore.
+    const apiKeyManager = new ApiKeyManager(new InMemoryStore());
+    const perKeyRateLimiter = new PerKeyRateLimiter();
+    return {
+      initKeys: (_privateKey: string, publicKey: string) => {
+        _publicKey = publicKey;
+      },
+      getHandler: (config: ZenithConfig) => {
+        const depsAny = deps as any;
+        const obs = depsAny["telemetry"];
+        obs?.log?.(`[ZenithServer] Building handler for App ID: ${config.appId}`);
+
+        // 1. Construir el Router con dependencias inyectadas (Auto-descubrimiento)
+        const router = buildDynamicRouter(deps);
+
+        // 2. Bootstrap: si la app no tiene keys, crear una sk_live (solo dev)
+        //    Esto se hace sincrónicamente antes de armar el pipeline para que
+        //    el operador pueda usar la key inmediatamente.
+        bootstrapApiKey(apiKeyManager, {
+          appId: config.appId,
+          appName: (config as any).appName,
+        }).catch((err) => {
+          obs?.warn?.(`[ZenithServer] Bootstrap key creation failed: ${err.message}`);
+        });
+
+        // 3. Definir el Pipeline Funcional (con API key auth + master key fallback)
+        const pipeline = [
+          extractContext({
+            configMasterKey: config.masterKey as string,
+            publicKeyStr: _publicKey,
+            trustedProxies: (config as any).trustedProxies ?? [],
+            apiKeyManager,
+            rateLimiter: perKeyRateLimiter,
+            audit: true,
+          }),
+          applyCORS("*"),
+          validateAppId(config.appId),
+          resolveAuthentication(depsAny["authentication"]),
+          applyRateLimit(depsAny["rate-limiting"]),
+        ];
+
+        // 3. Crear el Request Handler con Telemetría Global
+        const rawDispatch = router.dispatch();
+        const tracedDispatch = async (req: Request, ctx: any) => {
+            const url = new URL(req.url);
+            const currentObs = depsAny["telemetry"];
+            if (currentObs?.withSpan) {
+              return await currentObs.withSpan(`HTTP ${req.method} ${url.pathname}`, {
+                "http.method": req.method,
+                "http.url": url.pathname
+              }, async () => {
+                 const response = await rawDispatch(req, ctx);
+
+                 // Lógica de Negocio Corporativa: Metering (Consumo de API y Ancho de Banda)
+                 const billing = depsAny["billing-metering"];
+                 if (billing && ctx.auth?.userId) {
+                  try {
+                    // Contamos 1 petición
+                    billing.consumeQuota(ctx.auth.userId, "api_requests", 1).catch(() => {});
+                    
+                    // Estimamos ancho de banda basado en Content-Length si existe, sino usamos una aproximación
+                    const cl = response.headers.get("Content-Length");
+                    if (cl) {
+                       const bytes = parseInt(cl, 10);
+                       if (!isNaN(bytes)) {
+                         billing.consumeQuota(ctx.auth.userId, "bandwidth_bytes", bytes).catch(() => {});
+                       }
+                    } else if (response.status === 200) {
+                       // Si no hay Content-Length, hacemos una estimación mínima asumiendo JSON
+                       billing.consumeQuota(ctx.auth.userId, "bandwidth_bytes", 1024).catch(() => {}); // 1KB proxy
+                    }
+                  } catch (_e) { /* noop: no bloquear el flujo de respuesta */ }
+               }
+
+               return response;
+            });
+            } else {
+               return await rawDispatch(req, ctx);
+            }
+         };
+
+        const handler = createRequestHandler(pipeline, tracedDispatch);
+        return handler;
+      }
+    };
+  }
+});

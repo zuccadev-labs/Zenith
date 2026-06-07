@@ -1,0 +1,47 @@
+; ──────────────────────────────────────────────────────────
+;  Zona DNS: zen.ll
+;  Servidor: CoreDNS corriendo en 192.168.14.50 (zenith-lab VM)
+;  Dominio de laboratorio — NO es un TLD real
+;
+;  Para agregar al router: apuntar DNS a 192.168.14.50
+; ──────────────────────────────────────────────────────────
+
+$ORIGIN zen.ll.
+$TTL 300
+
+; ── SOA (Start of Authority) ──────────────────────────────
+@   IN  SOA  ns1.zen.ll. hostmaster.zen.ll. (
+            2024052901  ; Serial (YYYYMMDDNN) — incrementar al modificar
+            3600        ; Refresh
+            900         ; Retry
+            604800      ; Expire
+            300 )       ; Minimum TTL
+
+; ── Nameservers ───────────────────────────────────────────
+@           IN  NS   ns1.zen.ll.
+ns1         IN  A    192.168.14.50
+
+; ── Registro raíz ─────────────────────────────────────────
+@           IN  A    192.168.14.50
+
+; ── MX (Mail Exchange para Postal) ────────────────────────
+@           IN  MX   10  postal.zen.ll.
+
+; ── TXT (SPF — anti-spam para testing local) ─────────────
+@           IN  TXT  "v=spf1 a mx ip4:192.168.14.50 ~all"
+postal      IN  TXT  "v=spf1 a ~all"
+
+; ── Servicios de Infraestructura ──────────────────────────
+postal      IN  A    192.168.14.50   ; Postal Web UI :50614 + SMTP :25614
+mx          IN  A    192.168.14.50   ; MX entry point
+keycloak    IN  A    192.168.14.50   ; Keycloak IAM :8080
+zitadel     IN  A    192.168.14.50   ; Zitadel IAM :8081
+novu        IN  A    192.168.14.50   ; Novu Dashboard :4614 / API :3614
+rustfs      IN  A    192.168.14.50   ; RustFS S3 :8614 / Console :8615
+otel        IN  A    192.168.14.50   ; OpenTelemetry :43180
+
+; ── Registros de soporte Postal ───────────────────────────
+spf         IN  A    192.168.14.50
+rp          IN  A    192.168.14.50   ; Return-path
+routes      IN  A    192.168.14.50   ; Route domain
+track       IN  A    192.168.14.50   ; Tracking domain

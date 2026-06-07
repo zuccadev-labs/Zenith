@@ -1,0 +1,22 @@
+# ── Secretos (NUNCA subir al repositorio) ──────────────────────────
+.env
+packer/secrets.auto.pkrvars.hcl
+
+# ── Artefactos de builds ────────────────────────────────────────────
+packer_cache/
+.packer_cache/
+packer_*.zip
+*.iso
+
+# ── Pulumi state local ──────────────────────────────────────────────
+pulumi/.pulumi/
+pulumi/node_modules/
+
+# ── Temporales / OS ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# ── Binarios descargados ────────────────────────────────────────────
+packer_1.*/

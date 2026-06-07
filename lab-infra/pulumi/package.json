@@ -1,0 +1,8 @@
+{
+  "name": "zenith-lab-infra",
+  "main": "index.ts",
+  "dependencies": {
+    "@pulumi/pulumi": "^3.0.0",
+    "@muhlemmer/proxmoxve": "^6.0.0"
+  }
+}

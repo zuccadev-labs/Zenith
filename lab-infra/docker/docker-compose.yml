@@ -1,0 +1,567 @@
+services:
+  # ──────────────────────────────────────────────────────────
+  # 1. Base de Datos Principal (MongoDB & PostgreSQL Core)
+  # ──────────────────────────────────────────────────────────
+  zenith-mongo:
+    image: mongo:7.0
+    container_name: zenith-mongo
+    ports:
+      - "53017:27017"
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-mongo-init:
+    image: mongo:7.0
+    container_name: zenith-mongo-init
+    depends_on:
+      zenith-mongo:
+        condition: service_healthy
+    restart: "no"
+    command: >
+      mongosh --host zenith-mongo:27017 --quiet --eval
+      "try { rs.status().ok } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'zenith-mongo:27017'}]}) }"
+    networks:
+      - zenith-net
+
+  zenith-postgres:
+    image: postgres:15-alpine
+    container_name: zenith-postgres
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DB}
+    ports:
+      - "54614:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 1b. SurrealDB — Multi-Model DB (SQL + Graph + Document)
+  #     Puerto lab: 58000 → interno: 8000
+  #     Endpoint: http://<VM_IP>:58000
+  #     CLI: surreal sql --conn http://localhost:58000 --user root --pass zenithlab
+  # ──────────────────────────────────────────────────────────
+  zenith-surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: zenith-surrealdb
+    command: start --log trace --user root --pass ${SURREAL_PASS:-zenithlab} file:/data/surreal.db
+    ports:
+      - "58000:8000"
+    volumes:
+      - surreal_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 1c. Qdrant — Vector Database para RAG e IoT semántico
+  #     Puerto lab: 56333 (REST) / 56334 (gRPC)
+  #     UI: http://<VM_IP>:56333/dashboard
+  # ──────────────────────────────────────────────────────────
+  zenith-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: zenith-qdrant
+    ports:
+      - "56333:6333"   # REST + Dashboard
+      - "56334:6334"   # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-zenithqdrant}
+      QDRANT__LOG_LEVEL: INFO
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 1d. EMQX — Enterprise MQTT Broker para IoT
+  #     Puerto MQTT: 51883 | MQTT/WS: 58083 | Dashboard: 58080
+  #     Compatible: MQTT 3.1, 3.1.1, 5.0 | Soporte QoS 0/1/2
+  # ──────────────────────────────────────────────────────────
+  zenith-emqx:
+    image: emqx/emqx:latest
+    container_name: zenith-emqx
+    environment:
+      EMQX_NAME: zenith-emqx
+      EMQX_HOST: zenith-emqx
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_ADMIN_PASS:-zenithemqx}
+      EMQX_ALLOW_ANONYMOUS: "false"
+      EMQX_AUTH__HTTP__ENABLE: "false"
+    ports:
+      - "51883:1883"   # MQTT TCP (devices)
+      - "58083:8083"   # MQTT over WebSocket (browsers)
+      - "58080:18083"  # EMQX Dashboard
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 2. Infraestructura Rápida (ScyllaDB & LuxDB)
+  # ──────────────────────────────────────────────────────────
+  zenith-scylla:
+    image: scylladb/scylla:5.2.0
+    container_name: zenith-scylla
+    ports:
+      - "53042:9042"
+    volumes:
+      - scylla_data:/var/lib/scylla
+    command: --smp 1 --memory 512M --overprovisioned 1
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-luxdb:
+    build:
+      context: ./repos/luxdb
+      dockerfile: Dockerfile
+    container_name: zenith-luxdb
+    ports:
+      - "53079:6379"
+    environment:
+      - LUX_PORT=6379
+      - LUX_DATA_DIR=/data
+    volumes:
+      - lux_data:/data
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 3. Notificaciones & Webhooks (Novu — stack completo)
+  #    api + worker + ws + web
+  # ──────────────────────────────────────────────────────────
+  zenith-novu-api:
+    image: ghcr.io/novuhq/novu/api:latest
+    container_name: zenith-novu-api
+    ports:
+      - "3614:3000"
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${NOVU_JWT_SECRET}
+      MONGO_URL: mongodb://zenith-mongo:27017/novu-db
+      MONGO_MAX_POOL_SIZE: 50
+      REDIS_HOST: zenith-luxdb
+      REDIS_PORT: 6379
+      STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY}
+      API_ROOT_URL: http://${ZENITH_VM_IP}:3614
+      DISABLE_USER_REGISTRATION: "false"
+      FRONT_BASE_URL: http://${ZENITH_VM_IP}:4614
+      STEP_RESOLVER_DISPATCH_URL: http://${ZENITH_VM_IP}:3614
+      NOVU_SECRET_KEY: ${NOVU_JWT_SECRET}
+      NEW_RELIC_ENABLED: "false"
+      NEW_RELIC_NO_CONFIG_FILE: "true"
+      NEW_RELIC_APP_NAME: zenith-novu-api
+    depends_on:
+      zenith-mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-novu-worker:
+    image: ghcr.io/novuhq/novu/worker:latest
+    container_name: zenith-novu-worker
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${NOVU_JWT_SECRET}
+      MONGO_URL: mongodb://zenith-mongo:27017/novu-db
+      MONGO_MAX_POOL_SIZE: 50
+      REDIS_HOST: zenith-luxdb
+      REDIS_PORT: 6379
+      STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY}
+      STEP_RESOLVER_DISPATCH_URL: http://${ZENITH_VM_IP}:3614
+      API_ROOT_URL: http://${ZENITH_VM_IP}:3614
+      NEW_RELIC_ENABLED: "false"
+      NEW_RELIC_NO_CONFIG_FILE: "true"
+      NEW_RELIC_APP_NAME: zenith-novu-worker
+    depends_on:
+      zenith-mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-novu-ws:
+    image: ghcr.io/novuhq/novu/ws:latest
+    container_name: zenith-novu-ws
+    ports:
+      - "3615:3002"
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${NOVU_JWT_SECRET}
+      MONGO_URL: mongodb://zenith-mongo:27017/novu-db
+      REDIS_HOST: zenith-luxdb
+      REDIS_PORT: 6379
+    depends_on:
+      zenith-mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-novu-web:
+    image: ghcr.io/novuhq/novu/web:latest
+    container_name: zenith-novu-web
+    ports:
+      - "4614:4200"
+    environment:
+      REACT_APP_API_URL: http://${ZENITH_VM_IP}:3614
+      REACT_APP_WS_URL: http://${ZENITH_VM_IP}:3615
+    depends_on:
+      - zenith-novu-api
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 4. Almacenamiento (RustFS)
+  # ──────────────────────────────────────────────────────────
+  zenith-rustfs:
+    image: rustfs/rustfs:latest
+    container_name: zenith-rustfs
+    ports:
+      - "8614:9000"
+      - "8615:9001"
+    environment:
+      - RUSTFS_VOLUMES=/data/rustfs{0..3}
+      - RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true
+      - RUSTFS_ADDRESS=0.0.0.0:9000
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9001
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
+    volumes:
+      - rustfs_data:/data
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 5. Zitadel IAM (Ports: 51xxx) — driver POSTGRES
+  # ──────────────────────────────────────────────────────────
+  zenith-postgres-zitadel:
+    image: postgres:15-alpine
+    container_name: zenith-postgres-zitadel
+    environment:
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: ${ZITADEL_DB_PASSWORD}
+      POSTGRES_DB: zitadel_db
+    ports:
+      - "51009:5432"
+    volumes:
+      - postgres_zitadel_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zitadel -d zitadel_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    container_name: zenith-zitadel
+    user: "0"
+    environment:
+      ZITADEL_DATABASE_POSTGRES_HOST: zenith-postgres-zitadel
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel_db
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${ZITADEL_DB_PASSWORD}
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${ZITADEL_DB_PASSWORD}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY}
+      ZITADEL_EXTERNALDOMAIN: zenith-iam.${ZENITH_VM_IP}.sslip.io
+      ZITADEL_EXTERNALPORT: 8081
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: admin
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_ADMIN_PASSWORD}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /machinekey/login-client.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Login Client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: '2029-01-01T00:00:00Z'
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: "http://${ZENITH_VM_IP}.sslip.io:8082/ui/v2/login"
+    depends_on:
+      zenith-postgres-zitadel:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    volumes:
+      - zitadel_machine_keys:/machinekey:rw
+    command: start-from-init --masterkeyFromEnv --tlsMode disabled
+    restart: unless-stopped
+    networks:
+      - zenith-net
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  zenith-zitadel-login:
+    image: ghcr.io/zitadel/zitadel-login:latest
+    container_name: zenith-zitadel-login
+    ports:
+      - "8082:3000"
+    environment:
+      # URL interna del backend Zitadel (dentro de zenith-net)
+      ZITADEL_API_URL: http://zenith-zitadel:8080
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /machinekey/login-client.pat
+      CUSTOM_REQUEST_HEADERS: Host:${ZENITH_VM_IP}.sslip.io
+    depends_on:
+      zenith-zitadel:
+        condition: service_started
+    volumes:
+      - zitadel_machine_keys:/machinekey:ro
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+
+  # ──────────────────────────────────────────────────────────
+  # 6. Keycloak IAM (Ports: 52xxx)
+  # ──────────────────────────────────────────────────────────
+  zenith-postgres-keycloak:
+    image: postgres:15-alpine
+    container_name: zenith-postgres-keycloak
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      POSTGRES_DB: keycloak_db
+    ports:
+      - "52009:5432"
+    volumes:
+      - postgres_keycloak_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: zenith-keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://zenith-postgres-keycloak:5432/keycloak_db
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    depends_on:
+      zenith-postgres-keycloak:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    command: start-dev
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 7. Postal Mail Server (Ports: 50xxx)
+  #    Dominio: zen.ll | postal.yml se rellena via envsubst
+  # ──────────────────────────────────────────────────────────
+  zenith-postal-mariadb:
+    image: mariadb:10.11
+    container_name: zenith-postal-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${POSTAL_DB_PASSWORD}
+      MARIADB_DATABASE: postal
+      MARIADB_USER: postal
+      MARIADB_PASSWORD: ${POSTAL_DB_PASSWORD}
+    ports:
+      - "50009:3306"
+    volumes:
+      - postal_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "postal", "-p${POSTAL_DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-postal-rabbitmq:
+    image: rabbitmq:3.12-alpine
+    container_name: zenith-postal-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: postal
+      RABBITMQ_DEFAULT_PASS: ${POSTAL_RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: postal
+    ports:
+      - "50010:5672"
+    volumes:
+      - postal_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-postal:
+    image: ghcr.io/postalserver/postal:latest
+    container_name: zenith-postal
+    depends_on:
+      zenith-postal-mariadb:
+        condition: service_healthy
+      zenith-postal-rabbitmq:
+        condition: service_healthy
+    environment:
+      POSTAL_DB_PASSWORD: ${POSTAL_DB_PASSWORD}
+      POSTAL_RABBITMQ_PASSWORD: ${POSTAL_RABBITMQ_PASSWORD}
+      BIND_ADDRESS: "0.0.0.0"
+      RAILS_ALLOWED_HOSTS: "*"
+      SECRET_KEY_BASE: "zenith_postal_secret_key_base_changeme_32chars_min"
+    ports:
+      - "50614:5000"   # Web UI
+      - "25614:25"     # SMTP
+    volumes:
+      - /opt/zenith-lab/postal.yml:/config/postal.yml:ro
+    command: postal web-server
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  zenith-postal-worker:
+    image: ghcr.io/postalserver/postal:latest
+    container_name: zenith-postal-worker
+    depends_on:
+      zenith-postal-mariadb:
+        condition: service_healthy
+      zenith-postal-rabbitmq:
+        condition: service_healthy
+    environment:
+      POSTAL_DB_PASSWORD: ${POSTAL_DB_PASSWORD}
+      POSTAL_RABBITMQ_PASSWORD: ${POSTAL_RABBITMQ_PASSWORD}
+      BIND_ADDRESS: "0.0.0.0"
+    volumes:
+      - /opt/zenith-lab/postal.yml:/config/postal.yml:ro
+    command: postal worker
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 8. OpenTelemetry
+  # ──────────────────────────────────────────────────────────
+  zenith-otel:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: zenith-otel
+    ports:
+      - "43170:4317"
+      - "43180:4318"
+      - "8888:8888"
+    volumes:
+      - ./configs/otel-config.yml:/etc/otel-collector-config.yml:ro
+    command: ["--config=/etc/otel-collector-config.yml"]
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+  # ──────────────────────────────────────────────────────────
+  # 9. CoreDNS — Servidor DNS autoritativo para zen.ll
+  #
+  #  ARQUITECTURA:
+  #    *.zen.ll  → CoreDNS resuelve localmente (zona zen.ll)
+  #    *.*       → Forward a Cloudflare (1.1.1.1) / Google (8.8.8.8)
+  #
+  #  CÓMO USARLO DESDE WINDOWS / CLIENTES EXTERNOS:
+  #    Apuntar el DNS primario/secundario a ${ZENITH_VM_IP}:53
+  #    Ver README.md → sección "Configuración DNS"
+  # ──────────────────────────────────────────────────────────
+  zenith-coredns:
+    image: coredns/coredns:latest
+    container_name: zenith-coredns
+    ports:
+      - "192.168.14.50:53:53/udp"
+      - "192.168.14.50:53:53/tcp"
+    volumes:
+      # Corefile y zona ya tienen la IP 192.168.14.50 hardcoded
+      - ./configs/Corefile:/etc/coredns/Corefile:ro
+      - ./configs/zen.ll.zone:/etc/coredns/zones/zen.ll.zone:ro
+    command: ["-conf", "/etc/coredns/Corefile"]
+    cap_add:
+      - NET_BIND_SERVICE
+    restart: unless-stopped
+    networks:
+      - zenith-net
+
+volumes:
+  mongo_data:
+  scylla_data:
+  postgres_data:
+  postgres_zitadel_data:
+  postgres_keycloak_data:
+  zitadel_machine_keys:
+  rustfs_data:
+  lux_data:
+  postal_db_data:
+  postal_rabbitmq_data:
+  postal_config:
+  surreal_data:
+  qdrant_data:
+  emqx_data:
+  emqx_log:
+
+networks:
+  zenith-net:
+    driver: bridge

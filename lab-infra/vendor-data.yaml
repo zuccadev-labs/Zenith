@@ -1,0 +1,23 @@
+#cloud-config
+ssh_pwauth: true
+chpasswd:
+  expire: false
+
+users:
+  - name: debian
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC0O1Kj6DV2mL61EUvH5homg3lBABB7yBEWRLxY5iB+77CG3Vru0JhZoTfVDUDWyyhmXMnIXYgGip0DTkDEh2reZYb7tc41iKyQxgpO3YtDZ0M3WCVqcpTz5OpSTAbcovhiAB4rWX1JYRp5t5eSGizuz6mcJxeKAaD5xoUhXu49dkcE8F5VtjuLpmEJoJ0G7FgM7MVynKvOP4aSH0mfLYdoBXsG1GUOCNS/ZgZdt2FQSQCXKHjeo0F54ezLUsmqnZbpNqfVp8fC/Y05jbGTMpW34tfyYCxFaz8iNEYd2PYbffsyOceZKVV5RoDRSlJR5Hfbv6C5dW2PyaQ5w7EhAWZZM2+5fKdv7myZoJwNOepZ14yPYr+QKbH1dqhVFrUyHIE8HTXCavdWzVqtG32HCl+0PDS8TC+x1gd9T9JTxTB5xhyVovAD0l5WBJ/hILDPNtojL/Glrz0uTSJXbLPpbabmMGwSr0LwnGqKK/cIqmYCl/Bhvz3TJuRwZhsW82dCDj0= david zuccarini@DESKTOP-2DVUOQF
+
+packages:
+  - qemu-guest-agent
+  - openssh-server
+
+runcmd:
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent
+  - sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+  - systemctl restart sshd
