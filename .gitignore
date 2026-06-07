@@ -124,6 +124,11 @@ test-results/
 lighthouse-report/
 *.lcov
 
+# ----- k6 load test output -----
+**/summary.json
+**/summary.html
+**/k6-results/
+
 # ============================================================
 # Docker
 # ============================================================
