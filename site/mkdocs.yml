@@ -1,0 +1,152 @@
+site_name: Zenith Documentation
+site_description: Universal Business Backend (BaaS) — API reference, runbooks, architecture.
+site_url: https://docs.zenith.io
+repo_url: https://github.com/zuccadev-labs/Zenith
+repo_edit_url: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_html_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [zenith-backend/src]
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - minify:
+      minify_html: true
+  - social
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Quickstart: tutorials/01_quickstart.md
+      - User auth: tutorials/02_user_auth.md
+      - File upload: tutorials/03_files.md
+  - Migration:
+      - From Parse-Server: migration/01_from_parse_server.md
+  - Development:
+      - Overview: development/00_index.md
+      - Architecture: development/01_zenith_architecture.md
+      - Test coverage: development/02_test_coverage_audit.md
+      - API parity: development/03_api_parity_audit.md
+      - Performance: development/04_performance_benchmarks.md
+      - WebRTC SDK: development/webrtc-media-sdk.md
+      - OpenAPI: development/openapi-swagger.md
+  - Architecture:
+      - C4 model: architecture/01_c4_model.md
+  - Architecture decisions:
+      - ADR-001: architecture-decisions/ADR-001-folder-unification.md
+      - ADR-002: architecture-decisions/ADR-002-mtls-spki-pinning.md
+      - ADR-003: architecture-decisions/ADR-003-api-keys-stripe-style.md
+      - ADR-004: architecture-decisions/ADR-004-plugin-signing-ed25519.md
+      - ADR-005: architecture-decisions/ADR-005-openapi-ast-generation.md
+      - ADR-006: architecture-decisions/ADR-006-prometheus-loki.md
+      - ADR-007: architecture-decisions/ADR-007-production-readiness.md
+      - ADR-008: architecture-decisions/ADR-008-hashicorp-vault.md
+      - ADR-009: architecture-decisions/ADR-009-api-parity-closure.md
+      - ADR-010: architecture-decisions/ADR-010-backup-strategy.md
+      - ADR-011: architecture-decisions/ADR-011-security-hardening.md
+  - Customer:
+      - Onboarding: customer/01_onboarding.md
+      - TCO calculator: customer/02_tco.md
+  - Compliance:
+      - SLI / SLO: compliance/01_sli_slo.md
+  - Runbooks:
+      - Index: runbooks/00_index.md
+      - Production deployment: runbooks/01_production_deployment.md
+      - Incident response: runbooks/02_incident_response.md
+      - MongoDB failover: runbooks/03_mongodb_failover.md
+      - API outage: runbooks/05_api_outage.md
+      - API key compromise: runbooks/06_api_key_compromise.md
+      - Disaster recovery: runbooks/08_disaster_recovery.md
+      - Backup & restore: runbooks/09_backup_restore.md
+      - SRE cheat sheet: runbooks/99_sre_cheatsheet.md
+  - Security:
+      - Threat model: security/01_threat_model.md
+      - Pen-test scope: security/02_pentest_scope.md
+      - Controls checklist: security/03_controls_checklist.md
+      - Vulnerability disclosure: security/04_vulnerability_disclosure.md
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/zuccadev-labs/Zenith
+    - icon: fontawesome/brands/slack
+      link: https://zenith.slack.com
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+
+copyright: Copyright &copy; 2026 Zenith Labs
