@@ -1,3 +1,14 @@
+/**
+ * ZeroMQ-based cluster transport for ultra-low latency inter-node messaging via Rust FFI.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithZeroMQ
+ * @barrits-provides cluster-transport
+ * @barrits-consumes telemetry
+ * @barrits-state zmqServerRunning
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 let clusterLib: Deno.DynamicLibrary<any> | null = null;

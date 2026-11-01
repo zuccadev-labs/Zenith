@@ -1,3 +1,14 @@
+/**
+ * SurrealDB adapter for Zenith — Multi-model (document + graph + SQL) database integration.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithDatabaseSurreal
+ * @barrits-provides database-crud, surreal-client
+ * @barrits-consumes
+ * @barrits-state surrealAdapter, surrealClient
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { DatabaseAdapter, ZenithQuery, ZenithObject } from "../../core/types.ts";
 
@@ -145,7 +156,13 @@ const buildWhereClause = (where: Record<string, any>, tableAlias = ""): string =
 };
 
 /**
- * Crea un adaptador DatabaseAdapter estándar de Zenith sobre SurrealDB.
+ * Creates a standard Zenith DatabaseAdapter over SurrealDB via its HTTP REST API.
+ * Translates Parse-compatible queries into SurrealQL, supporting filtering operators
+ * ($gt, $gte, $lt, $lte, $ne, $in, $nin, $exists, $regex, $or, $and),
+ * ordering, pagination, and atomic operations (Increment, AddUnique, Remove, Delete).
+ *
+ * @param client - Connected SurrealClient instance
+ * @returns DatabaseAdapter — standard CRUD interface consumed by the Zenith pipeline
  */
 export function createSurrealAdapter(client: SurrealClient): DatabaseAdapter {
   return {

@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Media streaming (HLS/DASH), live ingest endpoint, transcoding queue, bandwidth adaptation. Parse Server-compatible media file handling.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithMediaStream
+ * @barrits-provides mediastream-routes, mediastream, streaming
+ * @barrits-consumes db, storage, acl, telemetry
+ * @barrits-state activeStreams
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const MediaStreamTrait = createTraitDescriptor({

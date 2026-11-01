@@ -1,3 +1,14 @@
+/**
+ * WebRTC SFrame selective-encryption signaling: per-participant key distribution for selective forward secrecy, room-based key rotation, sender/receiver scope negotiation.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithSFrameSignaling
+ * @barrits-provides sframe-signaling-routes, sframe-signaling, signaling
+ * @barrits-consumes db, acl, e2ee-keys, telemetry
+ * @barrits-state activeRooms
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const SFrameSignalingTrait = createTraitDescriptor({

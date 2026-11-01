@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Shell command execution trait for system-administration endpoints. Sandboxed via Deno permissions, command whitelist, audit trail, SoD (separation of duties) checks.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithShellAPI
+ * @barrits-provides shell-routes, shell, commandRunner
+ * @barrits-consumes telemetry, acl
+ * @barrits-state execHistory, maxHistory
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const ShellApiTrait = createTraitDescriptor({

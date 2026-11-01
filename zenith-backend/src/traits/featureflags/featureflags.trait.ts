@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Feature flag engine: per-plan gating, percentage rollouts, A/B testing, user-level overrides, runtime toggling without restart.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithFeatureFlags
+ * @barrits-provides featureflags, featureFlagManager
+ * @barrits-consumes db
+ * @barrits-state overrides
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export type Plan = "free" | "starter" | "pro" | "enterprise";

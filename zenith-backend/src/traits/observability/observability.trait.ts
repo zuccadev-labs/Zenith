@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * OpenTelemetry traces, structured JSON logs, Prometheus-compatible metrics (with remote_write and Loki shipper for Phase 1.G). Telemetry middleware for inbound HTTP/WS/gRPC.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithObservability
+ * @barrits-provides observability-routes, observability, tracer, logger, metric-registry
+ * @barrits-consumes telemetry
+ * @barrits-state tracer, logger, metrics
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const ObservabilityTrait = createTraitDescriptor({

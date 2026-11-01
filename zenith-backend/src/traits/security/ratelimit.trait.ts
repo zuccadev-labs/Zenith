@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Token-bucket rate limiter with per-key quotas, burst support, sliding window, distributed (Redis-backed optional), adaptive limits per API key/role.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithRateLimit
+ * @barrits-provides ratelimit-routes, ratelimit, rateLimiter
+ * @barrits-consumes telemetry
+ * @barrits-state buckets
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const RateLimitTrait = createTraitDescriptor({

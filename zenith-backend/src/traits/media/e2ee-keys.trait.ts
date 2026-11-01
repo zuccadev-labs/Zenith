@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * End-to-end encryption key server: ephemeral key distribution for WebRTC insertable streams, MLS-like ratchet key updates, per-user key pairs, signed pre-keys.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithE2EEKeys
+ * @barrits-provides e2ee-keys-routes, e2ee-keys, keyServer
+ * @barrits-consumes db, acl, telemetry
+ * @barrits-state keyServer
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const E2EEKeysTrait = createTraitDescriptor({

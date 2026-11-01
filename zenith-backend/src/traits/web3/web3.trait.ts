@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Web3 bridge: EVM wallet connection, viem-based transaction signing, IPFS storage integration, NFT minting, smart-contract event indexing, signature verification (EIP-191, EIP-712).
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithWeb3
+ * @barrits-provides web3-routes, web3, web3Bridge
+ * @barrits-consumes db, acl, telemetry, ipfs
+ * @barrits-state providers
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const Web3Trait = createTraitDescriptor({

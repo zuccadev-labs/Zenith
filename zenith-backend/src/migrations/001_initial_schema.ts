@@ -1,3 +1,11 @@
+/**
+ * Migration 001 — Initial Schema
+ *
+ * Crea los esquemas base del sistema: Post, Comment, Category.
+ * Ejecutado por `ZenithMigrationTrait` al arrancar si no se ha aplicado antes.
+ *
+ * @module
+ */
 import type { ZenithMigration } from "../traits/migration/migration.trait.ts";
 
 export const initialSchemaMigration: ZenithMigration = {

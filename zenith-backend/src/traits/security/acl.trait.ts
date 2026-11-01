@@ -1,3 +1,14 @@
+/**
+ * Parse Server-compatible ACL (Access Control List) and CLP (Class-Level Permissions) enforcement. Role inheritance, public read/write, per-user grants, master key bypass.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithACL
+ * @barrits-provides acl-routes, acl, aclEnforcer
+ * @barrits-consumes db, telemetry
+ * @barrits-state roleCache
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const ACLTrait = createTraitDescriptor({

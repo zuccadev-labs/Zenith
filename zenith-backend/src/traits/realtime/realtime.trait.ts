@@ -1,3 +1,14 @@
+/**
+ * Realtime/WebSocket layer: channel-based pub/sub, live query subscriptions (server-push on matching data changes), presence tracking, room management, heartbeat.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithRealtime
+ * @barrits-provides realtime, realtimeServer, liveQuery
+ * @barrits-consumes db, acl, events, telemetry
+ * @barrits-state channels, subscribers
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const RealtimeTrait = createTraitDescriptor({

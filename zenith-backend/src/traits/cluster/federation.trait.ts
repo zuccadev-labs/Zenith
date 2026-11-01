@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Multi-region federation with CRDT (Yjs-style LWW-register) for conflict-free replication, gossip protocol over gRPC, vector clocks for causal ordering.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithFederation
+ * @barrits-provides federation, federation-routes
+ * @barrits-consumes db, events, telemetry, grpc
+ * @barrits-state peers, crdtState
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const FederationTrait = createTraitDescriptor({

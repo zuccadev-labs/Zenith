@@ -1,9 +1,12 @@
 import type { EventBusAdapter } from "../../core/types.ts";
 
 /**
- * Kafka/Redpanda Event Bus Adapter
- * Implementa Event Sourcing garantizando que todos los eventos de la DB
- * sean transmitidos a microservicios externos.
+ * Creates a Kafka / Redpanda event bus adapter implementing the EventBusAdapter interface.
+ * Provides event sourcing capabilities — publishing domain events to Kafka topics and
+ * subscribing to topics for consumption by external microservices.
+ *
+ * @param clientId - Kafka client ID used to identify this consumer/producer group
+ * @returns EventBusAdapter — connect, publish, subscribe, and disconnect interface
  */
 export function createKafkaAdapter(_clientId: string): EventBusAdapter {
   // Simulando conexión a la librería KafkaJS o Deno equivalent

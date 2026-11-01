@@ -1,5 +1,11 @@
 import type { AuthAdapter } from "./types.ts";
 
+/**
+ * Creates a Google OAuth authentication adapter.
+ * Validates Google identity tokens via the Google OAuth2 tokeninfo endpoint.
+ *
+ * @returns AuthAdapter — validateAuthData for Google sign-in
+ */
 export function createGoogleAdapter(): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {
@@ -16,6 +22,12 @@ export function createGoogleAdapter(): AuthAdapter {
   };
 }
 
+/**
+ * Creates a Facebook OAuth authentication adapter.
+ * Validates Facebook access tokens via the Graph API.
+ *
+ * @returns AuthAdapter — validateAuthData for Facebook sign-in
+ */
 export function createFacebookAdapter(): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {
@@ -32,6 +44,12 @@ export function createFacebookAdapter(): AuthAdapter {
   };
 }
 
+/**
+ * Creates a GitHub OAuth authentication adapter.
+ * Validates GitHub access tokens via the GitHub API /user endpoint.
+ *
+ * @returns AuthAdapter — validateAuthData for GitHub sign-in
+ */
 export function createGithubAdapter(): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {
@@ -53,6 +71,12 @@ export function createGithubAdapter(): AuthAdapter {
   };
 }
 
+/**
+ * Creates a Microsoft (Azure AD) OAuth authentication adapter.
+ * Validates Microsoft access tokens via the Microsoft Graph API.
+ *
+ * @returns AuthAdapter — validateAuthData for Microsoft sign-in
+ */
 export function createMicrosoftAdapter(): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {
@@ -71,6 +95,13 @@ export function createMicrosoftAdapter(): AuthAdapter {
   };
 }
 
+/**
+ * Creates a GitLab OAuth authentication adapter.
+ * Validates GitLab access tokens via the GitLab API /user endpoint.
+ *
+ * @param baseUrl - GitLab instance URL (default: "https://gitlab.com")
+ * @returns AuthAdapter — validateAuthData for GitLab sign-in
+ */
 export function createGitlabAdapter(baseUrl: string = "https://gitlab.com"): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {
@@ -89,6 +120,13 @@ export function createGitlabAdapter(baseUrl: string = "https://gitlab.com"): Aut
   };
 }
 
+/**
+ * Creates a Gitea OAuth authentication adapter.
+ * Validates Gitea access tokens via the Gitea API /user endpoint.
+ *
+ * @param baseUrl - Gitea instance URL (e.g. "https://gitea.example.com")
+ * @returns AuthAdapter — validateAuthData for Gitea sign-in
+ */
 export function createGiteaAdapter(baseUrl: string): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {
@@ -110,6 +148,13 @@ export function createGiteaAdapter(baseUrl: string): AuthAdapter {
 // Para Apple usualmente se valida la firma de JWT contra las llaves públicas de Apple.
 // Deno no tiene un jwt verify nativo fácil sin librerías, pero Apple también expone un REST de validación,
 // O para simplificar, usaremos un decodificador básico validado externamente en este boilerplate.
+/**
+ * Creates an Apple Sign In authentication adapter.
+ * Validates Apple identity tokens by decoding the JWT payload and verifying the subject claim.
+ * Production use requires JWKS key verification against Apple's public keys.
+ *
+ * @returns AuthAdapter — validateAuthData for Apple sign-in
+ */
 export function createAppleAdapter(): AuthAdapter {
   return {
     async validateAuthData(authData: Record<string, any>) {

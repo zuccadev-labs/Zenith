@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * GraphQL endpoint with auto-generated schema from REST CRUD, custom resolvers, subscriptions over WebSocket, persisted queries, query depth/complexity limits.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithGraphQL
+ * @barrits-provides graphql-routes, graphql, gqlExecutor
+ * @barrits-consumes db, acl, schema, crud, telemetry
+ * @barrits-state schema, rootValue
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const GraphQLTrait = createTraitDescriptor({

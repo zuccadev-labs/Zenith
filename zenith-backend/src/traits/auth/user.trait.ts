@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * User registration, login, password reset, email verification, MFA, session tokens (Parse Server-compatible).
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithUserManagement
+ * @barrits-provides user-routes, user-manager
+ * @barrits-consumes db, crypto, schema, acl, ratelimit, telemetry
+ * @barrits-state usersCollection, sessionTokens
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const UserManagementTrait = createTraitDescriptor({

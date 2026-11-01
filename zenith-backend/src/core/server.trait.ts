@@ -1,3 +1,14 @@
+/**
+ * Core Zenith server: builds the HTTP handler from all traits, initializes API keys, rate limiting, CORS, and app ID validation.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithCoreServer
+ * @barrits-provides getHandler
+ * @barrits-consumes database-crud, authentication, media-stream, schema-validation, telemetry, access-control, rest-crud, rate-limiting
+ * @barrits-state serverInstance
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { buildDynamicRouter, createRequestHandler, extractContext, applyCORS, validateAppId, resolveAuthentication, applyRateLimit } from "./mod.ts";
 import type { ZenithConfig } from "./types.ts";

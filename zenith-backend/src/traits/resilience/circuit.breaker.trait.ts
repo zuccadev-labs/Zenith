@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Circuit breaker pattern: fail-fast when downstream services are unhealthy, automatic recovery probes, configurable thresholds, fallback handlers.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithCircuitBreaker
+ * @barrits-provides circuit-breaker, circuitBreaker, resilience
+ * @barrits-consumes telemetry
+ * @barrits-state breakers
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const CircuitBreakerTrait = createTraitDescriptor({

@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Cache facade: in-memory LRU + Redis adapter, TTL-based expiry, tag-based invalidation, write-through/write-behind patterns, cache stampede prevention.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithCache
+ * @barrits-provides cache-routes, cache, cacheManager
+ * @barrits-consumes telemetry
+ * @barrits-state store, adapter
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const CacheTrait = createTraitDescriptor({

@@ -1,3 +1,14 @@
+/**
+ * Outbound webhook delivery with HMAC-SHA256 signing, retry policy, and signing-key rotation. Inbound endpoint accepts webhooks from external providers (Stripe, GitHub, etc.) with signature verification.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithWebhook
+ * @barrits-provides webhook-routes, webhook-manager
+ * @barrits-consumes db, acl, telemetry
+ * @barrits-state webhookKeys
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const WebhookTrait = createTraitDescriptor({

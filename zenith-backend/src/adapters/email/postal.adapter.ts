@@ -1,14 +1,36 @@
+/**
+ * Postal mail server adapter for Zenith — Self-hosted email delivery.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithEmailPostal
+ * @barrits-provides injectPlugin, sendMail, sendPasswordResetEmail, sendVerificationEmail
+ * @barrits-consumes
+ * @barrits-state plugin
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { EmailAdapter, EmailOptions } from "./types.ts";
 
+/**
+ * Configuration options for the Postal mail server adapter.
+ */
 export interface PostalAdapterOptions {
-  serverUrl: string; // e.g. https://postal.yourdomain.com
+  /** Postal server URL (e.g. https://postal.yourdomain.com) */
+  serverUrl: string;
+  /** Postal API key with send permissions */
   apiKey: string;
+  /** Default from address for outgoing emails */
   defaultFrom: string;
 }
 
 /**
- * Adaptador puro para Postal Server
+ * Creates a Postal mail server adapter implementing the EmailAdapter interface.
+ * Uses the Postal HTTP API for transactional email delivery including password resets
+ * and email verification.
+ *
+ * @param options - PostalAdapterOptions with server URL, API key, and default sender
+ * @returns EmailAdapter — sendMail, sendPasswordResetEmail, and sendVerificationEmail interface
  */
 export function createPostalAdapter(options: PostalAdapterOptions): EmailAdapter {
   const sendViaPostal = async (mailOptions: EmailOptions) => {

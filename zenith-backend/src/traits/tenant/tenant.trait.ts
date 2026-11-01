@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Multi-tenant management: tenant registry, RLS (row-level security) enforcement, isolation strategies (shared/schema/db-per-tenant), per-tenant feature flags, tenant-scoped API keys.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithTenant
+ * @barrits-provides tenant-routes, tenant, tenantManager
+ * @barrits-consumes db, acl, featureflags, telemetry
+ * @barrits-state tenants
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export interface TenantConfig {

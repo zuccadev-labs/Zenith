@@ -1,4 +1,4 @@
-import { Zen } from "../../src/mod.ts";
+import { Zen } from "@zuccadev-labs/zenith";
 
 // ─── Database Triggers ─────────────────────────────────────────────────────
 
@@ -8,7 +8,7 @@ import { Zen } from "../../src/mod.ts";
  */
 Zen.Cloud.beforeSave("Post", async (request) => {
   const obj = request.object;
-  
+
   // If the object is new (no objectId yet)
   if (!obj.objectId && !obj._id) {
     // Inject owner if authenticated
@@ -18,7 +18,7 @@ Zen.Cloud.beforeSave("Post", async (request) => {
 
     // Force some default fields
     obj.viewCount = 0;
-    
+
     // Sanitize content (Enterprise security feature)
     if (typeof obj.content === "string") {
       // Basic sanitization: replace <script> tags

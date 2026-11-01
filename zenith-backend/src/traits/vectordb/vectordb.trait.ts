@@ -1,3 +1,14 @@
+/**
+ * Vector database for semantic search and RAG: pluggable embedders (Ollama, OpenAI), Qdrant adapter, in-memory fallback, HNSW index for ANN search, metadata filtering.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithVectorDB
+ * @barrits-provides vectordb-routes, vectordb, vectorStore
+ * @barrits-consumes db, telemetry
+ * @barrits-state collections, embedder, adapter
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export type createOllamaEmbedProvider = (config: { endpoint?: string; model?: string }) => (text: string) => Promise<number[]>;

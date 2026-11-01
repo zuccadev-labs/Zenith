@@ -1,3 +1,14 @@
+/**
+ * Compliance engine: immutable audit trail (append-only, signed), PII registry with field-level encryption, GDPR/SOC2/HIPAA support, data retention policies, breach notification hooks.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithCompliance
+ * @barrits-provides compliance-routes, compliance, auditLogger, piiRegistry
+ * @barrits-consumes db, acl, telemetry, vault
+ * @barrits-state auditLog, piiFields
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export interface AuditEntry {

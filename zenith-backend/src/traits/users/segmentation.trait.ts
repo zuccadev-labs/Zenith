@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * GDPR/LGPD-compliant user segmentation: dynamic segments based on rules, consent-aware exports, data subject access request (DSAR) fulfillment, right-to-be-forgotten.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithSegmentation
+ * @barrits-provides segmentation-routes, segmentation, audienceManager
+ * @barrits-consumes db, acl, telemetry, events
+ * @barrits-state segmentCache
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const SegmentationTrait = createTraitDescriptor({

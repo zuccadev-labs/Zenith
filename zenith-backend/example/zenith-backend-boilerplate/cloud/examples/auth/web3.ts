@@ -1,4 +1,4 @@
-import { Zen } from "../../src/mod.ts";
+import { Zen } from "@zuccadev-labs/zenith";
 import { verifyMessage } from "viem";
 import nacl from "tweetnacl";
 import bs58 from "bs58";

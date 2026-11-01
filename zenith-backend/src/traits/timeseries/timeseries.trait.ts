@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Time-series data store: high-cardinality metric ingestion, downsampling, retention policies, Grafana datasource API, Prometheus remote_write compatibility.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithTimeSeries
+ * @barrits-provides timeseries-routes, timeseries, timeSeriesManager
+ * @barrits-consumes db, telemetry
+ * @barrits-state activeSeries, aggregationCache
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const TimeSeriesTrait = createTraitDescriptor({

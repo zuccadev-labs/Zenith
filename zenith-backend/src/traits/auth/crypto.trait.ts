@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Argon2id password hashing, HMAC-SHA256 signing, AES-256-GCM symmetric encryption (Fortune 500-grade).
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithCrypto
+ * @barrits-provides crypto-routes, hash, hmac, encrypt, decrypt
+ * @barrits-consumes
+ * @barrits-state cryptoKeys
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const CryptoTrait = createTraitDescriptor({

@@ -1,4 +1,4 @@
-import { Zen } from "../../src/mod.ts";
+import { Zen } from "@zuccadev-labs/zenith";
 
 // ─── Reusable Cloud CRUD Generator (Enterprise Pattern) ────────────────────
 
@@ -34,8 +34,8 @@ function defineSecureCRUD(className: string, resourceName: string) {
 
     const db = Zen.DB.getAdapter();
     // Enforce ownership securely at the Cloud level
-    const results = await db.find(className, { 
-      where: { "owner.objectId": user.objectId || user._id } 
+    const results = await db.find(className, {
+      where: { "owner.objectId": user.objectId || user._id }
     });
     return results;
   });
@@ -48,7 +48,7 @@ function defineSecureCRUD(className: string, resourceName: string) {
 
     const db = Zen.DB.getAdapter();
     const existing = await db.findOne(className, { where: { _id: objectId } });
-    
+
     if (!existing || existing.owner?.objectId !== (user.objectId || user._id)) {
       throw new Error("Record not found or access denied.");
     }
@@ -65,7 +65,7 @@ function defineSecureCRUD(className: string, resourceName: string) {
 
     const db = Zen.DB.getAdapter();
     const existing = await db.findOne(className, { where: { _id: objectId } });
-    
+
     if (!existing || existing.owner?.objectId !== (user.objectId || user._id)) {
       throw new Error("Record not found or access denied.");
     }
