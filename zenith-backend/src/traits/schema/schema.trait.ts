@@ -1,3 +1,14 @@
+/**
+ * Parse Server-compatible schema management: add/update/delete columns, set CLP (class-level permissions), validate objects against schema, system class protection.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithSchemaManagement
+ * @barrits-provides schema-routes, schema, schemaValidator
+ * @barrits-consumes db, acl, telemetry
+ * @barrits-state schemas, systemClasses
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const SchemaManagementTrait = createTraitDescriptor({

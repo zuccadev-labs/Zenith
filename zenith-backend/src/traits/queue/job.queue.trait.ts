@@ -1,3 +1,14 @@
+/**
+ * Background job queue: persistent jobs, retry policies, dead-letter queue, scheduled (delayed) jobs, worker pool, priority levels, deduplication by idempotency key.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithJobQueue
+ * @barrits-provides queue-routes, queue, jobQueue
+ * @barrits-consumes db, telemetry
+ * @barrits-state jobs, workers
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 interface Job {

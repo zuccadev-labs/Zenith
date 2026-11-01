@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * AI agent layer: multi-provider LLM access (Anthropic, OpenAI, Ollama), tool-calling registry, ReAct loop, conversation memory, prompt templates, cost tracking.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithAI
+ * @barrits-provides ai-routes, ai, aiProvider
+ * @barrits-consumes db, acl, telemetry, vectordb
+ * @barrits-state providers, tools
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const AITrait = createTraitDescriptor({

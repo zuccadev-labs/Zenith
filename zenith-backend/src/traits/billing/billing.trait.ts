@@ -1,3 +1,14 @@
+/**
+ * SaaS billing facade (Stripe adapter by default): subscriptions, customers, invoices, webhooks. Plan tier enforcement, metered usage, dunning.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithBilling
+ * @barrits-provides billing-routes, billing, billingManager
+ * @barrits-consumes db, acl, webhook, telemetry
+ * @barrits-state stripeAdapter
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const BillingTrait = createTraitDescriptor({

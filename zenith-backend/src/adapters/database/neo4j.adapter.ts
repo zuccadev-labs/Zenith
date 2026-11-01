@@ -1,8 +1,11 @@
 import type { GraphAdapter } from "../../core/types.ts";
 
 /**
- * Neo4j Graph Database Adapter
- * Permite a Zenith ejecutar consultas de relaciones ultra-profundas usando Cypher.
+ * Creates a Neo4j graph database adapter implementing the standard GraphAdapter interface.
+ * Enables deep relationship traversal via Cypher queries against a Neo4j cluster.
+ * Currently provides a mock implementation — replace with actual neo4j-driver in production.
+ *
+ * @returns GraphAdapter — interface for Cypher execution and connection management
  */
 export function createNeo4jAdapter(): GraphAdapter {
   let isConnected = false;

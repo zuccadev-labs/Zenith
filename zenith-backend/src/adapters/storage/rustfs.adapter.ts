@@ -1,16 +1,27 @@
+/**
+ * RustFS / S3-compatible storage adapter for Zenith — Object storage integration.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithRustFSAdapter
+ * @barrits-provides file-storage, injectRustFSPlugin
+ * @barrits-consumes
+ * @barrits-state rustfs_plugin
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { StorageAdapter } from "../../core/types.ts";
 import { type S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
- * PLUGIN ESTÁNDAR: Adaptador Puro de RustFS (Compatible S3)
- * 
- * RustFS expone una API compatible con S3, por lo que este plugin
- * utiliza el @aws-sdk/client-s3 oficial que funciona con cualquier
- * servicio compatible S3 (MinIO, RustFS, Garage, etc.).
- * 
- * Esto es un Plugin — no sabe nada sobre Barrits.
+ * Creates a RustFS / S3-compatible storage adapter implementing the StorageAdapter interface.
+ * Uses the official @aws-sdk/client-s3, compatible with any S3-compatible service
+ * (RustFS, MinIO, Garage, AWS S3, etc.). Supports resumable multipart uploads.
+ *
+ * @param client - Configured S3Client instance
+ * @param bucket - Target S3 bucket name
+ * @returns StorageAdapter — upload, download, delete, signed URL, and resumable upload interface
  */
 export function createRustFSAdapter(client: S3Client, bucket: string): StorageAdapter {
   return {

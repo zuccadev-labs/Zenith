@@ -89,6 +89,14 @@ function buildQdrantFilter(filter?: Record<string, any>): any {
   return must.length > 0 ? { must } : undefined;
 }
 
+/**
+ * Creates a Qdrant vector database adapter implementing the VectorDBAdapter interface.
+ * Communicates with Qdrant over its HTTP REST API (no SDK required) for collection management,
+ * vector upsert, similarity search, filtering, and full lifecycle operations.
+ *
+ * @param config - QdrantConfig with server URL and optional API key
+ * @returns VectorDBAdapter — full vector database CRUD and search interface
+ */
 export function createQdrantAdapter(config: QdrantConfig): VectorDBAdapter {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

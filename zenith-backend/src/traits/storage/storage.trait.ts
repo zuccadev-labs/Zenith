@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Parse Server-compatible file storage: multipart upload, download, delete, with content-type detection, ACL, cloud triggers (beforeSaveFile/afterSaveFile), presigned URLs.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithFileStorage
+ * @barrits-provides storage-routes, storage, fileStore
+ * @barrits-consumes db, acl, cloud, telemetry
+ * @barrits-state defaultBucket
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const FileStorageTrait = createTraitDescriptor({

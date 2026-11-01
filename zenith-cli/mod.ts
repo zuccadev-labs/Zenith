@@ -18,6 +18,7 @@ import * as pluginsLockCmd from "./commands/plugins-lock.ts";
 import { runMtlsGenDev } from "./commands/mtls-gen-dev.ts";
 import { runApiKeys } from "./commands/api-keys.ts";
 import { runPluginCommand } from "./commands/plugin.ts";
+import { runGenerate } from "./commands/generate.ts";
 
 const VERSION = "0.1.0";
 
@@ -32,6 +33,7 @@ COMANDOS DE DESARROLLO:
   init <name>         Crea un nuevo proyecto Zenith (cloud/, plugins/, zen.config.ts)
   dev                 Inicia el backend en modo desarrollo con hot-reloading
   compile             Empaqueta el backend en un único binario AOT sellado
+  generate openapi    Genera la especificación OpenAPI/Swagger usando Barrits
 
 COMANDOS DE AGENTE (LLM / AIOps):
   agent -i            Modo interactivo (REPL de chat con el cluster)
@@ -115,9 +117,13 @@ async function main() {
       return;
     }
 
+    case "generate": {
+      await runGenerate();
+      return;
+    }
+
     default:
-      console.error(`Comando desconocido: ${cmd}`);
-      console.log(HELP);
+      console.error(`[zenith] Comando desconocido: '${cmd}'. Usa --help para ver la lista de comandos.`);
       Deno.exit(1);
   }
 }

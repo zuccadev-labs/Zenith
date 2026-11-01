@@ -1,3 +1,14 @@
+/**
+ * Push notifications: device installation registry, channel-based subscriptions, FCM/APNs adapter, Parse Server-compatible /push endpoint, scheduled delivery.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithPush
+ * @barrits-provides push-routes, push, pushManager
+ * @barrits-consumes db, acl, telemetry
+ * @barrits-state installations, channels
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const PushTrait = createTraitDescriptor({

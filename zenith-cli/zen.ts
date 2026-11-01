@@ -205,17 +205,103 @@ export async function run(command: string): Promise<void> {
     case "compile":
       await runCompile();
       return;
+
+    // ── Infraestructura operacional ─────────────────────────────────────────
+    case "deploy": {
+      const { run: r } = await import("./commands/deploy.ts");
+      await r(Deno.args.slice(1));
+      return;
+    }
+    case "logs": {
+      const { run: r } = await import("./commands/logs.ts");
+      await r(Deno.args.slice(1));
+      return;
+    }
+    case "migrate": {
+      const { runMigrate } = await import("./commands/logs.ts");
+      await runMigrate(Deno.args.slice(1));
+      return;
+    }
+    case "test": {
+      const { runTest } = await import("./commands/logs.ts");
+      await runTest(Deno.args.slice(1));
+      return;
+    }
+
+    // ── Integraciones Fase 2/3 ──────────────────────────────────────────────
+    case "webhook": {
+      const { run: r } = await import("./commands/webhook.ts");
+      await r(Deno.args.slice(1));
+      return;
+    }
+    case "automation": {
+      const { run: r } = await import("./commands/automation.ts");
+      await r(Deno.args.slice(1));
+      return;
+    }
+    case "email": {
+      const { run: r } = await import("./commands/email.ts");
+      await r(Deno.args.slice(1));
+      return;
+    }
+    case "calendar": {
+      const { run: r } = await import("./commands/calendar.ts");
+      await r(Deno.args.slice(1));
+      return;
+    }
+
+    // ── Comandos existentes (plugin, api-keys, generate, agent) ────────────
+    case "plugin":        { const { run: r } = await import("./commands/plugin.ts");       await r(Deno.args.slice(1)); return; }
+    case "api-keys":      { const { run: r } = await import("./commands/api-keys.ts");     await r(Deno.args.slice(1)); return; }
+    case "generate":      { const { run: r } = await import("./commands/generate.ts");     await r(Deno.args.slice(1)); return; }
+    case "agent":         { const { run: r } = await import("./commands/agent.ts");        await r(Deno.args.slice(1)); return; }
+    case "plugins-lock":  { const { run: r } = await import("./commands/plugins-lock.ts"); await r(Deno.args.slice(1)); return; }
+
     default:
       console.log(`
-Zenith Framework CLI
+Zenith Framework CLI — v1.0.0
 
 Uso:
-  zen <comando>
+  zen <comando> [subcomando] [flags]
 
-Comandos:
-  init      Crea la estructura base del backend (cloud/, plugins/, zen.config.ts)
-  dev       Levanta el backend en modo desarrollo con Hot-Reloading
-  compile   Empaqueta tu código y el motor en un único binario ejecutable (AOT)
+Comandos de desarrollo:
+  init        Crea la estructura base del proyecto (cloud/, plugins/, zen.config.ts)
+  dev         Levanta el backend en modo desarrollo con Hot-Reloading
+  compile     Empaqueta en un único binario ejecutable (AOT)
+  test        Ejecuta suites E2E  [--watch] [--coverage] [<suite>]
+
+Operaciones:
+  deploy      Despliega el servidor  [--target local|docker|k8s] [--dry-run]
+  logs        Muestra/sigue logs     [--follow] [--level] [--service] [--tail]
+  migrate     Migraciones de DB      run | status | rollback | create <name>
+  generate    Genera código y docs   schema | docs | sdk | openapi
+
+Plugin Marketplace:
+  plugin      Gestión de plugins     install | uninstall | list | publish
+  plugins-lock  Bloquea versiones de plugins
+
+Integraciones:
+  webhook     Gestión de webhooks    list | create | delete | pause | resume | test | deliveries
+  email       Email sync IMAP/SMTP   channels | threads | send | sync
+  calendar    Calendarios y booking  channels | events | slots | conflicts | ics | sync
+  automation  Motor IF-THEN          list | create | get | toggle | test | logs | delete | actions
+
+Seguridad y acceso:
+  api-keys    Gestión de API Keys    list | create | revoke
+  agent       Agentes AI             list | run | create | delete
+  mtls-gen-dev  Genera certificados mTLS para desarrollo
+
+Ejemplos:
+  zen init
+  zen dev
+  zen deploy --target k8s --tag v2.1.0
+  zen logs --follow --level error
+  zen webhook create --url https://hooks.corp.com --events "Lead.*,Deal.created"
+  zen automation create --name "Hot Lead" --trigger "Lead.*" --actions '[{"type":"create_task","params":{"title":"Follow up"}}]'
+  zen email channels create --email sales@corp.com --provider imap
+  zen calendar slots book ch_001 slot_001 --email client@acme.com
+  zen migrate run
+  zen test phase3 --coverage
       `);
   }
 }

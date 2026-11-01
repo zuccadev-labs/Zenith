@@ -1,3 +1,14 @@
+/**
+ * Event sourcing bus: domain events (CRUD triggers, custom events), pub/sub with Kafka adapter (optional), replay log, event-store projections.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithEventStreaming
+ * @barrits-provides events-routes, events, eventBus
+ * @barrits-consumes db, acl, telemetry
+ * @barrits-state subscribers, eventLog
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const EventStreamingTrait = createTraitDescriptor({

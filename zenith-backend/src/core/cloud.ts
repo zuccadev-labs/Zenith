@@ -22,6 +22,16 @@ import { ZenithError, ZenithErrorCode } from "./errors.ts";
 
 // ─── Multi-Tenant Context & App Registry ───────────────────────────────────────
 
+/**
+ * AsyncLocalStorage multi-tenant para el contexto de la request actual.
+ * Se usa internamente para resolver el appId activo, la auth y el flag de master key.
+ * Los desarrolladores NO deberían acceder a esto directamente; usan `Zen.DB`,
+ * `Zen.Cloud`, etc. que lo resuelven automáticamente.
+ *
+ * @example
+ * const ctx = zenithContext.getStore();
+ * if (ctx) console.log(ctx.appId, ctx.auth?.userId);
+ */
 export const zenithContext = new AsyncLocalStorage<{ appId: string; auth?: ZenithAuthContext; masterKey?: boolean }>();
 
 /**
@@ -471,6 +481,14 @@ export const _cloudCodeRegistry = {
  * Resuelve automáticamente el adaptador correcto basado en el AsyncLocalStorage (appId).
  */
 export const ZenDB = {
+  /**
+   * Obtiene el adaptador de base de datos para el appId activo.
+   * Resuelve automáticamente según el contexto multi-tenant (AsyncLocalStorage).
+   * Si no hay app activa, toma la primera app registrada (fallback seguro).
+   *
+   * @returns DatabaseAdapter — adaptador de base de datos (MongoDB, ScyllaDB, etc.)
+   * @throws Error si no hay apps registradas en el registry
+   */
   getAdapter: () => {
     const ctx = zenithContext.getStore();
     if (!ctx || !ctx.appId) {
@@ -503,6 +521,16 @@ export const ZenDB = {
     }
   },
 
+  /**
+   * [H-07] Inyecta filtro ACL en queries de lectura.
+   * Construye un `$and` para que solo retorne objetos cuyo `_rperm` incluya
+   * al usuario actual, sus roles, o sea público (`*`). Si es master key, bypass.
+   *
+   * @param query — Query original del desarrollador
+   * @param options — Opciones: useMasterKey (bypass ACL), userRoles (rol IDs precargados)
+   * @returns Query modificada con filtro ACL
+   * @internal
+   */
   _enforceAclQuery(query: Record<string, any>, options?: { useMasterKey?: boolean; userRoles?: string[] }): Record<string, any> {
     const ctx = zenithContext.getStore();
     const isMaster = options?.useMasterKey || ctx?.masterKey;
@@ -525,6 +553,17 @@ export const ZenDB = {
     return { $and: [query, readQuery] };
   },
 
+  /**
+   * [H-07] Verifica que el usuario tenga permiso de escritura sobre un objeto.
+   * Revisa el `_wperm` del objeto existente. Si el usuario no está en la lista
+   * y no hay wildcard, rechaza la operación.
+   *
+   * @param className — Clase del objeto
+   * @param id — ObjectId del objeto
+   * @param options — Opciones: useMasterKey (bypass ACL)
+   * @throws Error si el usuario no tiene permisos de escritura
+   * @internal
+   */
   async _enforceAclWrite(className: string, id: string, options?: { useMasterKey?: boolean }): Promise<void> {
     const ctx = zenithContext.getStore();
     const isMaster = options?.useMasterKey || ctx?.masterKey;
@@ -543,6 +582,16 @@ export const ZenDB = {
     }
   },
 
+  /**
+   * Busca documentos en una clase de Parse.
+   * Inyecta automáticamente filtros ACL basados en el usuario autenticado.
+   * Soporta cross-tenant queries via `options.targetAppId`.
+   *
+   * @param className — Nombre de la clase (ej. "TodoItem", "_User")
+   * @param query — Query con where, order, limit, skip, include, count
+   * @param options — targetAppId (cross-tenant), useMasterKey (bypass ACL)
+   * @returns Array de documentos
+   */
   find: async (className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any[]> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
@@ -555,6 +604,15 @@ export const ZenDB = {
     return adapter.find(className, query);
   },
 
+  /**
+   * Busca un único documento en una clase de Parse.
+   * Inyecta filtros ACL. Soporta cross-tenant.
+   *
+   * @param className — Nombre de la clase
+   * @param query — Query con where, include, etc.
+   * @param options — targetAppId, useMasterKey
+   * @returns Documento encontrado o null
+   */
   findOne: async (className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
@@ -567,12 +625,31 @@ export const ZenDB = {
     return adapter.findOne(className, query);
   },
 
+  /**
+   * Inserta un nuevo documento en una clase de Parse.
+   * Soporta cross-tenant.
+   *
+   * @param className — Nombre de la clase
+   * @param document — Datos del documento a insertar
+   * @param options — targetAppId, useMasterKey
+   * @returns Documento creado (con objectId)
+   */
   insert: async (className: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
     return adapter.insert(className, document);
   },
 
+  /**
+   * Actualiza un documento existente en una clase de Parse.
+   * Verifica ACL de escritura antes de mutar. Soporta cross-tenant.
+   *
+   * @param className — Nombre de la clase
+   * @param id — ObjectId del documento
+   * @param document — Datos a actualizar
+   * @param options — targetAppId, useMasterKey
+   * @returns Documento actualizado
+   */
   update: async (className: string, id: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
@@ -581,6 +658,14 @@ export const ZenDB = {
     return adapter.update(className, id, document);
   },
 
+  /**
+   * Elimina un documento de una clase de Parse.
+   * Verifica ACL de escritura. Soporta cross-tenant.
+   *
+   * @param className — Nombre de la clase
+   * @param id — ObjectId del documento
+   * @param options — targetAppId, useMasterKey
+   */
   delete: async (className: string, id: string, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<void> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
@@ -592,6 +677,19 @@ export const ZenDB = {
 
 // ─── Wrapper de Federation (RPC Cluster) ──────────────────────────────────────
 
+/**
+ * Zenith Federation — RPC entre apps en el clúster.
+ * Resuelve llamadas cross-app de forma transparente:
+ * - Misma RAM → in-memory directo (sin red)
+ * - Distinta máquina → ZeroMQ (vía FederationTrait)
+ *
+ * @example
+ * const remoteUsers = await Zen.Federation.rpcCall({
+ *   targetAppId: "app-dos",
+ *   action: "db.find",
+ *   payload: { className: "_User", query: {} }
+ * });
+ */
 export const ZenFederation = {
   /**
    * Ejecuta una llamada RPC asíncrona hacia otra App en el clúster.
@@ -617,8 +715,23 @@ export const ZenFederation = {
 
 // ─── Wrapper para Configuración Global (Zen.Config) ──────────────────────
 
-const kvStore = await Deno.openKv(); // Global Kv for configuration cache
+const kvStore = await Deno.openKv();
 
+/**
+ * Zenith Config — configuración global de la aplicación.
+ * Paridad con `Parse.Config`. Soporta caché en Deno.Kv y CacheAdapter plugin.
+ * Los parámetros se persisten en `_GlobalConfig` y se cachean para lecturas rápidas.
+ *
+ * @example
+ * // Leer un parámetro
+ * const welcomeMessage = await Zen.Config.get("welcome_message");
+ *
+ * // Leer todos los parámetros
+ * const allParams = await Zen.Config.get();
+ *
+ * // Guardar parámetros
+ * await Zen.Config.save({ maxUsers: 1000, featureX: true });
+ */
 export const ZenConfig = {
   /**
    * Obtiene la configuración global con caché en memoria ultrarrápida.
@@ -896,6 +1009,12 @@ export const ZenShell = {
  * const remoteUsers = await Zen.Federation.rpcCall({ targetAppId: "APP_DOS", action: "db.find", payload: {} });
  * ```
  */
+/**
+ * Global engine reference set by createZenithApp after boot.
+ * Allows cloud code files to access engine services dynamically.
+ */
+export const ZENITH_ENGINE: { current: Record<string, unknown> | null } = { current: null };
+
 export const Zen = {
   Cloud: ZenCloud,
   DB: ZenDB,

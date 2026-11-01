@@ -1,9 +1,25 @@
+/**
+ * ScyllaDB / Cassandra adapter for Zenith — Wide-column database integration.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithDatabaseScylla
+ * @barrits-provides database-crud, injectScyllaPlugin
+ * @barrits-consumes
+ * @barrits-state scylla_plugin
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { DatabaseAdapter, ZenithQuery, ZenithObject } from "../../core/types.ts";
 import type { Client } from "cassandra-driver";
 
 /**
- * PLUGIN ESTÁNDAR: Adaptador Puro de ScyllaDB/Cassandra
+ * Creates a pure ScyllaDB / Cassandra adapter implementing the standard DatabaseAdapter interface.
+ * Translates Parse-compatible queries into CQL (Cassandra Query Language) statements
+ * with parameterized queries for injection safety.
+ *
+ * @param client - Connected Cassandra Client instance
+ * @returns DatabaseAdapter — standard CRUD interface consumed by the Zenith pipeline
  */
 export function createScyllaAdapter(client: Client): DatabaseAdapter {
   return {

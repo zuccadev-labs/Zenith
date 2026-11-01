@@ -1,8 +1,22 @@
-// deno-lint-ignore-file no-unused-vars
+/**
+ * @module @zenith/mod
+ *
+ * Punto de entrada principal del motor Zenith.
+ * Exporta `createZenithApp()` que compone traits vía Barrits, conecta
+ * adaptadores (MongoDB, ScyllaDB, RustFS/S3, Kafka, etc.), carga claves
+ * JWT desde Vault o MongoDB, y retorna un engine listo para manejar
+ * requests HTTP, WebSocket, gRPC y ZeroMQ.
+ *
+ * En `if (import.meta.main)` arranca el servidor multi-app usando la
+ * configuración de `apps.config.ts`.
+ *
+ * @barrits-runtime deno
+ */
 import { composeTraitDescriptors } from "@zuccadev-labs/barrits";
 import { generateOpenApiSchema } from "./core/openapi.ts";
 import { ServerTrait } from "./core/server.trait.ts";
 import { loadMergedTrustStore, parseManifest, verifyPlugin } from "./security/plugin-signing/mod.ts";
+import { ZenLogger } from "./core/cloud.ts";
 import { DatabaseMongoTrait, createMongoAdapter } from "./adapters/database/mongo.adapter.ts";
 import { DatabaseScyllaTrait, createScyllaAdapter } from "./adapters/database/scylla.adapter.ts";
 import type { DatabaseSurrealTrait, SurrealClient, createSurrealAdapter } from "./adapters/database/surreal.adapter.ts";
@@ -45,37 +59,79 @@ import { createIPFSAdapter } from "./adapters/storage/ipfs.adapter.ts";
 import { createNeo4jAdapter } from "./adapters/database/neo4j.adapter.ts";
 import { createStripeAdapter } from "./adapters/billing/stripe.adapter.ts";
 import { initialSchemaMigration } from "./migrations/001_initial_schema.ts";
-// ── UBB: Universal Business Backend Traits ───────────────────────────────
 import { VectorDBTrait, type createOllamaEmbedProvider, type createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
 import { IoTTrait } from "./traits/iot/iot.trait.ts";
 import { AgentOrchestratorTrait } from "./traits/agents/agent.orchestrator.trait.ts";
 import { FeatureFlagsTrait } from "./traits/featureflags/featureflags.trait.ts";
 import type { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
-// ── UBB Phase 2 Traits ───────────────────────────────────────────
 import { TimeSeriesTrait } from "./traits/timeseries/timeseries.trait.ts";
 import { WorkflowTrait } from "./traits/workflow/workflow.trait.ts";
 import { TenantTrait } from "./traits/tenant/tenant.trait.ts";
 import { ComplianceTrait } from "./traits/compliance/compliance.trait.ts";
+import { CacheTrait } from "./traits/cache/cache.trait.ts";
+import { PushTrait } from "./traits/push/push.trait.ts";
+import { JobQueueTrait } from "./traits/queue/job.queue.trait.ts";
+import { CircuitBreakerTrait } from "./traits/resilience/circuit.breaker.trait.ts";
 import type { createScyllaTimeSeriesAdapter } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
-// ── Phase 0.A: DevOps Adapters (auto-registered, see ADR-001) ────────────
-// Phase 0.A movió git/vault/lux-cache de `plugins/` a `src/adapters/`.
-// Como son plugins con side-effects (registran en `ZenPlugins` global),
-// importarlos aquí garantiza que `Zen.Plugins.Git/Vault/CacheAdapter`
-// estén disponibles sin que el usuario tenga que importarlos manualmente.
-// Lux-cache adicionalmente chequea `LUX_DB_URL` antes de activarse.
 import "./adapters/git.adapter.ts";
 import "./adapters/vault.adapter.ts";
 import "./adapters/lux-cache.adapter.ts";
+import { CRMTrait } from "./traits/crm/crm.trait.ts";
+import { ERPTrait } from "./traits/erp/erp.trait.ts";
+import { CollaborationTrait } from "./traits/collaboration/collaboration.trait.ts";
+import { WorkspaceTrait } from "./traits/workspace/workspace.trait.ts";
+import { ViewsTrait } from "./traits/views/views.trait.ts";
+import { SearchTrait } from "./traits/search/search.trait.ts";
+import { TimelineTrait } from "./traits/timeline/timeline.trait.ts";
+import { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
+import { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
+import { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
+import { PluginMarketplaceTrait } from "./traits/marketplace/marketplace.trait.ts";
+import { NotificationsTrait } from "./traits/notifications/notifications.trait.ts";
+import { FavoritesTagsTrait } from "./traits/favtags/favtags.trait.ts";
+import { WebhookManagerTrait } from "./traits/webhooks/webhook.manager.trait.ts";
+import { CSVTrait } from "./traits/csv/csv.trait.ts";
+import { EmailSyncTrait } from "./traits/email/email.sync.trait.ts";
+import { CalendarSyncTrait } from "./traits/calendar/calendar.sync.trait.ts";
+import { AutomationTrait } from "./traits/automation/automation.trait.ts";
 import type { ZenithConfig } from "./core/types.ts";
-import { _cloudCodeRegistry } from "./core/cloud.ts";
+import type { EngineAPI, CloudFunctionService, TriggerService, BillingMeteringService } from "./core/engine-api.ts";
+import { _cloudCodeRegistry, ZENITH_ENGINE } from "./core/cloud.ts";
 
-// Re-export UBB building blocks for plugin authors
 export { createSurrealAdapter, SurrealClient } from "./adapters/database/surreal.adapter.ts";
 export { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
 export { createOllamaEmbedProvider, createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
 export { installERPPlugin } from "./plugins/erp.plugin.ts";
 export { installCRMPlugin } from "./plugins/crm.plugin.ts";
 export { installEcommercePlugin } from "./plugins/ecommerce.plugin.ts";
+export { CRMTrait } from "./traits/crm/crm.trait.ts";
+export { ERPTrait } from "./traits/erp/erp.trait.ts";
+export { CollaborationTrait } from "./traits/collaboration/collaboration.trait.ts";
+export { WorkspaceTrait } from "./traits/workspace/workspace.trait.ts";
+export { ViewsTrait } from "./traits/views/views.trait.ts";
+export { SearchTrait } from "./traits/search/search.trait.ts";
+export { TimelineTrait } from "./traits/timeline/timeline.trait.ts";
+export { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
+export { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
+export { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
+export { PluginMarketplaceTrait } from "./traits/marketplace/marketplace.trait.ts";
+export type { MetaObject, MetaField, FieldType } from "./traits/metadata/metadata.trait.ts";
+export type { ADKAgentDef, ADKTool, ADKSession } from "./traits/agents/adk.agents.trait.ts";
+export type { PluginManifest, InstalledPlugin } from "./traits/marketplace/marketplace.trait.ts";
+export { NotificationsTrait } from "./traits/notifications/notifications.trait.ts";
+export { FavoritesTagsTrait } from "./traits/favtags/favtags.trait.ts";
+export { WebhookManagerTrait } from "./traits/webhooks/webhook.manager.trait.ts";
+export { CSVTrait } from "./traits/csv/csv.trait.ts";
+export { EmailSyncTrait } from "./traits/email/email.sync.trait.ts";
+export type { EmailChannel, MessageThread, EmailMessage, EmailAdapterDef } from "./traits/email/email.sync.trait.ts";
+export { CalendarSyncTrait } from "./traits/calendar/calendar.sync.trait.ts";
+export type { CalendarChannel, CalendarEvent, CalendarSlot, CalendarAdapterDef } from "./traits/calendar/calendar.sync.trait.ts";
+export { AutomationTrait } from "./traits/automation/automation.trait.ts";
+export type { AutomationRule, AutoAction, AutoCondition, AutoConditionGroup, ActionType } from "./traits/automation/automation.trait.ts";
+export { CacheTrait } from "./traits/cache/cache.trait.ts";
+export { PushTrait } from "./traits/push/push.trait.ts";
+export { JobQueueTrait } from "./traits/queue/job.queue.trait.ts";
+export { CircuitBreakerTrait } from "./traits/resilience/circuit.breaker.trait.ts";
 export { createScyllaTimeSeriesAdapter } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
 export type { TimeSeriesPoint, TimeSeriesQuery } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
 export type { IoTDevice, TelemetryPayload, IoTAlert, SenMLRecord } from "./traits/iot/iot.trait.ts";
@@ -85,15 +141,37 @@ export type { Plan, PlanLimits } from "./traits/featureflags/featureflags.trait.
 export type { TenantConfig } from "./traits/tenant/tenant.trait.ts";
 export type { AuditEntry, PII_Field, DataClassification } from "./traits/compliance/compliance.trait.ts";
 
+function optionalCall<T>(obj: unknown, key: string, ...args: unknown[]): unknown {
+  const fn = (obj as Record<string, unknown>)[key];
+  if (typeof fn === "function") return fn(...args);
+  return undefined;
+}
+
+/**
+ * Composes and bootstraps a complete Zenith Engine instance for the given application configuration.
+ *
+ * Orchestrates the full startup sequence:
+ *   1. Selects active traits based on topology and feature flags (database, billing, AI, edge, etc.)
+ *   2. Composes traits via Barrits `composeTraitDescriptors` into a unified engine API
+ *   3. Generates OpenAPI v3.1 spec with live cloud code function discovery
+ *   4. Initializes database adapters (MongoDB, ScyllaDB) and storage (RustFS/S3)
+ *   5. Conditionally connects optional adapters (Kafka, IPFS, Neo4j, Stripe)
+ *   6. Loads JWT signing keys from Vault or MongoDB (with auto-generation)
+ *   7. Verifies and loads plugins from the plugins directory with integrity checking
+ *   8. Loads cloud code from the cloudCodePath
+ *   9. Returns the composed engine and HTTP handler
+ *
+ * @param config - ZenithConfig with appId, masterKey, databaseURI, features, topology, etc.
+ * @returns Object with `engine` (composed EngineAPI) and `handler` (HTTP request handler or null)
+ */
 export async function createZenithApp(config: ZenithConfig) {
   console.log(`🚀 Bootstrapping Zenith Engine for App: ${config.appId}...`);
 
   try {
     const topology = config.topology || ["http", "runner", "ai", "graphql", "zeromq"];
     
-    // Base traits that all nodes need (Data plane & Auth plane)
-    const activeTraits: any[] = [
-      StorageRustfsTrait,    
+    const activeTraits: unknown[] = [
+      StorageRustfsTrait,
       CryptoTrait,
       SchemaManagementTrait,
       UserManagementTrait,
@@ -104,21 +182,17 @@ export async function createZenithApp(config: ZenithConfig) {
       CloudCodeTrait,
       FileStorageTrait,
       ObservabilityTrait,
-      MigrationTrait
+      MigrationTrait,
     ];
 
-    // EXPERT AUDIT: Dynamically resolve DB driver to avoid Barrits capability collision
     if (config.databaseURI?.startsWith("mongodb")) {
       activeTraits.push(DatabaseMongoTrait);
     } else if (config.databaseURI?.startsWith("cassandra") || config.databaseURI?.startsWith("scylla")) {
       activeTraits.push(DatabaseScyllaTrait);
     } else {
-      // Default to Mongo if not specified
       activeTraits.push(DatabaseMongoTrait);
     }
 
-    // Feature Flags (Fase 19): Attack Surface Reduction
-    // Solo cargamos en RAM y habilitamos Endpoints si el usuario lo solicita explícitamente.
     if (config.features?.saas) {
       activeTraits.push(BillingTrait);
       console.log(`[ZenithBoot] 🛒 SaaS/Billing Layer Enabled.`);
@@ -157,7 +231,7 @@ export async function createZenithApp(config: ZenithConfig) {
 
     if (topology.includes("http")) {
       activeTraits.push(ServerTrait);
-      activeTraits.push(RealtimeTrait); // WebSockets usually tied to HTTP
+      activeTraits.push(RealtimeTrait);
     }
     
     if (topology.includes("graphql")) {
@@ -192,8 +266,6 @@ export async function createZenithApp(config: ZenithConfig) {
       console.log(`[ZenithBoot] 🔒 E2EE Media & Signaling Enabled.`);
     }
 
-    // ── UBB Phase 1: Feature-flag-gated UBB Traits ───────────────────────
-    // Always loaded: Feature Flags (needed by all other UBB traits)
     activeTraits.push(FeatureFlagsTrait);
 
     if (config.features?.vectordb) {
@@ -211,7 +283,6 @@ export async function createZenithApp(config: ZenithConfig) {
       console.log(`[ZenithBoot] 🤖 Agent Orchestrator (ReAct Loop + Tool Calling) Enabled.`);
     }
 
-    // ── UBB Phase 2: TimeSeries, Workflow, Multi-Tenant, Compliance ───
     if (config.features?.timeseries) {
       activeTraits.push(TimeSeriesTrait);
       console.log(`[ZenithBoot] 📈 TimeSeries (ScyllaDB + Grafana DS API) Enabled.`);
@@ -232,13 +303,74 @@ export async function createZenithApp(config: ZenithConfig) {
       console.log(`[ZenithBoot] ⚖️  Compliance (GDPR/SOC2 + Immutable Audit Trail) Enabled.`);
     }
 
-    const composition = composeTraitDescriptors(activeTraits);
-    const engine = composition.traits as any;
-    console.log("[ZenithBoot] Final Composed Capabilities:", Object.keys(engine));
+    if (config.features?.cache !== false) {
+      activeTraits.push(CacheTrait);
+      console.log(`[ZenithBoot] ⚡ Cache Layer (LRU in-memory + Redis adapter, tag-invalidation) Enabled.`);
+    }
 
-    // ── Auto-generate OpenAPI v3.1 from Barrits trait route capabilities ──
-    // Dynamic: recalculated on each /openapi.json request to include any
-    // Cloud Functions registered AFTER boot (Zen.Cloud.define).
+    if (config.features?.push) {
+      activeTraits.push(PushTrait);
+      console.log(`[ZenithBoot] 🔔 Push Notifications (FCM/APNs, device registry, channels) Enabled.`);
+    }
+
+    if (config.features?.queue !== false) {
+      activeTraits.push(JobQueueTrait);
+      console.log(`[ZenithBoot] 📦 Job Queue (persistent, retry, DLQ, scheduled, priority) Enabled.`);
+    }
+
+    if (config.features?.resilience !== false) {
+      activeTraits.push(CircuitBreakerTrait);
+      console.log(`[ZenithBoot] 🛡️ Circuit Breaker (fail-fast, auto-recovery, fallback) Enabled.`);
+    }
+
+    // ── Capa de negocio principal (CRM + ERP) ──────────────────────────────
+    // Van al final del pipeline base (después de db, cloud, acl, ratelimit, events).
+    activeTraits.push(CRMTrait);
+    activeTraits.push(ERPTrait);
+    console.log(`[ZenithBoot] 💼 CRM + ERP Traits registrados (CRUD, Smart DB Routing, Audit).`);
+
+    // ── Capa de colaboración (depende de db, cloud, events, storage) ────────
+    activeTraits.push(CollaborationTrait);
+    activeTraits.push(WorkspaceTrait);
+    activeTraits.push(ViewsTrait);
+    activeTraits.push(TimelineTrait);
+    console.log(`[ZenithBoot] 🤝 Collaboration Layer: Notes, Tasks, Comments, Attachments, Views, Timeline.`);
+
+    // ── Capa de búsqueda y metadata dinámica ────────────────────────────────
+    activeTraits.push(SearchTrait);
+    activeTraits.push(MetadataTrait);
+    console.log(`[ZenithBoot] 🔍 Search + Metadata API (Custom Objects & Fields) habilitado.`);
+
+    // ── Capa de contenido y comunidad ───────────────────────────────────────
+    activeTraits.push(BlogForumTrait);
+    console.log(`[ZenithBoot] 📝 Blog + Forum (monetizable, SEO, votes) habilitado.`);
+
+    // ── Capa de Agentes AI (Google ADK) ─────────────────────────────────────
+    if (config.features?.agents !== false) {
+      activeTraits.push(ADKAgentsTrait);
+      console.log(`[ZenithBoot] 🤖 AI Agents (CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent) habilitados.`);
+    }
+
+    // ── Plugin Marketplace ──────────────────────────────────────────────────
+    activeTraits.push(PluginMarketplaceTrait);
+    console.log(`[ZenithBoot] 🛒 Plugin Marketplace habilitado.`);
+
+    // ── Capa de Fase 2: Notificaciones, Favoritos, Tags, Webhooks, CSV ────────
+    activeTraits.push(NotificationsTrait);
+    activeTraits.push(FavoritesTagsTrait);
+    activeTraits.push(WebhookManagerTrait);
+    activeTraits.push(CSVTrait);
+    console.log(`[ZenithBoot] 🔔 Phase 2: Notifications (SSE), Favorites, Tags, Webhook Manager, CSV Import/Export.`);
+
+    // ── Fase 3: Email Sync, Calendar Sync, Automation Rules Engine ──────────
+    activeTraits.push(EmailSyncTrait);
+    activeTraits.push(CalendarSyncTrait);
+    activeTraits.push(AutomationTrait);
+    console.log(`[ZenithBoot] 📧 Phase 3: Email Sync (IMAP/SMTP), Calendar Sync (Google/CalDAV/iCal), Automation Rules Engine.`);
+
+    const composition = composeTraitDescriptors(activeTraits);
+    const engine = composition.traits as unknown as EngineAPI;
+    console.log("[ZenithBoot] Final Composed Capabilities:", Object.keys(engine));
 
     const openApiOptions = {
       title: `${config.appId} — Zenith API`,
@@ -248,12 +380,7 @@ export async function createZenithApp(config: ZenithConfig) {
       appId: config.appId,
     };
 
-    /**
-     * Generates a fresh OpenAPI spec including all currently registered Cloud Functions.
-     * This makes /openapi.json & Swagger always up-to-date without a server restart.
-     */
     const buildLiveOpenApiSpec = () => {
-      // Inject virtual routes for every registered Cloud Function
       const dynamicFnRoutes = _cloudCodeRegistry.listFunctions().map(fnName => ({
         method: "POST",
         path: `/functions/${fnName}`,
@@ -263,7 +390,6 @@ export async function createZenithApp(config: ZenithConfig) {
         path: `/jobs/${jobName}`,
       }));
 
-      // Augment engine with live function routes
       const augmentedEngine = {
         ...engine,
         __dynamic_fn_routes: dynamicFnRoutes,
@@ -273,12 +399,11 @@ export async function createZenithApp(config: ZenithConfig) {
       return generateOpenApiSchema(augmentedEngine, openApiOptions);
     };
 
-    // Expose /openapi.json (dynamic) and /swagger as built-in routes
     const metaRoutes = [
       {
         method: "GET",
         path: "/openapi.json",
-        handler: (_req: Request, _ctx: any) =>
+        handler: (_req: Request, _ctx: unknown) =>
           new Response(JSON.stringify(buildLiveOpenApiSpec(), null, 2), {
             status: 200,
             headers: {
@@ -291,7 +416,7 @@ export async function createZenithApp(config: ZenithConfig) {
       {
         method: "GET",
         path: "/swagger",
-        handler: (_req: Request, _ctx: any) =>
+        handler: (_req: Request, _ctx: unknown) =>
           new Response(
             `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${config.appId} — Zenith API Docs</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css"/></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:"./openapi.json",dom_id:"#swagger-ui",presets:[SwaggerUIBundle.presets.apis,SwaggerUIBundle.SwaggerUIStandalonePreset],layout:"BaseLayout",deepLinking:true,persistAuthorization:true})</script></body></html>`,
             { status: 200, headers: { "Content-Type": "text/html" } },
@@ -299,29 +424,26 @@ export async function createZenithApp(config: ZenithConfig) {
       },
     ];
 
-    // Inject meta routes — append to the existing `routes` capability array or create it
     if (Array.isArray(engine.routes)) {
-      engine.routes.push(...metaRoutes);
+      (engine.routes as unknown[]).push(...metaRoutes);
     } else {
       engine.routes = metaRoutes;
     }
 
     console.log(`✅ Zenith Engine Composed for ${config.appId}. OpenAPI spec ready at /openapi.json`);
 
-    // ── Military-Grade Security: Initialize Shell Allowlist ──
     const allowedCommands = config.allowedShellCommands || ["git", "vault", "kubectl", "lux-db"];
-    if (engine.Plugins && engine.Shell) {
-       engine.Shell.setAllowedCommands(allowedCommands);
-       console.log(`[ZenithBoot] 🛡️ Zen.Shell allowlist configured: [${allowedCommands.join(", ")}]`);
+    if (engine.Plugins && (engine as unknown as Record<string, unknown>).Shell) {
+      optionalCall((engine as unknown as Record<string, unknown>).Shell, "setAllowedCommands", allowedCommands);
+      console.log(`[ZenithBoot] 🛡️ Zen.Shell allowlist configured: [${allowedCommands.join(", ")}]`);
     }
 
-    // Conectar adaptadores de Base de Datos para esta app
-    const mongoUri = (config as any).databaseURI || "mongodb://localhost:27614";
+    const mongoUri = config.databaseURI || "mongodb://localhost:27614";
     const mongoClient = new MongoClient(mongoUri);
     await mongoClient.connect();
     const mongoPlugin = createMongoAdapter(mongoClient.db(config.appId));
 
-    const scyllaUri = (config as any).authDatabaseURI || "localhost:90614";
+    const scyllaUri = (config as Record<string, unknown>).authDatabaseURI as string || "localhost:90614";
     const scyllaHost = scyllaUri.split(":")[0];
     const scyllaPort = parseInt(scyllaUri.split(":")[1] || "9042", 10);
     const scyllaClient = new cassandra.Client({ 
@@ -332,13 +454,10 @@ export async function createZenithApp(config: ZenithConfig) {
     await scyllaClient.connect();
     const scyllaPlugin = createScyllaAdapter(scyllaClient);
 
-    // @ts-ignore
-    if (engine.injectMongoPlugin) engine.injectMongoPlugin(mongoPlugin);
-    // @ts-ignore
-    if (engine.injectScyllaPlugin) engine.injectScyllaPlugin(scyllaPlugin);
+    optionalCall(engine, "injectMongoPlugin", mongoPlugin);
+    optionalCall(engine, "injectScyllaPlugin", scyllaPlugin);
 
-    // RustFS (S3-compatible) para Media/Storage
-    const s3Uri = (config as any).mediaStorageURI || "http://localhost:8614";
+    const s3Uri = (config as Record<string, unknown>).mediaStorageURI as string || "http://localhost:8614";
     const s3Client = new S3Client({
       region: "us-east-1",
       endpoint: s3Uri,
@@ -349,24 +468,19 @@ export async function createZenithApp(config: ZenithConfig) {
       }
     });
     const rustfsPlugin = createRustFSAdapter(s3Client, `${config.appId}-storage`);
-    // @ts-ignore
-    if (engine.injectRustFSPlugin) engine.injectRustFSPlugin(rustfsPlugin);
+    optionalCall(engine, "injectRustFSPlugin", rustfsPlugin);
 
-    // Inyección de Plugins Avanzados (Fase 20)
     if (config.features?.events) {
        const kafkaPlugin = createKafkaAdapter(config.appId);
-       // @ts-ignore
-       if (engine.injectEventPlugin) engine.injectEventPlugin(kafkaPlugin);
+       optionalCall(engine, "injectEventPlugin", kafkaPlugin);
        await kafkaPlugin.connect(["localhost:9092"]);
     }
 
     if (config.features?.web3) {
        const ipfsPlugin = createIPFSAdapter("https://ipfs.io");
-       // @ts-ignore
-       if (engine.injectPlugin) engine.injectPlugin(ipfsPlugin);
+       optionalCall(engine, "injectPlugin", ipfsPlugin);
     }
 
-    // Neo4j Plugin si está configurado para Graph (El trait dependerá del Data layer genérico)
     if (config.features?.graph) {
        const neo4jPlugin = createNeo4jAdapter();
        const neo4jUri = Deno.env.get("NEO4J_URI") || "bolt://localhost:7687";
@@ -376,23 +490,19 @@ export async function createZenithApp(config: ZenithConfig) {
          console.warn("[ZenithBoot] Warning: NEO4J_PASSWORD is not set. Neo4j graph capabilities might fail to authenticate.");
        }
        await neo4jPlugin.connect(neo4jUri, neo4jUser, neo4jPassword || "unsafe_default");
-       // Lo expondríamos a través de un trait específico o como extensión del Schema Management
     }
 
     if (config.features?.saas) {
        const stripePlugin = createStripeAdapter(Deno.env.get("STRIPE_API_KEY") || "sk_test_mock");
-       if (engine["billing-metering"]?.injectAdapter) engine["billing-metering"].injectAdapter(stripePlugin);
+       const billing = engine["billing-metering"] as BillingMeteringService | undefined;
+       if (billing?.injectAdapter) billing.injectAdapter(stripePlugin);
     }
 
     if (config.features?.e2ee_media) {
        console.log(`[Zenith] Loading E2EE Media Module (Mode: ${config.features.e2ee_mode || "strict_sframe"})`);
-       // @ts-ignore
        if (engine.setE2EEMode) engine.setE2EEMode(config.features.e2ee_mode || "strict_sframe");
     }
 
-    // Llaves JWT: Persistencia Corporativa.
-    // Prioridad: (1) Vault si está configurado, (2) MongoDB (legacy).
-    // H-4 ADR-008: producción enterprise usa Vault para KMS / HSM backing.
     const globalConfigCol = mongoClient.db(config.appId).collection("_GlobalConfig");
     let privateKeyStr: string;
     let publicKeyStr: string;
@@ -400,17 +510,13 @@ export async function createZenithApp(config: ZenithConfig) {
     const vaultAddr = Deno.env.get("VAULT_ADDR");
     if (vaultAddr) {
       console.log(`[ZenithBoot] 🔑 Cargando llaves JWT desde Vault (${vaultAddr})...`);
-      // El adapter se auto-registra en src/mod.ts (import "./adapters/vault.adapter.ts").
-      // Verificamos que está activo antes de usarlo.
-      // @ts-ignore
-      const ZenPlugins = (await import("./core/cloud.ts")).ZenPlugins;
+      const { ZenPlugins } = await import("./core/cloud.ts");
       if (!ZenPlugins.Vault?.isActive()) {
         throw new Error(
           "[ZenithBoot] VAULT_ADDR is set but Vault plugin is not active. " +
           "Check VAULT_TOKEN or AppRole credentials in environment.",
         );
       }
-      // @ts-ignore
       const vaultClient = ZenPlugins.Vault.client() as {
         kvGet: (path: string) => Promise<{
           data?: { privateKey?: string; publicKey?: string };
@@ -419,8 +525,8 @@ export async function createZenithApp(config: ZenithConfig) {
       };
       const secret = await vaultClient.kvGet(`zenith/${config.appId}/jwt-keys`);
       if (secret?.data?.privateKey && secret?.data?.publicKey) {
-        privateKeyStr = secret.data.privateKey as string;
-        publicKeyStr = secret.data.publicKey as string;
+        privateKeyStr = secret.data.privateKey;
+        publicKeyStr = secret.data.publicKey;
         console.log(`[ZenithBoot] 🔑 Llaves RSA cargadas desde Vault (v${secret.metadata?.version ?? "?"}).`);
       } else {
         console.log(`[ZenithBoot] 🔑 No se encontraron llaves en Vault. Generando nuevas y guardando...`);
@@ -431,7 +537,6 @@ export async function createZenithApp(config: ZenithConfig) {
         });
         privateKeyStr = privateKey;
         publicKeyStr = publicKey;
-        // @ts-ignore
         await ZenPlugins.Vault.kvPut(`zenith/${config.appId}/jwt-keys`, {
           privateKey: privateKeyStr,
           publicKey: publicKeyStr,
@@ -440,8 +545,7 @@ export async function createZenithApp(config: ZenithConfig) {
         console.log(`[ZenithBoot] 🔑 Llaves RSA generadas y guardadas en Vault.`);
       }
     } else {
-      // Fallback legacy: persistencia en MongoDB.
-      const jwtKeys = await globalConfigCol.findOne({ _id: "jwt_keys" as any });
+      const jwtKeys = await globalConfigCol.findOne({ _id: "jwt_keys" as unknown as string });
       if (!jwtKeys) {
         console.log(`[ZenithBoot] 🔑 Generando nuevas llaves RSA para App: ${config.appId}...`);
         const { publicKey, privateKey } = generateKeyPairSync('rsa', {
@@ -453,32 +557,24 @@ export async function createZenithApp(config: ZenithConfig) {
         publicKeyStr = publicKey;
 
         await globalConfigCol.insertOne({
-          _id: "jwt_keys" as any,
+          _id: "jwt_keys",
           privateKey: privateKeyStr,
           publicKey: publicKeyStr,
           createdAt: new Date()
         });
       } else {
         console.log(`[ZenithBoot] 🔑 Llaves RSA cargadas desde base de datos.`);
-        privateKeyStr = jwtKeys.privateKey;
-        publicKeyStr = jwtKeys.publicKey;
+        privateKeyStr = jwtKeys.privateKey as string;
+        publicKeyStr = jwtKeys.publicKey as string;
       }
     }
 
-    // @ts-ignore
     if (engine.initKeys) engine.initKeys(privateKeyStr, publicKeyStr);
 
-    // Inicializaciones
-    // @ts-ignore
     if (engine.schema_init) await engine.schema_init(config);
-    // @ts-ignore
     if (engine.observability_init) engine.observability_init();
-    // @ts-ignore
     if (engine.acl_init) engine.acl_init(config);
-    // @ts-ignore
     if (engine.ratelimit_init) await engine.ratelimit_init();
-
-    // @ts-ignore
     if (engine.ai_init) engine.ai_init(config);
 
     if (config.pluginsPath) {
@@ -486,9 +582,6 @@ export async function createZenithApp(config: ZenithConfig) {
       try {
         let lockfile: Record<string, string> = {};
 
-        // [SecOps H-06] El lockfile se lee desde la RAÍZ del proyecto (Deno.cwd()),
-        // NO desde dentro del directorio de plugins. Un atacante con acceso de escritura
-        // a plugins/ no puede reemplazar el lockfile si está en un directorio separado.
         const lockfilePath = `${Deno.cwd()}/plugins.lock.json`;
         try {
           const lockContent = await Deno.readTextFile(lockfilePath);
@@ -501,10 +594,6 @@ export async function createZenithApp(config: ZenithConfig) {
           }
         }
 
-        // [SecOps H-05] Trust store de claves de autor para plugin signing.
-        // Si existe, los plugins deben estar firmados y el backend verifica la
-        // cadena de confianza antes de cargarlos. Si no existe, se cae al modo
-        // legacy (solo SHA-256 contra lockfile).
         let trust = null;
         try {
           trust = await loadMergedTrustStore();
@@ -516,33 +605,37 @@ export async function createZenithApp(config: ZenithConfig) {
         }
 
         const crypto = await import("node:crypto");
+        const isProduction = Deno.args.includes("--mode=production");
 
         for await (const entry of Deno.readDir(config.pluginsPath)) {
-          if (entry.isFile && (entry.name.endsWith(".ts") || entry.name.endsWith(".js"))) {
+          if (!entry.isFile) continue;
+          if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".js")) continue;
+
+          try {
             const absPath = await Deno.realPath(`${config.pluginsPath}/${entry.name}`);
 
-            // Verificación de Integridad SHA-256
             const fileContent = await Deno.readFile(absPath);
             const hash = crypto.createHash("sha256").update(fileContent).digest("hex");
 
             if (lockfile[entry.name] && lockfile[entry.name] !== hash) {
-              throw new Error(`[SecOps] ABORT: Plugin integrity check FAILED for '${entry.name}'. Expected ${lockfile[entry.name].substring(0, 16)}... but got ${hash.substring(0, 16)}... — posible modificación maliciosa.`);
-            } else if (!lockfile[entry.name] && Deno.args.includes("--mode=production")) {
-              throw new Error(`[SecOps] ABORT: Plugin '${entry.name}' not found in plugins.lock.json. Run 'zenith plugins:lock' to register it.`);
+              throw new Error(
+                `[SecOps] ABORT: Plugin integrity check FAILED for '${entry.name}'. ` +
+                `Expected ${lockfile[entry.name].substring(0, 16)}... but got ${hash.substring(0, 16)}...`,
+              );
+            }
+            if (!lockfile[entry.name] && isProduction) {
+              throw new Error(
+                `[SecOps] ABORT: Plugin '${entry.name}' not found in plugins.lock.json. ` +
+                `Run 'zenith plugins:lock' to register it.`,
+              );
             }
 
-            // [SecOps H-05] Si hay trust store Y existe el .manifest.json firmado,
-            // verificar la cadena Ed25519 antes de cargar.
             if (trust && trust.keys.length > 0) {
               const manifestPath = `${absPath}.manifest.json`;
               try {
                 const manifestRaw = await Deno.readTextFile(manifestPath);
                 const manifest = parseManifest(manifestRaw);
-                const result = await verifyPlugin({
-                  pluginPath: absPath,
-                  manifest,
-                  trust,
-                });
+                const result = await verifyPlugin({ pluginPath: absPath, manifest, trust });
                 if (!result.ok) {
                   throw new Error(
                     `[SecOps H-05] ABORT: Plugin signature verification FAILED for '${entry.name}': ${result.reason}${
@@ -555,25 +648,33 @@ export async function createZenithApp(config: ZenithConfig) {
                 if (e instanceof Deno.errors.NotFound) {
                   throw new Error(
                     `[SecOps H-05] ABORT: Plugin '${entry.name}' has no .manifest.json but trust store is configured. ` +
-                      `Run 'zenith plugin sign ${entry.name}' to sign it.`,
+                    `Run 'zenith plugin sign ${entry.name}' to sign it.`,
                   );
                 }
                 throw e;
               }
             }
 
-            // Fix file URL for Windows (replace \ with / and prefix with file:///)
             const pluginUrl = `file:///${absPath.replace(/\\/g, "/")}`;
             console.log(`  -> Loading plugin: ${entry.name} [SHA-256: ${hash.substring(0, 16)}...]`);
             await import(pluginUrl);
+            console.log(`  ✅ Loaded plugin: ${entry.name}`);
+          } catch (err) {
+            const msg = `[PluginLoader] Failed to load '${entry.name}': ${(err as Error).message}`;
+            if (isProduction) {
+              console.error(msg);
+              throw err;
+            }
+            console.warn(`${msg} — skipping. Set ZENITH_STRICT_PLUGINS=true to abort on plugin errors.`);
+            if (Deno.env.get("ZENITH_STRICT_PLUGINS") === "true") throw err;
           }
         }
-      } catch (err: any) {
+      } catch (err) {
         if (err instanceof Deno.errors.NotFound) {
           console.log(`[ZenithBoot] 🔌 Plugin directory '${config.pluginsPath}' not found, skipping.`);
         } else {
           console.error(`[ZenithBoot] ❌ Error loading plugins:`, err);
-          throw err; // Re-throw en producción para detener el boot
+          throw err;
         }
       }
     }
@@ -581,20 +682,22 @@ export async function createZenithApp(config: ZenithConfig) {
     if (config.cloudCodePath) {
       const isProduction = Deno.args.includes("--mode=production");
       if (!isProduction) {
-        // En Modo Desarrollo, cargamos dinámicamente desde el disco.
-        // @ts-ignore
-        if (engine["cloud-functions"]?.loadCloudCode) await engine["cloud-functions"].loadCloudCode(config.cloudCodePath);
+        const cloudFunctions = engine["cloud-functions"] as CloudFunctionService | undefined;
+        if (cloudFunctions?.loadCloudCode) {
+          console.log(`[ZenithBoot] 📦 Loading cloud code from: ${config.cloudCodePath}`);
+          await cloudFunctions.loadCloudCode(config.cloudCodePath);
+        }
       } else {
         console.log(`[ZenithBoot] 🔒 Production Mode: Dynamic import skipped. Relying on statically linked manifest by CLI.`);
       }
     }
 
-    // Inicializar GraphQL Dinámico
-    // @ts-ignore
     if (engine.buildSchema) await engine.buildSchema();
 
-    // @ts-ignore
     const handler = engine.getHandler ? engine.getHandler(config) : null;
+
+    // Store engine reference for Zen.Cloud to access
+    (ZENITH_ENGINE as { current: EngineAPI | null }).current = engine;
 
     return { engine, handler };
   } catch (error) {
@@ -604,9 +707,6 @@ export async function createZenithApp(config: ZenithConfig) {
 }
 
 if (import.meta.main) {
-  // Master Server Router: Carga la configuración Multi-App
-  // y enruta según el mountPath (ej. /parse/app1)
-
   const { apps } = await import("../apps.config.ts");
   const { loadAppDefinitions, RuntimeMode } = await import("../config-loader.ts");
 
@@ -614,11 +714,6 @@ if (import.meta.main) {
     console.log("[Zenith] 🔒 Production mode — fail-closed security enforced.");
   }
   
-  // ─── Per-app handler registry ──────────────────────────────────────────────
-  // Stores both the HTTP handler and the WebSocket handler per app.
-  // The WS handler is exposed by the realtime-pubsub trait and MUST be called
-  // with a pre-upgraded socket — not via new Request() which loses Deno's
-  // internal connection resource ID.
   const mountedApps = new Map<string, Map<string, {
     httpHandler: (req: Request) => Promise<Response>;
     liveQueryWsHandler?: (socket: WebSocket, authPayload: { appId: string; sessionToken: string | undefined }) => void;
@@ -632,10 +727,10 @@ if (import.meta.main) {
         mountedApps.set(appDef.mountPath, new Map());
       }
       
-      const realtimeApi = (engine as any)["realtime-pubsub"];
+      const realtimeApi = engine["realtime-pubsub"];
       const liveQueryWsHandler = realtimeApi?.handleWebSocket;
 
-      const mediaWsHandler = (engine as any).handleWebSocket;
+      const mediaWsHandler = engine.handleWebSocket;
 
       mountedApps.get(appDef.mountPath)!.set(appDef.config.appId, {
         httpHandler: handler,
@@ -647,8 +742,6 @@ if (import.meta.main) {
       console.log(`⚙️  Node ${appDef.config.appId} started without HTTP routing (Topology: ${appDef.config.topology?.join(',')})`);
     }
 
-    // Run pending migrations per app
-    // @ts-ignore
     if (engine.runPendingMigrations) {
       await engine.runPendingMigrations([initialSchemaMigration]);
     }
@@ -667,7 +760,6 @@ if (import.meta.main) {
 
       for (const [mountPath, appHandlers] of mountedApps.entries()) {
         if (url.pathname.startsWith(mountPath)) {
-          // Handle CORS Preflight globally for this mount path
           if (req.method === "OPTIONS") {
              return new Response(null, {
                status: 204,
@@ -679,17 +771,14 @@ if (import.meta.main) {
              });
           }
 
-          let appEntry: { httpHandler: (req: Request) => Promise<Response>; liveQueryWsHandler?: (socket: WebSocket, authPayload: { appId: string; sessionToken: string | undefined }) => void; mediaWsHandler?: (socket: WebSocket, roomId: string, authPayload: { appId: string; sessionToken: string | undefined }) => void; } | null = null;
+          let appEntry: typeof appHandlers extends Map<string, infer V> ? V : never = null as never;
           if (appIdHeader && appHandlers.has(appIdHeader)) {
             appEntry = appHandlers.get(appIdHeader)!;
           } else if (appHandlers.size === 1) {
-            // Fallback: single app on this mount path
             appEntry = Array.from(appHandlers.values())[0];
           }
 
           if (appEntry) {
-            // ── WebSocket Routing ──────────────────────────────────
-            // CRITICAL: Deno.upgradeWebSocket() MUST receive the original Deno request
             if (req.headers.get("upgrade") === "websocket") {
               const sessionToken =
                 req.headers.get("Zen-Session-Token") ??
@@ -699,7 +788,6 @@ if (import.meta.main) {
 
               const authPayload = { appId: appIdHeader ?? '', sessionToken };
 
-              // Route WebRTC Signaling Sockets
               if (url.pathname.includes("/media/") && appEntry.mediaWsHandler) {
                 const { socket, response } = Deno.upgradeWebSocket(req);
                 const roomId = url.pathname.split("/media/")[1]?.split("?")[0] || "global";
@@ -707,7 +795,6 @@ if (import.meta.main) {
                 return response;
               }
 
-              // Route LiveQuery Sockets
               if (appEntry.liveQueryWsHandler) {
                 const { socket, response } = Deno.upgradeWebSocket(req);
                 appEntry.liveQueryWsHandler(socket, authPayload);
@@ -720,14 +807,12 @@ if (import.meta.main) {
               );
             }
 
-            // ── Regular HTTP — rewrite URL to strip mount prefix ───────────────
             const newPathname = url.pathname.slice(mountPath.length) || "/";
             const newUrl = new URL(newPathname + url.search, url.origin);
             const newReq = new Request(newUrl.href, {
               method: req.method,
               headers: req.headers,
               body: req.body,
-              // @ts-ignore — Deno fetch dup
               duplex: "half",
             });
             return await appEntry.httpHandler(newReq);

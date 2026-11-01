@@ -1,0 +1,383 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Zenith Universal Business API",
+    "version": "1.0.0",
+    "description": "API completa de Zenith BaaS — el único backend que combina CRM + ERP + Real-time + AI en un solo binary. Compatible con Parse Server SDK. Autenticación via `X-Parse-Application-Id` + `X-Parse-Session-Token` o `X-Parse-Master-Key`.",
+    "x-app-id": "zenith"
+  },
+  "tags": [],
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ZenithObject": {
+        "type": "object",
+        "description": "Base de cualquier objeto persistido en Zenith.",
+        "properties": {
+          "objectId": {
+            "type": "string",
+            "example": "xWMyZ4YYGX"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ACL": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            },
+            "description": "Access Control List (Phase 0 security)"
+          }
+        },
+        "required": [
+          "objectId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ZenithUser": {
+        "type": "object",
+        "properties": {
+          "objectId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string",
+            "example": "alice"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "alice@acme.example"
+          },
+          "emailVerified": {
+            "type": "boolean",
+            "example": true
+          },
+          "sessionToken": {
+            "type": "string",
+            "description": "Opaque, used in Authorization header"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ZenithSession": {
+        "type": "object",
+        "properties": {
+          "sessionToken": {
+            "type": "string"
+          },
+          "sub": {
+            "type": "string",
+            "description": "userId"
+          },
+          "username": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ZenithError": {
+        "type": "object",
+        "description": "Formato de error estándar de Zenith (Parse-Server compat)",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 101,
+            "description": "Parse error code"
+          },
+          "error": {
+            "type": "string",
+            "example": "Invalid username/password."
+          }
+        },
+        "required": [
+          "code",
+          "error"
+        ]
+      },
+      "CloudFunctionResult": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "description": "Wrapper genérico para el resultado de una Cloud Function"
+      },
+      "BatchRequest": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "DELETE"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "example": "/classes/GameScore"
+                },
+                "body": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "method",
+                "path"
+              ]
+            }
+          }
+        }
+      },
+      "GraphQLRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "example": "{ findGameScores(limit: 5) { objectId score } }"
+          },
+          "variables": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "description": "API Key metadata (nunca incluye el secret)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "BAV3LVUH"
+          },
+          "prefix": {
+            "type": "string",
+            "example": "sk_live_BAV3LVUH"
+          },
+          "env": {
+            "type": "string",
+            "enum": [
+              "live",
+              "test"
+            ],
+            "example": "live"
+          },
+          "name": {
+            "type": "string",
+            "example": "acme-crm production"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "data:read",
+              "data:write"
+            ]
+          },
+          "rateLimit": {
+            "type": "integer",
+            "example": 1000,
+            "description": "Requests per minute"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "prefix",
+          "env",
+          "scopes"
+        ]
+      },
+      "PluginManifest": {
+        "type": "object",
+        "description": "Plugin manifest firmado (Ed25519, JCS, ADR-004)",
+        "properties": {
+          "manifestVersion": {
+            "type": "string",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "plugin": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "crm.plugin.ts"
+              },
+              "version": {
+                "type": "string",
+                "example": "1.2.3"
+              },
+              "sha256": {
+                "type": "string",
+                "example": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "size": {
+                "type": "integer",
+                "example": 12345
+              },
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "data:read",
+                    "data:write",
+                    "users:read",
+                    "users:write",
+                    "files:read",
+                    "files:write",
+                    "functions:invoke",
+                    "analytics:read",
+                    "webhooks:read",
+                    "webhooks:write"
+                  ]
+                }
+              },
+              "author": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "example": "acme-corp"
+                  },
+                  "keyId": {
+                    "type": "string",
+                    "example": "acme-corp-ed25519-A11B3055"
+                  },
+                  "contact": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "id",
+                  "keyId"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "sha256",
+              "size",
+              "permissions",
+              "author"
+            ]
+          },
+          "signature": {
+            "type": "object",
+            "properties": {
+              "alg": {
+                "type": "string",
+                "enum": [
+                  "Ed25519"
+                ]
+              },
+              "keyId": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string",
+                "description": "Base64-encoded 64-byte signature"
+              },
+              "signedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "alg",
+              "keyId",
+              "value",
+              "signedAt"
+            ]
+          }
+        },
+        "required": [
+          "manifestVersion",
+          "plugin",
+          "signature"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "apiKeyBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Zenith API Key",
+        "description": "Bearer token en formato `sk_live_<id>_<secret>` (Phase 0.D)."
+      },
+      "apiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key alternativa al Bearer."
+      },
+      "masterKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Zen-Master-Key",
+        "description": "Master key administrativa. SOLO desde localhost. Bypasea ACL/CLP."
+      },
+      "sessionToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Parse-Session-Token",
+        "description": "JWT de sesión (compatibilidad Parse-Server)"
+      },
+      "jwtRs256": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT (RS256)",
+        "description": "JWT firmado con RSA, validado por la public key interna de Zenith."
+      }
+    },
+    "parameters": {}
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Production"
+    }
+  ]
+}

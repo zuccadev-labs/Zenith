@@ -1,3 +1,14 @@
+/**
+ * Schema migration runner with up/down support, transaction wrapping, and tracking of applied migrations per Zenith app instance.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithMigration
+ * @barrits-provides migrations, migration-runner
+ * @barrits-consumes db, schema, telemetry
+ * @barrits-state registeredMigrations, appliedMigrations
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export interface ZenithMigration {

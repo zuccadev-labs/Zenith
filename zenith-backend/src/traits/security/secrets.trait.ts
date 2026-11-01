@@ -1,3 +1,14 @@
+/**
+ * Secrets facade over HashiCorp Vault (with KV/PKI/Transit), with in-memory TTL cache, automatic rotation hooks, audit trail integration.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithSecrets
+ * @barrits-provides secrets-routes, secrets, secretStore
+ * @barrits-consumes vault, telemetry
+ * @barrits-state secretCache
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const SecretsTrait = createTraitDescriptor({

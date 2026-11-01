@@ -1,3 +1,14 @@
+/**
+ * iPaaS-style workflow engine: define trigger→action pipelines, schedule with cron, retry policies, conditional branching, error handling, persistent execution history.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithWorkflow
+ * @barrits-provides workflow-routes, workflow, workflowEngine
+ * @barrits-consumes db, events, cloud, telemetry
+ * @barrits-state workflows, cronJobs
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const WorkflowTrait = createTraitDescriptor({

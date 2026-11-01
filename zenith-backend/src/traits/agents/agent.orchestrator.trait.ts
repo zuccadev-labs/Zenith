@@ -1,3 +1,14 @@
+/**
+ * Agent orchestrator: define agents with system prompts and tools, execute ReAct loop (Thought → Action → Observation), persist conversation history, support multi-agent handoff.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithAgentOrchestrator
+ * @barrits-provides agent-orchestrator-routes, agent-orchestrator, agents
+ * @barrits-consumes ai, vectordb, db, telemetry
+ * @barrits-state agents, tools
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export interface AgentDefinition {

@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Parse Server-compatible REST CRUD endpoints: GET/POST/PUT/DELETE on /classes/:className, file upload, batch operations, increment/decrement, ACL enforcement, master key override.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithRestCrud
+ * @barrits-provides crud-routes, crud
+ * @barrits-consumes db, acl, schema, cloud, ratelimit, telemetry, federation, events
+ * @barrits-state registeredCollections
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const RestCrudTrait = createTraitDescriptor({

@@ -1,0 +1,31 @@
+{
+  "info": {
+    "name": "Zenith Universal Business API",
+    "description": "API completa de Zenith BaaS — el único backend que combina CRM + ERP + Real-time + AI en un solo binary. Compatible con Parse Server SDK. Autenticación via `X-Parse-Application-Id` + `X-Parse-Session-Token` o `X-Parse-Master-Key`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "appId",
+      "value": "my_app",
+      "type": "string"
+    },
+    {
+      "key": "masterKey",
+      "value": "secret",
+      "type": "string"
+    },
+    {
+      "key": "sessionToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": []
+}

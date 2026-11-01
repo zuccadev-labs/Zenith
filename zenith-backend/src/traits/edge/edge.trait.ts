@@ -1,3 +1,14 @@
+/**
+ * WASM-based edge computing runtime: deploy WASM modules that execute on edge nodes close to users, V8 isolate pooling, request/response transformation.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithEdge
+ * @barrits-provides edge-routes, edge, edgeRuntime
+ * @barrits-consumes db, acl, telemetry
+ * @barrits-state wasmModules
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const EdgeTrait = createTraitDescriptor({

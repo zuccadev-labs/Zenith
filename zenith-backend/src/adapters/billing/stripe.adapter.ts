@@ -1,8 +1,12 @@
 import type { BillingAdapter } from "./types.ts";
 
 /**
- * Stripe Billing Adapter (Mock)
- * Conecta Zenith con Stripe para pagos B2B, SaaS, y e-commerce.
+ * Creates a Stripe billing adapter implementing the BillingAdapter interface.
+ * Integrates Zenith with Stripe for B2B SaaS payments, subscriptions, metered usage,
+ * one-time charges, and webhook signature verification.
+ *
+ * @param apiKey - Stripe secret API key (sk_live_... or sk_test_...)
+ * @returns BillingAdapter — customer, subscription, usage, charge, and webhook interface
  */
 export function createStripeAdapter(_apiKey: string): BillingAdapter {
   return {

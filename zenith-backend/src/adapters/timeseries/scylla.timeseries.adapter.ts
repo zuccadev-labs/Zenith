@@ -116,6 +116,15 @@ function downsamplePoints(
   return result.sort((a, b) => b.ts - a.ts);
 }
 
+/**
+ * Creates a time-series adapter over ScyllaDB / Cassandra for high-throughput IoT telemetry.
+ * Uses a time-bucketed partition schema optimized for LSM-tree compaction with native TTL expiry.
+ * Supports batch writes, range queries with downsampling, and per-device deletion.
+ *
+ * @param cassandraClient - Connected Cassandra/ScyllaDB client instance
+ * @param keyspace - Target keyspace name (default: "zenith")
+ * @returns TimeSeriesAdapter — initialize, write, query, and deleteDevice interface
+ */
 export function createScyllaTimeSeriesAdapter(cassandraClient: any, keyspace = "zenith"): TimeSeriesAdapter {
   const client = cassandraClient;
   const ks = keyspace;

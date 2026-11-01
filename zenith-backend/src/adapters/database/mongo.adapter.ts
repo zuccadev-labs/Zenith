@@ -1,10 +1,25 @@
+/**
+ * MongoDB adapter for Zenith — Document database integration.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithDatabaseMongo
+ * @barrits-provides database-crud, injectMongoPlugin
+ * @barrits-consumes
+ * @barrits-state mongo_plugin
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { DatabaseAdapter, ZenithQuery, ZenithObject } from "../../core/types.ts";
 import { type Db, ObjectId } from "mongodb";
 
 /**
- * PLUGIN ESTÁNDAR: Adaptador Puro de MongoDB
- * Esto no sabe nada sobre Barrits o Zenith Pipeline. Es una función pura.
+ * Creates a pure MongoDB adapter implementing the standard DatabaseAdapter interface.
+ * Handles Parse-compatible queries, Geo queries, subqueries, atomic operators (Increment, AddUnique, Remove, Delete),
+ * and pointer serialization — completely decoupled from Barrits or the Zenith pipeline.
+ *
+ * @param db - Connected MongoDB Db instance
+ * @returns DatabaseAdapter — standard CRUD interface consumed by the Zenith pipeline
  */
 export function createMongoAdapter(db: Db): DatabaseAdapter {
   /**

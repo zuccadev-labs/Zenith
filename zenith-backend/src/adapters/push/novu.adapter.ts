@@ -1,7 +1,20 @@
+/**
+ * Push notification adapter interface — abstracts push delivery behind a common contract.
+ */
 export interface PushAdapter {
+  /** Sends a push notification to one or more subscriber audiences */
   sendPush(payload: Record<string, any>, targetAudiences: string[]): Promise<void>;
 }
 
+/**
+ * Creates a Novu push notification adapter implementing the PushAdapter interface.
+ * Delegates push routing (FCM, APNs, etc.) to Novu's event-triggered workflow engine
+ * instead of handling device tokens directly.
+ *
+ * @param apiKey - Novu API key for authentication
+ * @param endpoint - Novu API endpoint (default: "http://localhost:3614/v1")
+ * @returns PushAdapter — sendPush interface
+ */
 export function createNovuAdapter(apiKey: string, endpoint: string = "http://localhost:3614/v1"): PushAdapter {
   return {
     async sendPush(payload: Record<string, any>, targetAudiences: string[]) {

@@ -1,4 +1,15 @@
 // deno-lint-ignore-file no-unused-vars
+/**
+ * Code runner: sandboxed Deno worker pool for executing user-submitted scripts, custom logic functions, and cloud functions. Memory/CPU limits, timeout enforcement.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithRunner
+ * @barrits-provides runner-routes, runner, codeRunner
+ * @barrits-consumes db, telemetry, shell
+ * @barrits-state activeRuns, sandboxPool
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const RunnerTrait = createTraitDescriptor({

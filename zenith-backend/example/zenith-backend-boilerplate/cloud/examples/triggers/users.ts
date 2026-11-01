@@ -1,10 +1,10 @@
-import { Zen } from "../../src/mod.ts";
+import { Zen } from "@zuccadev-labs/zenith";
 
 // ─── Database Triggers for _User ──────────────────────────────────────────
 
 /**
  * Trigger `afterSave` en la clase base _User.
- * Reacciona de forma asíncrona a la creación de cualquier usuario 
+ * Reacciona de forma asíncrona a la creación de cualquier usuario
  * (ya sea por Auth Clásica, Web3, o cualquier otro provider).
  */
 Zen.Cloud.afterSave("_User", async (request) => {

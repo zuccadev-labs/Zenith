@@ -1,7 +1,8 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { ensureDir } from "@std/fs/ensure-dir";
 import { expandGlob } from "@std/fs/expand-glob";
-import { join } from "@std/path";
+import { join, resolve } from "@std/path";
+import { initProject } from "./init-project.ts";
 
 const helpText = `
 Zenith CLI - Orchestrator & AOT Compiler
@@ -10,8 +11,16 @@ Usage:
   deno run -A scripts/zen.ts <command> [options]
 
 Commands:
+  init      Scaffold a new Zenith project.
+            Usage: deno run -A scripts/zen.ts init [name] [options]
+            Options:
+              --app-id       Application ID (default: my_app)
+              --port         HTTP port (default: 3000)
+              --target-dir   Output directory (default: ./<name>)
+
   dev       Start Zenith in development mode with live reload.
             Watches cloud/, plugins/, and config files.
+
   compile   Generate an AOT standalone production binary.
 `;
 
@@ -144,6 +153,16 @@ async function main() {
   const command = args._[0];
 
   switch (command) {
+    case "init": {
+      const projectName = (args._[1] as string) || "my-zenith-app";
+      const appId = args["app-id"] || projectName.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const port = parseInt(args["port"] as string, 10) || 3000;
+      const targetDir = args["target-dir"] || resolve(Deno.cwd(), projectName);
+      const dbUri = (args["db-uri"] as string) || undefined;
+      const masterKey = (args["master-key"] as string) || undefined;
+      await initProject({ projectName, appId, port, targetDir, dbUri, masterKey });
+      break;
+    }
     case "dev":
       await runDev();
       break;

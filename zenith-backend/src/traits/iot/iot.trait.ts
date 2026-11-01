@@ -1,3 +1,14 @@
+/**
+ * IoT device management: device registry with token-based auth, SenML telemetry ingestion, MQTT bridge, alert rules, time-series downsampling.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithIoT
+ * @barrits-provides iot-routes, iot, deviceManager
+ * @barrits-consumes db, acl, events, telemetry
+ * @barrits-state devices, alertRules
+ * @barrits-stability experimental
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export interface IoTDevice {

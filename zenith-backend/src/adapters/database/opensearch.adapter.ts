@@ -1,10 +1,24 @@
+/**
+ * OpenSearch / Elasticsearch adapter for Zenith — Full-text and vector search.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithOpenSearch
+ * @barrits-provides search-engine, injectPlugin
+ * @barrits-consumes
+ * @barrits-state plugin
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { SearchAdapter } from "../../core/types.ts";
 
 /**
- * PLUGIN ESTÁNDAR: Adaptador Puro de OpenSearch (Basado en Lucene)
- * Cumple con el estándar corporativo para búsquedas masivas y vectoriales.
- * Compatible con AWS OpenSearch y ElasticSearch >= 7.x
+ * Creates a pure OpenSearch / Elasticsearch adapter implementing the SearchAdapter interface.
+ * Supports document indexing, full-text search, k-NN vector search (semantic), and document deletion.
+ * Compatible with AWS OpenSearch and Elasticsearch >= 7.x.
+ *
+ * @param client - OpenSearch/Elasticsearch client instance (from @opensearch-project/opensearch or @elastic/elasticsearch)
+ * @returns SearchAdapter — search and indexing interface consumed by the Zenith pipeline
  */
 export function createOpenSearchAdapter(client: any): SearchAdapter {
   return {

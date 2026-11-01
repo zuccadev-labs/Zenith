@@ -1,9 +1,24 @@
+/**
+ * IPFS decentralized storage adapter for Zenith — Content-addressed, peer-to-peer storage.
+ *
+ * @barrits-trait
+ * @barrits-summary ZenithIPFSAdapter
+ * @barrits-provides ipfs_deleteFile, ipfs_download, ipfs_getSignedUrl, injectIPFSPlugin, ipfs_upload
+ * @barrits-consumes
+ * @barrits-state plugin
+ * @barrits-stability stable
+ * @barrits-runtime deno
+ */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { StorageAdapter } from "../../core/types.ts";
 
 /**
- * IPFS Storage Adapter (Descentralizado)
- * Conecta Zenith con nodos IPFS o redes como Arweave.
+ * Creates an IPFS (InterPlanetary File System) decentralized storage adapter.
+ * Connects Zenith with IPFS nodes or pinning services via a configurable HTTP gateway.
+ * Uploads return an `ipfs://` CID URI; downloads and signed URLs resolve through the gateway.
+ *
+ * @param gatewayUrl - HTTP gateway URL for IPFS (e.g. "https://ipfs.io" or local gateway)
+ * @returns StorageAdapter — interface for decentralized file operations
  */
 export function createIPFSAdapter(gatewayUrl: string): StorageAdapter {
   return {
