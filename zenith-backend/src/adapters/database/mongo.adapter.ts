@@ -33,6 +33,55 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
     return doc;
   };
 
+  const buildUpdatePayload = (data: Partial<ZenithObject>) => {
+    const serialized = serializePointers(data);
+    
+    const $set: Record<string, any> = {};
+    const $inc: Record<string, any> = {};
+    const $addToSet: Record<string, any> = {};
+    const $pullAll: Record<string, any> = {};
+    const $unset: Record<string, any> = {};
+
+    for (const key of Object.keys(serialized)) {
+      if (key === "objectId" || key === "_id" || key === "createdAt" || key === "updatedAt" || key === "className") continue;
+      
+      const val = serialized[key];
+      if (val && typeof val === "object" && val.__op) {
+         switch (val.__op) {
+           case "Increment":
+             $inc[key] = val.amount;
+             break;
+           case "AddUnique":
+             $addToSet[key] = { $each: val.objects };
+             break;
+           case "Remove":
+             $pullAll[key] = val.objects;
+             break;
+           case "Delete":
+             $unset[key] = "";
+             break;
+           default:
+             // Fallback if op not supported
+             $set[key] = val;
+         }
+      } else {
+         $set[key] = val;
+      }
+    }
+
+    const updatePayload: Record<string, any> = {};
+    if (Object.keys($set).length > 0) updatePayload.$set = $set;
+    if (Object.keys($inc).length > 0) updatePayload.$inc = $inc;
+    if (Object.keys($addToSet).length > 0) updatePayload.$addToSet = $addToSet;
+    if (Object.keys($pullAll).length > 0) updatePayload.$pullAll = $pullAll;
+    if (Object.keys($unset).length > 0) updatePayload.$unset = $unset;
+
+    // Ensure updatedAt is set
+    if (!updatePayload.$set) updatePayload.$set = {};
+    updatePayload.$set.updatedAt = new Date();
+    return updatePayload;
+  };
+
   return {
     connect: async () => { /* Manejado por el inyector padre */ },
     disconnect: async () => { /* Manejado por el inyector padre */ },
@@ -124,51 +173,7 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
     },
 
     update: async (collection: string, objectId: string, data: Partial<ZenithObject>): Promise<ZenithObject> => {
-      const serialized = serializePointers(data);
-      
-      const $set: Record<string, any> = {};
-      const $inc: Record<string, any> = {};
-      const $addToSet: Record<string, any> = {};
-      const $pullAll: Record<string, any> = {};
-      const $unset: Record<string, any> = {};
-
-      for (const key of Object.keys(serialized)) {
-        if (key === "objectId" || key === "_id" || key === "createdAt" || key === "updatedAt" || key === "className") continue;
-        
-        const val = serialized[key];
-        if (val && typeof val === "object" && val.__op) {
-           switch (val.__op) {
-             case "Increment":
-               $inc[key] = val.amount;
-               break;
-             case "AddUnique":
-               $addToSet[key] = { $each: val.objects };
-               break;
-             case "Remove":
-               $pullAll[key] = val.objects;
-               break;
-             case "Delete":
-               $unset[key] = "";
-               break;
-             default:
-               // Fallback if op not supported
-               $set[key] = val;
-           }
-        } else {
-           $set[key] = val;
-        }
-      }
-
-      const updatePayload: Record<string, any> = {};
-      if (Object.keys($set).length > 0) updatePayload.$set = $set;
-      if (Object.keys($inc).length > 0) updatePayload.$inc = $inc;
-      if (Object.keys($addToSet).length > 0) updatePayload.$addToSet = $addToSet;
-      if (Object.keys($pullAll).length > 0) updatePayload.$pullAll = $pullAll;
-      if (Object.keys($unset).length > 0) updatePayload.$unset = $unset;
-
-      // Ensure updatedAt is set
-      if (!updatePayload.$set) updatePayload.$set = {};
-      updatePayload.$set.updatedAt = new Date();
+      const updatePayload = buildUpdatePayload(data);
 
       let queryId: any = objectId;
       try { queryId = new ObjectId(objectId); } catch (_e) { /* not an ObjectId */ }
@@ -179,6 +184,14 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
       // Parse actually returns the updated fields (like computed Increment values).
       // For simplicity in this iteration, we just return the objectId and data.
       return { objectId, ...data } as ZenithObject;
+    },
+
+    updateIf: async (collection: string, objectId: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>): Promise<ZenithObject | null> => {
+      let queryId: any = objectId;
+      try { queryId = new ObjectId(objectId); } catch (_e) { /* not an ObjectId */ }
+
+      const result = await db.collection(collection).updateOne({ ...conditions, _id: queryId }, buildUpdatePayload(data));
+      return result.matchedCount === 0 ? null : { objectId, ...data } as ZenithObject;
     },
 
     delete: async (collection: string, objectId: string): Promise<void> => {

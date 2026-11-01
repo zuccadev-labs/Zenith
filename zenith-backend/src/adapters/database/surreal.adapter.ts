@@ -41,6 +41,9 @@ export class SurrealClient {
       "Authorization": `Basic ${credentials}`,
       "NS": config.namespace,
       "DB": config.database,
+      // SurrealDB 2.x solo reconoce estos nombres
+      "surreal-ns": config.namespace,
+      "surreal-db": config.database,
       "Accept": "application/json",
       "Content-Type": "application/json",
     };
@@ -72,7 +75,7 @@ export class SurrealClient {
     const results = await this.sql(surrealQL, vars);
     const first = results[0];
     if (!first || first.status !== "OK") {
-      throw new Error(`[SurrealDB] Query failed: ${first?.detail ?? "unknown error"}`);
+      throw new Error(`[SurrealDB] Query failed: ${first?.detail ?? first?.result ?? "unknown error"}`);
     }
     return (first.result ?? []) as T[];
   }
@@ -107,19 +110,25 @@ const deserialize = (doc: any): any => {
  * Convierte los operadores de query Zenith/Parse a SurrealQL WHERE clause.
  * Soporta: $gt, $gte, $lt, $lte, $ne, $in, $nin, $exists, $regex, $or, $and
  */
-const buildWhereClause = (where: Record<string, any>, tableAlias = ""): string => {
+const buildWhereClause = (where: Record<string, any>, tableAlias = "", collection?: string): string => {
   const prefix = tableAlias ? `${tableAlias}.` : "";
   const clauses: string[] = [];
 
   for (const [key, val] of Object.entries(where)) {
     if (key === "$or") {
-      const orClauses = (val as any[]).map(cond => `(${buildWhereClause(cond, tableAlias)})`);
+      const orClauses = (val as any[]).map(cond => `(${buildWhereClause(cond, tableAlias, collection)})`);
       clauses.push(`(${orClauses.join(" OR ")})`);
       continue;
     }
     if (key === "$and") {
-      const andClauses = (val as any[]).map(cond => `(${buildWhereClause(cond, tableAlias)})`);
+      const andClauses = (val as any[]).map(cond => `(${buildWhereClause(cond, tableAlias, collection)})`);
       clauses.push(`(${andClauses.join(" AND ")})`);
+      continue;
+    }
+
+    // El id es un record, no un string: compararlo con texto nunca coincide
+    if (key === "objectId" && collection && typeof val === "string") {
+      clauses.push(`id = type::thing(${JSON.stringify(collection)}, ${JSON.stringify(val)})`);
       continue;
     }
 
@@ -144,6 +153,20 @@ const buildWhereClause = (where: Record<string, any>, tableAlias = ""): string =
   return clauses.length > 0 ? clauses.join(" AND ") : "true";
 };
 
+const MAX_CONFLICT_RETRIES = 30;
+
+/** SurrealDB aborta las escrituras concurrentes sobre un registro y pide reintentarlas. */
+async function retryOnConflict<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await operation();
+    } catch (err) {
+      if (attempt >= MAX_CONFLICT_RETRIES || !String((err as Error).message).includes("can be retried")) throw err;
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 10 * (attempt + 1)));
+    }
+  }
+}
+
 /**
  * Crea un adaptador DatabaseAdapter estándar de Zenith sobre SurrealDB.
  */
@@ -163,7 +186,7 @@ export function createSurrealAdapter(client: SurrealClient): DatabaseAdapter {
       let surrealQL = `SELECT * FROM ${collection}`;
 
       if (query.where && Object.keys(query.where).length > 0) {
-        surrealQL += ` WHERE ${buildWhereClause(query.where)}`;
+        surrealQL += ` WHERE ${buildWhereClause(query.where, "", collection)}`;
       }
 
       if (query.order) {
@@ -184,7 +207,7 @@ export function createSurrealAdapter(client: SurrealClient): DatabaseAdapter {
     findOne: async (collection: string, query: ZenithQuery): Promise<ZenithObject | null> => {
       let surrealQL = `SELECT * FROM ${collection}`;
       if (query.where && Object.keys(query.where).length > 0) {
-        surrealQL += ` WHERE ${buildWhereClause(query.where)}`;
+        surrealQL += ` WHERE ${buildWhereClause(query.where, "", collection)}`;
       }
       surrealQL += " LIMIT 1";
 
@@ -229,8 +252,33 @@ export function createSurrealAdapter(client: SurrealClient): DatabaseAdapter {
       const recordId = `${collection}:${objectId}`;
       const surrealQL = `UPDATE ${recordId} MERGE ${JSON.stringify($set)}`;
 
-      const docs = await client.query(surrealQL);
+      let docs = await retryOnConflict(() => client.query(surrealQL));
+      // Los operadores no caben en MERGE: se aplican con SET
+      if (mergeOps.length > 0) docs = await retryOnConflict(() => client.query(`UPDATE ${recordId} SET ${mergeOps.join(", ")}`));
       return deserialize(docs[0]);
+    },
+
+    updateIf: async (collection: string, objectId: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>): Promise<ZenithObject | null> => {
+      const field = (name: string) => {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error(`Invalid field name: ${name}`);
+        return name;
+      };
+      const assignments = Object.entries({ ...data, updatedAt: new Date().toISOString() }).map(([key, val]: [string, any]) => {
+        if (val?.__op === "Increment") return `${field(key)} += ${Number(val.amount)}`;
+        if (val?.__op) throw new Error(`updateIf does not support ${val.__op}`);
+        return `${field(key)} = ${JSON.stringify(val)}`;
+      });
+      const checks = Object.entries(conditions).map(([key, val]: [string, any]) =>
+        val && typeof val === "object" && "$gte" in val
+          ? `${field(key)} >= ${JSON.stringify(val.$gte)}`
+          : `${field(key)} = ${JSON.stringify(val)}`
+      );
+      const record = `type::thing(${JSON.stringify(field(collection))}, ${JSON.stringify(objectId)})`;
+      const docs = await retryOnConflict(() => client.query(
+        `UPDATE ${record} SET ${assignments.join(", ")} WHERE ${checks.join(" AND ")} RETURN AFTER`
+      ));
+      const doc = Array.isArray(docs[0]) ? docs[0][0] : docs[0];
+      return doc ? deserialize(doc) : null;
     },
 
     delete: async (collection: string, objectId: string): Promise<void> => {

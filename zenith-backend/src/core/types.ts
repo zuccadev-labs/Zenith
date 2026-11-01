@@ -230,6 +230,11 @@ export interface DatabaseAdapter {
   findOne(collection: string, query: ZenithQuery): Promise<ZenithObject | null>;
   insert(collection: string, data: ZenithObject): Promise<ZenithObject>;
   update(collection: string, objectId: string, data: Partial<ZenithObject>): Promise<ZenithObject>;
+  /**
+   * Actualiza atómicamente solo si el documento cumple las condiciones (igualdad o `$gte`).
+   * Devuelve null si no se aplicó. Opcional: no todos los motores pueden garantizarlo.
+   */
+  updateIf?(collection: string, objectId: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>): Promise<ZenithObject | null>;
   delete(collection: string, objectId: string): Promise<void>;
   disconnect(): Promise<void>;
 }
