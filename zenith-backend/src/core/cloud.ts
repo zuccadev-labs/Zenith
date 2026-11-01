@@ -19,6 +19,7 @@
 import type { ZenithObject, ZenithAuthContext, ZenithPluginsRegistry } from "./types.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ZenithError, ZenithErrorCode } from "./errors.ts";
+import { applySchema, defineSchema, getSchema } from "./cloud-schema.ts";
 
 // ─── Multi-Tenant Context & App Registry ───────────────────────────────────────
 
@@ -207,6 +208,15 @@ export const ZenCloud = {
   define(name: string, handler: CloudFunctionHandler, validator?: CloudValidator): void {
     _functions.set(name, { handler, validator });
   },
+
+  /**
+   * Registra los campos de una clase. `Zen.DB.insert()` aplica sus valores por defecto
+   * y exige los campos requeridos.
+   */
+  defineSchema,
+
+  /** Devuelve los campos registrados de una clase, si los hay. */
+  getSchema,
 
   /**
    * Invoca programáticamente una Cloud Function local.
@@ -637,7 +647,7 @@ export const ZenDB = {
   insert: async (className: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
-    return adapter.insert(className, document);
+    return adapter.insert(className, applySchema(className, document));
   },
 
   /**
@@ -656,6 +666,22 @@ export const ZenDB = {
     
     await ZenDB._enforceAclWrite(className, id, options);
     return adapter.update(className, id, document);
+  },
+
+  /**
+   * Actualiza solo si el documento cumple las condiciones, de forma atómica en el motor.
+   * Evita carreras de leer y luego escribir (reservar stock, reclamar un carrito).
+   *
+   * @returns Documento actualizado, o null si las condiciones no se cumplieron
+   * @throws Error si el adapter activo no puede garantizar la atomicidad
+   */
+  updateIf: async (className: string, id: string, conditions: Record<string, unknown>, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }) => {
+    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
+    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    if (!adapter.updateIf) throw new Error(`Zen.DB Error: the active database adapter does not support atomic updateIf.`);
+
+    await ZenDB._enforceAclWrite(className, id, options);
+    return adapter.updateIf(className, id, conditions, document);
   },
 
   /**
