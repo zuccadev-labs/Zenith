@@ -14,8 +14,10 @@ static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
 
 static SERVER_STATE: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 
-#[no_mangle]
-pub extern "C" fn start_zmq_server(endpoint: *const c_char, callback: extern "C" fn(*const c_char) -> *mut c_char) -> i32 {
+/// # Safety
+/// `endpoint` must be null or a valid NUL-terminated string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn start_zmq_server(endpoint: *const c_char, callback: extern "C" fn(*const c_char) -> *mut c_char) -> i32 {
     if endpoint.is_null() {
         return -1;
     }
@@ -73,8 +75,10 @@ pub extern "C" fn start_zmq_server(endpoint: *const c_char, callback: extern "C"
     0
 }
 
-#[no_mangle]
-pub extern "C" fn send_zmq_message(endpoint: *const c_char, message: *const c_char) -> *mut c_char {
+/// # Safety
+/// `endpoint` and `message` must be null or valid NUL-terminated strings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn send_zmq_message(endpoint: *const c_char, message: *const c_char) -> *mut c_char {
     if endpoint.is_null() || message.is_null() {
         return CString::new("{\"error\":\"null arguments\"}").unwrap().into_raw();
     }
@@ -84,11 +88,11 @@ pub extern "C" fn send_zmq_message(endpoint: *const c_char, message: *const c_ch
 
     let res = RUNTIME.block_on(async move {
         let mut socket = ReqSocket::new();
-        if let Err(_) = socket.connect(&endpoint_str).await {
+        if socket.connect(&endpoint_str).await.is_err() {
             return "{\"error\":\"connect failed\"}".to_string();
         }
         
-        if let Err(_) = socket.send(message_str.into()).await {
+        if socket.send(message_str.into()).await.is_err() {
             return "{\"error\":\"send failed\"}".to_string();
         }
         
@@ -101,8 +105,10 @@ pub extern "C" fn send_zmq_message(endpoint: *const c_char, message: *const c_ch
     CString::new(res).unwrap().into_raw()
 }
 
-#[no_mangle]
-pub extern "C" fn free_string(s: *mut c_char) {
+/// # Safety
+/// `s` must be null or a pointer returned by this library that was not freed yet.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn free_string(s: *mut c_char) {
     if s.is_null() { return; }
     unsafe {
         let _ = CString::from_raw(s);

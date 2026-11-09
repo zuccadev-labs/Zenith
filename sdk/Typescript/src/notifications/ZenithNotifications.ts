@@ -21,7 +21,7 @@ export class ZenithNotifications {
   private readonly base: string;
   private readonly headers: () => Record<string, string>;
 
-  constructor(zenith: Zenith) {
+  constructor(zenith: typeof Zenith) {
     this.base    = (zenith as any)._serverURL;
     this.headers = () => ({
       "content-type": "application/json",

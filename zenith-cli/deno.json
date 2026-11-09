@@ -9,9 +9,9 @@
     "test": "deno test --allow-net --allow-read --allow-env"
   },
   "imports": {
-    "@std/cli": "jsr:@std/cli@^1.0.0",
-    "@std/fs": "jsr:@std/fs@^1.0.0",
-    "@std/path": "jsr:@std/path@^1.0.0"
+    "@std/cli": "jsr:@std/cli@^1.0.32",
+    "@std/fs": "jsr:@std/fs@^1.0.24",
+    "@std/path": "jsr:@std/path@^1.1.6"
   },
   "compilerOptions": {
     "strict": true,

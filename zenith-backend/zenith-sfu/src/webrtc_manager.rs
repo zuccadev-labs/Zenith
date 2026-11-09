@@ -5,6 +5,7 @@ pub struct WebRtcManager {
     streams: HashMap<String, StreamContext>,
 }
 
+#[allow(dead_code)] // filled in once the peer connection is wired
 pub struct StreamContext {
     pub stream_id: String,
     // Aquí guardaríamos el webrtc::peer_connection::RTCPeerConnection

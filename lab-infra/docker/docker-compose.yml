@@ -3,7 +3,7 @@ services:
   # 1. Base de Datos Principal (MongoDB & PostgreSQL Core)
   # ──────────────────────────────────────────────────────────
   zenith-mongo:
-    image: mongo:7.0
+    image: mongo:9.0.4
     container_name: zenith-mongo
     ports:
       - "53017:27017"
@@ -21,7 +21,7 @@ services:
       - zenith-net
 
   zenith-mongo-init:
-    image: mongo:7.0
+    image: mongo:9.0.4
     container_name: zenith-mongo-init
     depends_on:
       zenith-mongo:
@@ -34,7 +34,7 @@ services:
       - zenith-net
 
   zenith-postgres:
-    image: postgres:15-alpine
+    image: postgres:18.6-alpine
     container_name: zenith-postgres
     environment:
       POSTGRES_USER: ${PG_USER}
@@ -43,7 +43,7 @@ services:
     ports:
       - "54614:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
       interval: 10s
@@ -60,9 +60,9 @@ services:
   #     CLI: surreal sql --conn http://localhost:58000 --user root --pass zenithlab
   # ──────────────────────────────────────────────────────────
   zenith-surrealdb:
-    image: surrealdb/surrealdb:latest
+    image: surrealdb/surrealdb:v4.0.1
     container_name: zenith-surrealdb
-    command: start --log trace --user root --pass ${SURREAL_PASS:-zenithlab} file:/data/surreal.db
+    command: start --log trace --user root --pass ${SURREAL_PASS:-zenithlab} rocksdb:/data/surreal.db
     ports:
       - "58000:8000"
     volumes:
@@ -83,7 +83,7 @@ services:
   #     UI: http://<VM_IP>:56333/dashboard
   # ──────────────────────────────────────────────────────────
   zenith-qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.20.0
     container_name: zenith-qdrant
     ports:
       - "56333:6333"   # REST + Dashboard
@@ -109,7 +109,7 @@ services:
   #     Compatible: MQTT 3.1, 3.1.1, 5.0 | Soporte QoS 0/1/2
   # ──────────────────────────────────────────────────────────
   zenith-emqx:
-    image: emqx/emqx:latest
+    image: emqx/emqx:6.3.2
     container_name: zenith-emqx
     environment:
       EMQX_NAME: zenith-emqx
@@ -139,7 +139,7 @@ services:
   # 2. Infraestructura Rápida (ScyllaDB & LuxDB)
   # ──────────────────────────────────────────────────────────
   zenith-scylla:
-    image: scylladb/scylla:5.2.0
+    image: scylladb/scylla:2026.1.15
     container_name: zenith-scylla
     ports:
       - "53042:9042"
@@ -171,7 +171,7 @@ services:
   #    api + worker + ws + web
   # ──────────────────────────────────────────────────────────
   zenith-novu-api:
-    image: ghcr.io/novuhq/novu/api:latest
+    image: ghcr.io/novuhq/novu/api:3.19.0
     container_name: zenith-novu-api
     ports:
       - "3614:3000"
@@ -199,7 +199,7 @@ services:
       - zenith-net
 
   zenith-novu-worker:
-    image: ghcr.io/novuhq/novu/worker:latest
+    image: ghcr.io/novuhq/novu/worker:3.19.0
     container_name: zenith-novu-worker
     environment:
       NODE_ENV: production
@@ -222,7 +222,7 @@ services:
       - zenith-net
 
   zenith-novu-ws:
-    image: ghcr.io/novuhq/novu/ws:latest
+    image: ghcr.io/novuhq/novu/ws:3.19.0
     container_name: zenith-novu-ws
     ports:
       - "3615:3002"
@@ -240,13 +240,14 @@ services:
       - zenith-net
 
   zenith-novu-web:
-    image: ghcr.io/novuhq/novu/web:latest
+    # Novu 3: the "web" image was replaced by "dashboard" (port 4000, VITE_* variables).
+    image: ghcr.io/novuhq/novu/dashboard:3.19.0
     container_name: zenith-novu-web
     ports:
-      - "4614:4200"
+      - "4614:4000"
     environment:
-      REACT_APP_API_URL: http://${ZENITH_VM_IP}:3614
-      REACT_APP_WS_URL: http://${ZENITH_VM_IP}:3615
+      VITE_API_HOSTNAME: http://${ZENITH_VM_IP}:3614
+      VITE_WEBSOCKET_HOSTNAME: http://${ZENITH_VM_IP}:3615
     depends_on:
       - zenith-novu-api
     restart: unless-stopped
@@ -257,7 +258,7 @@ services:
   # 4. Almacenamiento (RustFS)
   # ──────────────────────────────────────────────────────────
   zenith-rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.4
     container_name: zenith-rustfs
     ports:
       - "8614:9000"
@@ -280,7 +281,7 @@ services:
   # 5. Zitadel IAM (Ports: 51xxx) — driver POSTGRES
   # ──────────────────────────────────────────────────────────
   zenith-postgres-zitadel:
-    image: postgres:15-alpine
+    image: postgres:18.6-alpine
     container_name: zenith-postgres-zitadel
     environment:
       POSTGRES_USER: zitadel
@@ -289,7 +290,7 @@ services:
     ports:
       - "51009:5432"
     volumes:
-      - postgres_zitadel_data:/var/lib/postgresql/data
+      - postgres_zitadel_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U zitadel -d zitadel_db"]
       interval: 10s
@@ -300,7 +301,7 @@ services:
       - zenith-net
 
   zenith-zitadel:
-    image: ghcr.io/zitadel/zitadel:latest
+    image: ghcr.io/zitadel/zitadel:v4.20.2
     container_name: zenith-zitadel
     user: "0"
     environment:
@@ -344,7 +345,7 @@ services:
       start_period: 10s
 
   zenith-zitadel-login:
-    image: ghcr.io/zitadel/zitadel-login:latest
+    image: ghcr.io/zitadel/zitadel-login:v4.20.2
     container_name: zenith-zitadel-login
     ports:
       - "8082:3000"
@@ -368,7 +369,7 @@ services:
   # 6. Keycloak IAM (Ports: 52xxx)
   # ──────────────────────────────────────────────────────────
   zenith-postgres-keycloak:
-    image: postgres:15-alpine
+    image: postgres:18.6-alpine
     container_name: zenith-postgres-keycloak
     environment:
       POSTGRES_USER: keycloak
@@ -377,7 +378,7 @@ services:
     ports:
       - "52009:5432"
     volumes:
-      - postgres_keycloak_data:/var/lib/postgresql/data
+      - postgres_keycloak_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak_db"]
       interval: 10s
@@ -388,7 +389,7 @@ services:
       - zenith-net
 
   zenith-keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.8.2
     container_name: zenith-keycloak
     environment:
       KC_DB: postgres
@@ -415,7 +416,7 @@ services:
   #    Dominio: zen.ll | postal.yml se rellena via envsubst
   # ──────────────────────────────────────────────────────────
   zenith-postal-mariadb:
-    image: mariadb:10.11
+    image: mariadb:12.3.3
     container_name: zenith-postal-mariadb
     environment:
       MARIADB_ROOT_PASSWORD: ${POSTAL_DB_PASSWORD}
@@ -437,7 +438,7 @@ services:
       - zenith-net
 
   zenith-postal-rabbitmq:
-    image: rabbitmq:3.12-alpine
+    image: rabbitmq:4.4.0-alpine
     container_name: zenith-postal-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: postal
@@ -458,7 +459,7 @@ services:
       - zenith-net
 
   zenith-postal:
-    image: ghcr.io/postalserver/postal:latest
+    image: ghcr.io/postalserver/postal:3.3.7
     container_name: zenith-postal
     depends_on:
       zenith-postal-mariadb:
@@ -482,7 +483,7 @@ services:
       - zenith-net
 
   zenith-postal-worker:
-    image: ghcr.io/postalserver/postal:latest
+    image: ghcr.io/postalserver/postal:3.3.7
     container_name: zenith-postal-worker
     depends_on:
       zenith-postal-mariadb:
@@ -504,7 +505,7 @@ services:
   # 8. OpenTelemetry
   # ──────────────────────────────────────────────────────────
   zenith-otel:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.165.0
     container_name: zenith-otel
     ports:
       - "43170:4317"
@@ -529,7 +530,7 @@ services:
   #    Ver README.md → sección "Configuración DNS"
   # ──────────────────────────────────────────────────────────
   zenith-coredns:
-    image: coredns/coredns:latest
+    image: coredns/coredns:1.15.0
     container_name: zenith-coredns
     ports:
       - "192.168.14.50:53:53/udp"

@@ -35,7 +35,7 @@ export class ZenithWebhooks {
   private readonly base: string;
   private readonly h: () => Record<string, string>;
 
-  constructor(z: Zenith) {
+  constructor(z: typeof Zenith) {
     this.base = (z as any)._serverURL;
     this.h    = () => ({
       "content-type": "application/json",

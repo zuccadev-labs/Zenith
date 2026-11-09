@@ -21,8 +21,11 @@ fn init_logger() {
 
 /// Asigna recursos para un stream WebRTC de manera sincrónica (C-ABI)
 /// Retorna 1 si es exitoso, 0 si hay error, -1 si hay panic.
-#[no_mangle]
-pub extern "C" fn allocate_stream_ffi(
+///
+/// # Safety
+/// Both pointers must be null or valid NUL-terminated strings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn allocate_stream_ffi(
     stream_id_ptr: *const c_char,
     publisher_id_ptr: *const c_char,
 ) -> i32 {

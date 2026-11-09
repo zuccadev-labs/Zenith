@@ -46,7 +46,7 @@ export class ZenithAutomation {
   private readonly base: string;
   private readonly h: () => Record<string, string>;
 
-  constructor(z: Zenith) {
+  constructor(z: typeof Zenith) {
     this.base = (z as any)._serverURL;
     this.h    = () => ({
       "content-type": "application/json",
@@ -121,7 +121,7 @@ export class ZenithCSV {
   private readonly base: string;
   private readonly h: () => Record<string, string>;
 
-  constructor(z: Zenith) {
+  constructor(z: typeof Zenith) {
     this.base = (z as any)._serverURL;
     this.h    = () => ({
       "x-parse-application-id": (z as any)._applicationId,
