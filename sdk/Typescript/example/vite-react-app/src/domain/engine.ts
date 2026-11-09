@@ -1,4 +1,4 @@
-import { composeTraits, createInitialState } from "@zuccadev-labs/barrits";
+import { composeTraitDescriptors, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { Zenith } from "@zuccadev-labs/zenith";
 
 // ─── Frontend Barrits Traits ──────────────────────────────────────────────
@@ -7,9 +7,12 @@ import { Zenith } from "@zuccadev-labs/zenith";
  * Trait that encapsulates domain logic for Form Submission.
  * It provides a method that the React UI can call, keeping the UI dumb.
  */
-function FormsTrait() {
-  return {
-    methods: {
+const FormsTrait = createTraitDescriptor({
+  name: "Forms",
+  provides: ["forms"],
+  runtimes: ["browser"],
+  create: () => ({
+    forms: {
       async createForm(title: string, description: string): Promise<string> {
         if (title.length < 3) throw new Error("Title too short.");
         const res = await Zenith.Cloud.run("createForm", { title, description });
@@ -25,22 +28,25 @@ function FormsTrait() {
         await Zenith.Cloud.run("deleteForm", { objectId });
       }
     }
-  };
-}
+  }),
+});
 
 /**
  * Trait that handles formatting or string manipulation for the UI.
  */
-function FormattingTrait() {
-  return {
-    methods: {
+const FormattingTrait = createTraitDescriptor({
+  name: "Formatting",
+  provides: ["formatting"],
+  runtimes: ["browser"],
+  create: () => ({
+    formatting: {
       formatAddress(address: string): string {
         if (!address) return "";
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
       }
     }
-  };
-}
+  }),
+});
 
 // ─── Compose Engine ───────────────────────────────────────────────────────
 
@@ -49,10 +55,15 @@ function FormattingTrait() {
  * This ensures the UI layer only depends on the Engine methods, 
  * decoupling React from direct Zenith SDK calls in complex domains.
  */
-export const FrontendEngine = composeTraits([
-  FormsTrait(),
-  FormattingTrait(),
-]);
+const composed = composeTraitDescriptors([FormsTrait, FormattingTrait]);
 
-// Initialize the static state
-FrontendEngine.__state = createInitialState(FrontendEngine);
+export const FrontendEngine = {
+  ...composed.traits.forms,
+  ...composed.traits.formatting,
+} as {
+  createForm(title: string, description: string): Promise<string>;
+  getForms(): Promise<any[]>;
+  updateForm(objectId: string, title: string, description: string): Promise<void>;
+  deleteForm(objectId: string): Promise<void>;
+  formatAddress(address: string): string;
+};

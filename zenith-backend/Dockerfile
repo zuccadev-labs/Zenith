@@ -1,39 +1,41 @@
-# 1. Base image (Deno official)
-FROM denoland/deno:alpine-1.42.4 AS builder
+# Zenith backend: one standalone binary (deno compile) on a minimal, non-root runtime.
+#
+#   docker build -t zenith-backend zenith-backend/
+#   docker run -p 1337:1337 -e APP1_MASTER_KEY=… -e MONGO_URI=… zenith-backend
+#
+# The engine-auth facade loads libzutool through FFI: mount the libraries and point
+# `engineAuth.libDir` (or ZUTOOL_LIB_DIR) at them.
+
+# 1. Build — Debian (glibc), the same libc as the runtime image.
+FROM denoland/deno:2.9.8 AS builder
 
 WORKDIR /app
 
-# Cache dependencies
+# Dependencies first, so source changes reuse this layer.
 COPY deno.json ./
-RUN deno cache --no-lock deno.json || true
+RUN deno install
 
-# Copy source
 COPY src/ src/
-COPY cloud/ cloud/
-COPY zen.config.ts apps.config.ts ./
+COPY apps.config.ts config-loader.ts zen.config.ts ./
 
-# Compile into a single static binary
-# Targeting linux
-RUN deno compile --allow-net --allow-read --allow-env --output zenith-server src/mod.ts
+# Same permissions as `deno task compile`, plus FFI for the engine-auth binding and
+# Deno KV (cloud.ts opens it at startup).
+RUN deno compile --unstable-kv --allow-net --allow-read --allow-env --allow-write --allow-sys --allow-ffi \
+      --no-check --output zenith-server src/mod.ts --mode=production
 
-# 2. Final stage (Distroless / Alpine micro)
-FROM alpine:3.19
+# 2. Runtime — Debian slim, not distroless: @node-rs/argon2 picks its glibc build by reading
+# /usr/bin/ldd, which distroless lacks, and then fails loading the musl one.
+FROM debian:13-slim
 
+RUN useradd --system --uid 10001 --home-dir /data --create-home zenith
 WORKDIR /app
-
-# Add a non-root user
-RUN addgroup -S zenith && adduser -S zenith -G zenith
-USER zenith
-
-# Copy the standalone binary from the builder
 COPY --from=builder /app/zenith-server /app/zenith-server
 
-# Expose standard Zenith port
-EXPOSE 23614
+# Deno KV and runtime data live in /data. With a read-only root filesystem, mount /data
+# writable and /tmp writable *with exec*: native addons are extracted there and loaded.
+ENV ZENITH_MODE=production DENO_DIR=/data HOME=/data
+VOLUME ["/data"]
+EXPOSE 1337
+USER zenith
 
-# Set required env vars with some defaults
-ENV ZENITH_PORT=23614
-ENV DENO_ENV=production
-
-# Run the binary
-CMD ["/app/zenith-server"]
+ENTRYPOINT ["/app/zenith-server"]

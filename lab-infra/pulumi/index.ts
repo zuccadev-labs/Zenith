@@ -1,5 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as proxmoxve from "@muhlemmer/proxmoxve";
+import * as proxmoxve from "@muhlba91/pulumi-proxmoxve";
 
 // ── Configuración del Laboratorio ────────────────────────────────────
 const targetNode   = "pve";
@@ -16,7 +16,7 @@ const vmGateway   = "192.168.14.1";   // Ajustar si tu router es diferente
 const vmSubnet    = "24";             // /24 = 255.255.255.0
 
 // ── Crear la Máquina Virtual Zenith ──────────────────────────────────
-const zenithLabVm = new proxmoxve.vm.VirtualMachine(vmName, {
+const zenithLabVm = new proxmoxve.VmLegacy(vmName, {
     nodeName: targetNode,
     vmId:     vmId,
     name:     vmName,

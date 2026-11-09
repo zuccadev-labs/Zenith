@@ -56,6 +56,45 @@ arranque con un error claro.
 `.gitignore` excluye `deno.lock`, así que cada instalación puede resolver versiones distintas dentro de los rangos
 `^`. Para una aplicación, lo habitual es versionar el lockfile.
 
-### Importar el binding sin desactivar la protección de Deno
-Hasta el 2026-11-10 a las 15:52 (hora local), `@zuccadev-labs/zutool-ffi@0.1.0` tiene menos de 24 h, y Deno no
-lo instala sin `--min-dep-age 0`. Después basta con `deno install`. No se desactiva la protección en `deno.json`.
+### Antigüedad mínima de las dependencias
+`deno.json` mantiene la protección de Deno (no instala versiones con menos de 24 h) para todo lo de terceros y
+exime solo nuestros paquetes, `@zuccadev-labs/barrits` y `@zuccadev-labs/zutool-ffi`. `@anthropic-ai/sdk@1.7.0`
+salió el 2026-11-09 a las 18:56 UTC: hasta el 2026-11-10 a las 18:57 UTC, `deno install` y `docker build` fallan
+con "blocked by the minimum dependency age policy". Después funcionan solos.
+
+## Dependencias (2026-11-09)
+
+Todo está en su última versión estable o LTS. Hay tres excepciones, forzadas por compatibilidad:
+- **TypeScript 6.0.3 en el ejemplo de Vite:** typescript-eslint 8.72 solo admite `<6.1`. El SDK ya usa TypeScript 7.
+- **`@solana/web3.js` 1.99:** la 3.x existe, pero el wallet-adapter exige `^1.99`.
+- **Proxmox en Pulumi:** se usa `VmLegacy`, el recurso estable de la v8; `Vm` está marcado como experimental.
+
+### Errores que ya existían (no los causa la actualización)
+- **Ejemplo de Vite:** 18 errores de tipos.
+  - MUI 9 retiró las props de sistema (`<Typography fontWeight={800}>` pasa a `sx={{ fontWeight: 800 }}`).
+  - El SDK no declara `attributes` en `ZenithObject` ni el segundo argumento de `upload`.
+  - El build de Vite sí funciona.
+- **CLI:** 7 errores de tipos, iguales antes y después.
+  - Hay comandos sin `run` exportado.
+  - `parseArgs` con `number`.
+  - Importa `manager.ts` del backend, que necesita `@node-rs/argon2`, y el CLI no lo tiene en su import map.
+
+### Laboratorio (`lab-infra/docker`): migrar los datos antes de actualizar en `192.168.14.50`
+Las imágenes ahora tienen versión fija (ninguna `:latest`). Si los volúmenes ya tienen datos, hay que migrarlos;
+no basta con cambiar la imagen:
+- **MongoDB 7.0 → 9.0:** pasar por 8.0 y subir `featureCompatibilityVersion` en cada salto.
+- **PostgreSQL 15 → 18:** `pg_dump`/`pg_restore` o `pg_upgrade`. La imagen 18 guarda los datos en
+  `/var/lib/postgresql/18/docker`; el volumen se monta ahora en `/var/lib/postgresql`.
+- **ScyllaDB 5.2 → 2026.1 (LTS):** actualizar por versiones intermedias. Desde 2025 la licencia es source-available.
+- **MariaDB 10.11 → 12.3 (LTS):** después, `mariadb-upgrade`.
+- **RabbitMQ 3.12 → 4.4:** activar todos los feature flags antes del salto. Hay que probar Postal con la 4.x.
+- **SurrealDB → v4:** exportar e importar. El almacenamiento es `rocksdb:`, en lugar de `file:`.
+- **Novu 3:** la imagen `web` se sustituye por `dashboard` (puerto 4000, variables `VITE_*`).
+
+### Imagen Docker
+- **Base de ejecución:** `debian:13-slim`. distroless no sirve porque `@node-rs/argon2` busca `/usr/bin/ldd`
+  para elegir el binario de glibc.
+- **Sistema de archivos de solo lectura:** montar `/data` con escritura y `/tmp` con escritura y `exec`; ahí se
+  extraen y se cargan los addons nativos.
+- **`apps.config.ts`:** trae por defecto las IP del laboratorio (Scylla en `192.168.14.50:53042`). En producción
+  hay que pasar todas las URI por entorno.

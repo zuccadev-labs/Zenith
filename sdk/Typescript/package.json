@@ -9,12 +9,12 @@
     "build": "tsc"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "typescript": "^7.0.2"
   },
   "author": "Zuccadev Labs",
   "license": "MIT",
   "peerDependencies": {
-    "@types/react": "^19.2.16",
-    "react": "^19.2.7"
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
   }
 }

@@ -120,11 +120,13 @@ async function runCompile() {
   const cmd = new Deno.Command("deno", {
     args: [
       "compile",
+      "--unstable-kv",
       "--allow-net",
       "--allow-read",
       "--allow-env",
       "--allow-write",
       "--allow-sys",
+      "--allow-ffi",
       "--no-check",
       "--output",
       "bin/zenith-backend",

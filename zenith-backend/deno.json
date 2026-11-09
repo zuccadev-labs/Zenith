@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Zenith - The Deterministic BaaS for the AI Era",
   "exports": "./src/mod.ts",
+  "minimumDependencyAge": {
+    "age": "1440",
+    "exclude": ["jsr:@zuccadev-labs/barrits", "jsr:@zuccadev-labs/zutool-ffi"]
+  },
   "tasks": {
     "dev": "deno run -A scripts/zen.ts dev",
     "start": "deno run -A src/mod.ts --mode=production",
