@@ -52,11 +52,9 @@ tokens sellados, que son inútiles sin `sessionKey`, pero no deben salir del ser
 Las sesiones necesitan `updateIf` para el lease del refresh. Sobre Scylla, configurar `engineAuth` hace fallar el
 arranque con un error claro.
 
-### Dependencias atrasadas
-Por la regla de usar siempre la última versión estable o LTS, hay que actualizar:
-- `@zuccadev-labs/barrits` 0.1.0 → 0.3.0;
-- `mongodb` ^6.5 → la versión actual del driver;
-- OpenTelemetry, que hoy da avisos de dependencias peer.
+### `deno.lock` fuera del repositorio
+`.gitignore` excluye `deno.lock`, así que cada instalación puede resolver versiones distintas dentro de los rangos
+`^`. Para una aplicación, lo habitual es versionar el lockfile.
 
 ### Importar el binding sin desactivar la protección de Deno
 Hasta el 2026-11-10 a las 15:52 (hora local), `@zuccadev-labs/zutool-ffi@0.1.0` tiene menos de 24 h, y Deno no

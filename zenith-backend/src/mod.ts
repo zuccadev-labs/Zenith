@@ -457,7 +457,7 @@ export async function createZenithApp(config: ZenithConfig) {
 
     // ScyllaDB only when this app uses it (database or auth/time-series store): an unconfigured
     // Scylla used to block every boot.
-    const scyllaUri = (config as Record<string, unknown>).authDatabaseURI as string | undefined
+    const scyllaUri = (config as unknown as Record<string, unknown>).authDatabaseURI as string | undefined
       ?? (config.databaseURI?.match(/^(?:cassandra|scylla):\/\/(.+)$/)?.[1]);
     if (scyllaUri) {
       const scyllaHost = scyllaUri.split(":")[0];
@@ -483,7 +483,7 @@ export async function createZenithApp(config: ZenithConfig) {
       console.warn("[ZenithBoot] ⚠️ engineAuth not configured: user routes answer 503, all requests are anonymous.");
     }
 
-    const s3Uri = (config as Record<string, unknown>).mediaStorageURI as string || "http://localhost:8614";
+    const s3Uri = (config as unknown as Record<string, unknown>).mediaStorageURI as string || "http://localhost:8614";
     const s3Client = new S3Client({
       region: "us-east-1",
       endpoint: s3Uri,
