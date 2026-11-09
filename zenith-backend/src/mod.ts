@@ -457,6 +457,16 @@ export async function createZenithApp(config: ZenithConfig) {
     optionalCall(engine, "injectMongoPlugin", mongoPlugin);
     optionalCall(engine, "injectScyllaPlugin", scyllaPlugin);
 
+    // engine-auth: users, sessions and token verification. A bad configuration stops the boot
+    // (fail closed); without one the user routes answer 503 and every request is anonymous.
+    const userManager = (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["user-manager"];
+    if (config.engineAuth && userManager?.configure) {
+      userManager.configure(config.engineAuth);
+      console.log(`[ZenithBoot] 🔐 engine-auth: issuer ${config.engineAuth.issuer}, audience ${config.engineAuth.audience}`);
+    } else {
+      console.warn("[ZenithBoot] ⚠️ engineAuth not configured: user routes answer 503, all requests are anonymous.");
+    }
+
     const s3Uri = (config as Record<string, unknown>).mediaStorageURI as string || "http://localhost:8614";
     const s3Client = new S3Client({
       region: "us-east-1",

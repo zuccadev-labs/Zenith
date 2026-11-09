@@ -199,6 +199,7 @@ export function extractContext(
   }
 
   return {
+    clientIp: resolvedClientIp,
     appId: headers.get("Zen-Application-Id") ?? headers.get("X-Parse-Application-Id") ?? url.searchParams.get("appId") ?? "",
     masterKey: isMasterKeyValid ? true : undefined,
     apiKey: authenticatedByApiKey && apiKeyCtx?.record ? {
@@ -285,7 +286,8 @@ export function resolveAuthentication(authService: any): PipelineStep {
     
     if (token) {
       try {
-        const payload = authService.verifySession(token);
+        // `await`: verifySession is asynchronous (engine-auth sessions); a sync result passes through.
+        const payload = await authService?.verifySession?.(token);
         if (payload && payload.sub) {
           const userId = payload.sub as string;
           // Resolver recursivamente los roles (Jerarquía de Roles de Fase 16)
@@ -299,7 +301,13 @@ export function resolveAuthentication(authService: any): PipelineStep {
             ...ctx,
             auth: {
               userId,
-              roles
+              roles,
+              groups: payload.groups ?? [],
+              scope: payload.scope,
+              clientId: payload.clientId,
+              sessionId: payload.sessionId,
+              actor: payload.actor,
+              via: payload.via,
             }
           };
         }
