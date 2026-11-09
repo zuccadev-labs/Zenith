@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithWebhook
  * @barrits-provides webhook-routes, webhook-manager
- * @barrits-consumes db, acl, telemetry
+ * @barrits-consumes db
  * @barrits-state webhookKeys
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const WebhookTrait = createTraitDescriptor({
   name: "ZenithWebhook",
   provides: ["webhook-routes", "webhook-manager"],
-  consumes: ["db", "acl", "telemetry"],
+  consumes: ["db"],
   state: ["webhookKeys"],
   runtimes: ["deno"],
   summary: "Outbound webhook delivery with HMAC-SHA256 signing, retry policy, and signing-key rotation. Inbound endpoint accepts webhooks from external providers (Stripe, GitHub, etc.) with signature verification.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
     const traitApi: any = {
       webhookKeys: new Map<string, { secret: string; createdAt: number; rotatedAt: number | null }>(),
 

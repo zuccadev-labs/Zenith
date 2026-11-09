@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithCompliance
  * @barrits-provides compliance-routes, compliance, auditLogger, piiRegistry
- * @barrits-consumes db, acl, telemetry, vault
+ * @barrits-consumes db
+ * @barrits-tags uses:vault
  * @barrits-state auditLog, piiFields
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -36,13 +37,14 @@ export type DataClassification = "public" | "internal" | "confidential" | "restr
 export const ComplianceTrait = createTraitDescriptor({
   name: "ZenithCompliance",
   provides: ["compliance-routes", "compliance", "auditLogger", "piiRegistry"],
-  consumes: ["db", "acl", "telemetry", "vault"],
+  consumes: ["db"],
+  tags: ["uses:vault"],
   state: ["auditLog", "piiFields"],
   runtimes: ["deno"],
   summary: "Compliance engine: immutable audit trail (append-only, signed), PII registry with field-level encryption, GDPR/SOC2/HIPAA support, data retention policies, breach notification hooks.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const vault = deps["vault"];
+    const db = deps.traits["db"];
+    const vault = deps.traits["vault"];
 
     const traitApi: any = {
       auditLog: [] as AuditEntry[],

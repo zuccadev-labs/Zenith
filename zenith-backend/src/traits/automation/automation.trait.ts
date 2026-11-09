@@ -21,7 +21,8 @@
  * @barrits-trait
  * @barrits-summary ZenithAutomation
  * @barrits-provides automation_routes, automation
- * @barrits-consumes db, events, acl, adkAgents, notifications, emailSync
+ * @barrits-consumes db, emailSync, notifications
+ * @barrits-tags uses:adkAgents, uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -161,13 +162,13 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
   });
 
   ACTION_REGISTRY.set("send_notification", async ({ userId, title, body, type, link }: any, _ctx) => {
-    const notificationsApi = deps["notifications"];
+    const notificationsApi = deps.traits["notifications"];
     if (notificationsApi) return notificationsApi.create(userId, { title, body, type: type ?? "info", link, source: "automation" });
     return db.create("Notification", { userId, title, body, type: type ?? "info", link, source: "automation", isRead: false, createdAt: now() });
   });
 
   ACTION_REGISTRY.set("send_email", async ({ channelId, to, subject, body, html }: any, _ctx) => {
-    const emailApi = deps["emailSync"];
+    const emailApi = deps.traits["emailSync"];
     if (emailApi) return emailApi.sendEmail(channelId, Array.isArray(to) ? to : [to], subject, body, html);
     if (events) events.emit("Email.send", { channelId, to, subject, body });
     return { queued: true };
@@ -184,7 +185,7 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
   });
 
   ACTION_REGISTRY.set("run_agent", async ({ agentId, inputTemplate }: any, ctx) => {
-    const agentsApi = deps["adkAgents"];
+    const agentsApi = deps.traits["adkAgents"];
     if (!agentsApi) return { skipped: "ADK agents not configured" };
     const input = inputTemplate
       ? String(inputTemplate).replace(/\{\{(\w+)\}\}/g, (_, k) => String(ctx.record?.[k] ?? ""))
@@ -245,14 +246,15 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
 export const AutomationTrait = createTraitDescriptor({
   name: "ZenithAutomation",
   provides: ["automation_routes", "automation"],
-  consumes: ["db", "events", "acl", "adkAgents", "notifications", "emailSync"],
+  consumes: ["db", "emailSync", "notifications"],
+  tags: ["uses:adkAgents", "uses:events"],
   state: [],
   runtimes: ["deno"],
   summary: "Automation Rules Engine: IF-THEN rules on any event. Built-in actions: create_task, update_record, send_notification, send_email, send_webhook, run_agent, add/remove_tag, assign, create_note, wait, run_sequence. Pluggable custom actions.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const events = deps.traits["events"];
 
     registerBuiltinActions(db, events, deps);
 

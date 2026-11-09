@@ -5,7 +5,8 @@
  * @barrits-trait
  * @barrits-summary ZenithRunner
  * @barrits-provides runner-routes, runner, codeRunner
- * @barrits-consumes db, telemetry, shell
+ * @barrits-consumes db
+ * @barrits-tags uses:shell
  * @barrits-state activeRuns, sandboxPool
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,13 +16,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const RunnerTrait = createTraitDescriptor({
   name: "ZenithRunner",
   provides: ["runner-routes", "runner", "codeRunner"],
-  consumes: ["db", "telemetry", "shell"],
+  consumes: ["db"],
+  tags: ["uses:shell"],
   state: ["activeRuns", "sandboxPool"],
   runtimes: ["deno"],
   summary: "Code runner: sandboxed Deno worker pool for executing user-submitted scripts, custom logic functions, and cloud functions. Memory/CPU limits, timeout enforcement.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const shell = deps["shell"];
+    const db = deps.traits["db"];
+    const shell = deps.traits["shell"];
 
     const traitApi: any = {
       activeRuns: new Map<string, { startedAt: number; worker: Worker | null }>(),

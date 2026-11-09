@@ -5,7 +5,8 @@
  * @barrits-trait
  * @barrits-summary ZenithFederation
  * @barrits-provides federation, federation-routes
- * @barrits-consumes db, events, telemetry, grpc
+ * @barrits-consumes db, telemetry
+ * @barrits-tags uses:events
  * @barrits-state peers, crdtState
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,14 +16,15 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const FederationTrait = createTraitDescriptor({
   name: "ZenithFederation",
   provides: ["federation", "federation-routes"],
-  consumes: ["db", "events", "telemetry", "grpc"],
+  consumes: ["db", "telemetry"],
+  tags: ["uses:events"],
   state: ["peers", "crdtState"],
   runtimes: ["deno"],
   summary: "Multi-region federation with CRDT (Yjs-style LWW-register) for conflict-free replication, gossip protocol over gRPC, vector clocks for causal ordering.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const events = deps["events"];
-    const telemetry = deps["telemetry"];
+    const db = deps.traits["db"];
+    const events = deps.traits["events"];
+    const telemetry = deps.traits["telemetry"];
 
     const traitApi: any = {
       peers: new Map<string, { region: string; endpoint: string; lastSync: number }>(),

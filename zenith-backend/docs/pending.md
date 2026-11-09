@@ -27,15 +27,18 @@ Cada uno tiene su propio registro de clases. Conviene unificarlos para que las c
 
 ## Autenticación (engine-auth, ADR-012)
 
-### La composición completa de traits no arranca
-Hoy no arranca con barrits 0.1.0, y no es por la autenticación:
-- `ZenithSchemaManagement`, `ZenithRestCrud` y otros consumen `db`, `cloud` o `telemetry`, que ningún trait provee;
-- `ZenithCoreServer` crea `initKeys`, pero no lo declara en `provides`.
+### Abrir las rutas de negocio a usuarios (ADR-013)
+Desde que se deniega por defecto, solo son públicas la salud, la documentación y las rutas Parse de usuarios. Todo
+lo demás exige la master key. Para abrir cada trait con `access: "user"` hay que revisar:
+- que el handler compruebe los permisos de cada objeto;
+- que lea la identidad de `ctx.auth` y `ctx.masterKey`. El CRUD genérico usa `ctx.user` y `ctx.master`, que el
+  pipeline no rellena;
+- que la lista de una clase filtre por ACL. Hoy `listClass` devuelve todo.
 
-Ninguna prueba arranca `createZenithApp`, porque `engine.test.ts` está excluida. La fachada de engine-auth se
-prueba componiendo su trait y el pipeline real.
+Prioridad para los clientes Parse: el CRUD de `/classes`, las funciones Cloud (`/functions/*`) y LiveQuery.
 
-Hay que unificar los nombres de capacidad (`database-crud`, no `db`) y leer las dependencias de `deps.traits`.
+No deben abrirse nunca a usuarios: `/shell/*`, `/runner/*`, `/secrets/*`, `/edge/deploy`, `/ratelimit/*`,
+`/schemas` y `/migrations`.
 
 ### `_Session` solo con master key
 Cuando el CRUD genérico funcione, `/classes/_Session` debe quedar reservado a la master key. Contiene refresh

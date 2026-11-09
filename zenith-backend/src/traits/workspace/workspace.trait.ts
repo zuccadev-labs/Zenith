@@ -9,7 +9,8 @@
  * @barrits-trait
  * @barrits-summary ZenithWorkspace
  * @barrits-provides workspace_routes, workspace
- * @barrits-consumes db, acl, cloud, events
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -54,16 +55,17 @@ const WORKSPACE_SCHEMAS = {
 export const WorkspaceTrait = createTraitDescriptor({
   name: "ZenithWorkspace",
   provides: ["workspace_routes", "workspace"],
-  consumes: ["db", "acl", "cloud", "events"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Workspace Members (roles Admin/Member/Guest), Invitations by email with token, API Key CRUD (HMAC-hashed, never stored plain).",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const cloud  = deps["cloud"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const cloud  = deps.traits["cloud"];
+    const events = deps.traits["events"];
 
     if (cloud?.defineSchema) {
       for (const [name, fields] of Object.entries(WORKSPACE_SCHEMAS)) {

@@ -5,7 +5,8 @@
  * @barrits-trait
  * @barrits-summary ZenithAI
  * @barrits-provides ai-routes, ai, aiProvider
- * @barrits-consumes db, acl, telemetry, vectordb
+ * @barrits-consumes db
+ * @barrits-tags uses:vectordb
  * @barrits-state providers, tools
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,13 +16,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const AITrait = createTraitDescriptor({
   name: "ZenithAI",
   provides: ["ai-routes", "ai", "aiProvider"],
-  consumes: ["db", "acl", "telemetry", "vectordb"],
+  consumes: ["db"],
+  tags: ["uses:vectordb"],
   state: ["providers", "tools"],
   runtimes: ["deno"],
   summary: "AI agent layer: multi-provider LLM access (Anthropic, OpenAI, Ollama), tool-calling registry, ReAct loop, conversation memory, prompt templates, cost tracking.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const vectordb = deps["vectordb"];
+    const db = deps.traits["db"];
+    const vectordb = deps.traits["vectordb"];
 
     const traitApi: any = {
       providers: new Map<string, { type: string; apiKey?: string; endpoint?: string; model: string }>(),

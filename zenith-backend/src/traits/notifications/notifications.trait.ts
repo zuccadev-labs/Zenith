@@ -10,7 +10,8 @@
  * @barrits-trait
  * @barrits-summary ZenithNotifications
  * @barrits-provides notifications_routes, notifications
- * @barrits-consumes db, events
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -48,18 +49,19 @@ function pushSSE(userId: string, payload: unknown): void {
 export const NotificationsTrait = createTraitDescriptor({
   name: "ZenithNotifications",
   provides: ["notifications_routes", "notifications"],
-  consumes: ["db", "events"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
   summary: "In-app notifications with SSE push stream. Supports read/unread, batch mark-all-read, type filtering and real-time delivery.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const events = deps.traits["events"];
 
-    if (deps["cloud"]?.defineSchema) {
+    if (deps.traits["cloud"]?.defineSchema) {
       for (const [name, fields] of Object.entries(NOTIFICATION_SCHEMA)) {
-        deps["cloud"].defineSchema(name, fields, {});
+        deps.traits["cloud"].defineSchema(name, fields, {});
       }
     }
 

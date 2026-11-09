@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithJobQueue
  * @barrits-provides queue-routes, queue, jobQueue
- * @barrits-consumes db, telemetry
+ * @barrits-consumes db
  * @barrits-state jobs, workers
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -28,12 +28,12 @@ interface Job {
 export const JobQueueTrait = createTraitDescriptor({
   name: "ZenithJobQueue",
   provides: ["queue-routes", "queue", "jobQueue"],
-  consumes: ["db", "telemetry"],
+  consumes: ["db"],
   state: ["jobs", "workers"],
   runtimes: ["deno"],
   summary: "Background job queue: persistent jobs, retry policies, dead-letter queue, scheduled (delayed) jobs, worker pool, priority levels, deduplication by idempotency key.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const jobs = new Map<string, Job>();
     const workers = new Map<string, (data: any) => Promise<any>>();

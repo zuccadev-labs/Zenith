@@ -12,7 +12,8 @@
  * @barrits-trait
  * @barrits-summary ZenithWebhookManager
  * @barrits-provides webhook_mgmt_routes, webhookManager
- * @barrits-consumes db, acl, webhook-manager, events
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -68,18 +69,19 @@ async function signPayload(payload: string, secret: string): Promise<string> {
 export const WebhookManagerTrait = createTraitDescriptor({
   name: "ZenithWebhookManager",
   provides: ["webhook_mgmt_routes", "webhookManager"],
-  consumes: ["db", "acl", "webhook-manager", "events"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
   summary: "User-managed Webhook CRUD: create, list, update, pause, delete. HMAC-SHA256 signing, delivery logs, retry policy. Integrates with CLI `zen webhook`.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const events = deps.traits["events"];
 
-    if (deps["cloud"]?.defineSchema) {
+    if (deps.traits["cloud"]?.defineSchema) {
       for (const [name, fields] of Object.entries(WEBHOOK_SCHEMA)) {
-        deps["cloud"].defineSchema(name, fields, {});
+        deps.traits["cloud"].defineSchema(name, fields, {});
       }
     }
 

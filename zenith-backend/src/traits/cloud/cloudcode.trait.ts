@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithCloudCode
  * @barrits-provides cloudcode-routes, cloud, triggers, cloud-functions
- * @barrits-consumes db, acl, schema, webhook, telemetry
+ * @barrits-consumes acl, db, schema
  * @barrits-state registeredFunctions, beforeFindTriggers, afterFindTriggers
  * @barrits-stability stable
  * @barrits-runtime deno
@@ -35,14 +35,14 @@ export interface FileTriggerSet {
 export const CloudCodeTrait = createTraitDescriptor({
   name: "ZenithCloudCode",
   provides: ["cloudcode-routes", "cloud", "triggers", "cloud-functions"],
-  consumes: ["db", "acl", "schema", "webhook", "telemetry"],
+  consumes: ["acl", "db", "schema"],
   state: ["registeredFunctions", "beforeFindTriggers", "afterFindTriggers"],
   runtimes: ["deno"],
   summary: "Parse Server-compatible Cloud Code: define/register functions, before/after triggers on collections, custom REST routes with security policies (Parse Server master key replacement via API keys).",
   create: (deps: Record<string, unknown>) => {
-    const db = deps["db"];
-    const acl = deps["acl"];
-    const schema = deps["schema"];
+    const db = deps.traits["db"];
+    const acl = deps.traits["acl"];
+    const schema = deps.traits["schema"];
 
     const registeredFunctions = new Map<string, CloudFunctionHandler>();
     const beforeSaveTriggers = new Map<string, CloudTriggerHandler[]>();

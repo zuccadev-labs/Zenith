@@ -10,7 +10,8 @@
  * @barrits-trait
  * @barrits-summary ZenithBlogForum
  * @barrits-provides blogforum_routes, blog, forum
- * @barrits-consumes db, acl, events, storage
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -94,19 +95,20 @@ function readingTime(bodyText?: string): number {
 export const BlogForumTrait = createTraitDescriptor({
   name: "ZenithBlogForum",
   provides: ["blogforum_routes", "blog", "forum"],
-  consumes: ["db", "acl", "events", "storage"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Monetizable Blog (draft/publish/premium paywall, SEO, rich-text) and Community Forum (categories, threads, replies, votes, accepted answer). Uses CollaborationTrait for comments/attachments.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const events = deps.traits["events"];
 
-    if (deps["cloud"]?.defineSchema) {
+    if (deps.traits["cloud"]?.defineSchema) {
       for (const [name, fields] of Object.entries(CONTENT_SCHEMAS)) {
-        deps["cloud"].defineSchema(name, fields, {});
+        deps.traits["cloud"].defineSchema(name, fields, {});
       }
     }
 

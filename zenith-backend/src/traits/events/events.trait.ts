@@ -4,8 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithEventStreaming
  * @barrits-provides events-routes, events, eventBus
- * @barrits-consumes db, acl, telemetry
- * @barrits-state subscribers, eventLog
+ * @barrits-consumes db
+ * @barrits-state eventSubscribers, eventLog
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const EventStreamingTrait = createTraitDescriptor({
   name: "ZenithEventStreaming",
   provides: ["events-routes", "events", "eventBus"],
-  consumes: ["db", "acl", "telemetry"],
-  state: ["subscribers", "eventLog"],
+  consumes: ["db"],
+  state: ["eventSubscribers", "eventLog"],
   runtimes: ["deno"],
   summary: "Event sourcing bus: domain events (CRUD triggers, custom events), pub/sub with Kafka adapter (optional), replay log, event-store projections.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       subscribers: new Map<string, Set<(payload: any) => void | Promise<void>>>(),

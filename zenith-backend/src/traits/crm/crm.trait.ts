@@ -14,7 +14,8 @@
  * @barrits-trait
  * @barrits-summary ZenithCRMTrait
  * @barrits-provides crm_routes, crm
- * @barrits-consumes db, acl, cloud, ratelimit, telemetry, events
+ * @barrits-consumes acl, cloud, db, telemetry
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -167,18 +168,19 @@ function errorResponse(err: any): Response {
 export const CRMTrait = createTraitDescriptor({
   name: "ZenithCRMTrait",
   provides: ["crm_routes", "crm"],
-  consumes: ["db", "acl", "cloud", "ratelimit", "telemetry", "events"],
+  consumes: ["acl", "cloud", "db", "telemetry"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Enterprise CRM: CRUD completo (Contact, Lead, Deal, Account, Pipeline, Campaign), Smart DB Routing (Mongo/Scylla/VectorDB), AI Insights, y Cloud Code hooks.",
 
   create: (deps: Record<string, any>) => {
-    const db      = deps["db"];
-    const acl     = deps["acl"];
-    const cloud   = deps["cloud"];
-    const events  = deps["events"];
-    const obs     = deps["telemetry"];
+    const db      = deps.traits["db"];
+    const acl     = deps.traits["acl"];
+    const cloud   = deps.traits["cloud"];
+    const events  = deps.traits["events"];
+    const obs     = deps.traits["telemetry"];
 
     // 1. Registrar schemas al inicializar el Trait (fuente de verdad única)
     if (cloud?.defineSchema) {

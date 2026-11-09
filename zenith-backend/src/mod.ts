@@ -12,7 +12,8 @@
  *
  * @barrits-runtime deno
  */
-import { composeTraitDescriptors } from "@zuccadev-labs/barrits";
+import { composeZenith } from "./core/compose.ts";
+import { DbTrait } from "./traits/db/db.trait.ts";
 import { generateOpenApiSchema } from "./core/openapi.ts";
 import { ServerTrait } from "./core/server.trait.ts";
 import { loadMergedTrustStore, parseManifest, verifyPlugin } from "./security/plugin-signing/mod.ts";
@@ -148,11 +149,219 @@ function optionalCall<T>(obj: unknown, key: string, ...args: unknown[]): unknown
 }
 
 /**
+ * The traits a configuration activates, in boot order. Pure: `createZenithApp` composes exactly
+ * this list, and the composition tests check it for every topology/feature combination.
+ */
+export function selectTraits(config: ZenithConfig): unknown[] {
+  const topology = config.topology || ["http", "runner", "ai", "graphql", "zeromq"];
+  
+  const activeTraits: unknown[] = [
+    DbTrait,
+    StorageRustfsTrait,
+    CryptoTrait,
+    SchemaManagementTrait,
+    UserManagementTrait,
+    MediaStreamTrait,
+    ACLTrait,
+    RateLimitTrait,
+    RestCrudTrait,
+    CloudCodeTrait,
+    FileStorageTrait,
+    ObservabilityTrait,
+    MigrationTrait,
+  ];
+
+  if (config.databaseURI?.startsWith("mongodb")) {
+    activeTraits.push(DatabaseMongoTrait);
+  } else if (config.databaseURI?.startsWith("cassandra") || config.databaseURI?.startsWith("scylla")) {
+    activeTraits.push(DatabaseScyllaTrait);
+  } else {
+    activeTraits.push(DatabaseMongoTrait);
+  }
+
+  if (config.features?.saas) {
+    activeTraits.push(BillingTrait);
+    console.log(`[ZenithBoot] 🛒 SaaS/Billing Layer Enabled.`);
+  }
+  
+  if (config.features?.ecommerce) {
+    activeTraits.push(OpenSearchTrait);
+    console.log(`[ZenithBoot] 🛍️ E-Commerce/Search Layer Enabled.`);
+  }
+
+  if (config.features?.gdpr) {
+    activeTraits.push(SegmentationTrait);
+    console.log(`[ZenithBoot] 🛡️ GDPR/Segmentation Layer Enabled.`);
+  }
+  
+  if (config.features?.edge) {
+    activeTraits.push(EdgeTrait);
+    console.log(`[ZenithBoot] ⚡ WASM Edge Computing Enabled.`);
+  }
+
+  if (config.features?.events) {
+    activeTraits.push(EventStreamingTrait);
+    console.log(`[ZenithBoot] 📬 Event Sourcing (Kafka) Enabled.`);
+  }
+
+  if (config.features?.web3) {
+    activeTraits.push(Web3Trait);
+    activeTraits.push(IPFSStorageTrait);
+    console.log(`[ZenithBoot] 🌐 Web3 & IPFS Storage Enabled.`);
+  }
+
+  if (config.features?.federation) {
+    activeTraits.push(FederationTrait);
+    console.log(`[ZenithBoot] 🌍 Multi-Region Federation (CRDT) Enabled.`);
+  }
+
+  if (topology.includes("http")) {
+    activeTraits.push(ServerTrait);
+    activeTraits.push(RealtimeTrait);
+  }
+  
+  if (topology.includes("graphql")) {
+    activeTraits.push(GraphQLTrait);
+  }
+  
+  if (topology.includes("ai") && config.features?.ai) {
+    activeTraits.push(AITrait);
+    console.log(`[ZenithBoot] 🧠 AI Agent Layer Enabled.`);
+  }
+
+  if (topology.includes("runner")) {
+    activeTraits.push(RunnerTrait);
+    activeTraits.push(ShellApiTrait);
+  }
+
+  if (topology.includes("http")) {
+    activeTraits.push(WebhookTrait);
+  }
+
+  if (topology.includes("grpc")) {
+    activeTraits.push(gRPCTrait);
+  }
+
+  if (topology.includes("zeromq")) {
+    activeTraits.push(ZeroMQTrait);
+  }
+
+  if (config.features?.e2ee_media) {
+    activeTraits.push(E2EEKeysTrait);
+    activeTraits.push(SFrameSignalingTrait);
+    console.log(`[ZenithBoot] 🔒 E2EE Media & Signaling Enabled.`);
+  }
+
+  activeTraits.push(FeatureFlagsTrait);
+
+  if (config.features?.vectordb) {
+    activeTraits.push(VectorDBTrait);
+    console.log(`[ZenithBoot] 🧠 Vector DB (Semantic Search + RAG) Enabled.`);
+  }
+
+  if (config.features?.iot) {
+    activeTraits.push(IoTTrait);
+    console.log(`[ZenithBoot] 📡 IoT Layer (MQTT + Device Registry + SenML) Enabled.`);
+  }
+
+  if (config.features?.agents) {
+    activeTraits.push(AgentOrchestratorTrait);
+    console.log(`[ZenithBoot] 🤖 Agent Orchestrator (ReAct Loop + Tool Calling) Enabled.`);
+  }
+
+  if (config.features?.timeseries) {
+    activeTraits.push(TimeSeriesTrait);
+    console.log(`[ZenithBoot] 📈 TimeSeries (ScyllaDB + Grafana DS API) Enabled.`);
+  }
+
+  if (config.features?.workflow) {
+    activeTraits.push(WorkflowTrait);
+    console.log(`[ZenithBoot] ⚡ Workflow Engine (iPaaS Trigger→Action) Enabled.`);
+  }
+
+  if (config.features?.multiTenant) {
+    activeTraits.push(TenantTrait);
+    console.log(`[ZenithBoot] 🏢 Multi-Tenant RLS Enabled.`);
+  }
+
+  if (config.features?.compliance) {
+    activeTraits.push(ComplianceTrait);
+    console.log(`[ZenithBoot] ⚖️  Compliance (GDPR/SOC2 + Immutable Audit Trail) Enabled.`);
+  }
+
+  if (config.features?.cache !== false) {
+    activeTraits.push(CacheTrait);
+    console.log(`[ZenithBoot] ⚡ Cache Layer (LRU in-memory + Redis adapter, tag-invalidation) Enabled.`);
+  }
+
+  if (config.features?.push) {
+    activeTraits.push(PushTrait);
+    console.log(`[ZenithBoot] 🔔 Push Notifications (FCM/APNs, device registry, channels) Enabled.`);
+  }
+
+  if (config.features?.queue !== false) {
+    activeTraits.push(JobQueueTrait);
+    console.log(`[ZenithBoot] 📦 Job Queue (persistent, retry, DLQ, scheduled, priority) Enabled.`);
+  }
+
+  if (config.features?.resilience !== false) {
+    activeTraits.push(CircuitBreakerTrait);
+    console.log(`[ZenithBoot] 🛡️ Circuit Breaker (fail-fast, auto-recovery, fallback) Enabled.`);
+  }
+
+  // ── Capa de negocio principal (CRM + ERP) ──────────────────────────────
+  // Van al final del pipeline base (después de db, cloud, acl, ratelimit, events).
+  activeTraits.push(CRMTrait);
+  activeTraits.push(ERPTrait);
+  console.log(`[ZenithBoot] 💼 CRM + ERP Traits registrados (CRUD, Smart DB Routing, Audit).`);
+
+  // ── Capa de colaboración (depende de db, cloud, events, storage) ────────
+  activeTraits.push(CollaborationTrait);
+  activeTraits.push(WorkspaceTrait);
+  activeTraits.push(ViewsTrait);
+  activeTraits.push(TimelineTrait);
+  console.log(`[ZenithBoot] 🤝 Collaboration Layer: Notes, Tasks, Comments, Attachments, Views, Timeline.`);
+
+  // ── Capa de búsqueda y metadata dinámica ────────────────────────────────
+  activeTraits.push(SearchTrait);
+  activeTraits.push(MetadataTrait);
+  console.log(`[ZenithBoot] 🔍 Search + Metadata API (Custom Objects & Fields) habilitado.`);
+
+  // ── Capa de contenido y comunidad ───────────────────────────────────────
+  activeTraits.push(BlogForumTrait);
+  console.log(`[ZenithBoot] 📝 Blog + Forum (monetizable, SEO, votes) habilitado.`);
+
+  // ── Capa de Agentes AI (Google ADK) ─────────────────────────────────────
+  if (config.features?.agents !== false) {
+    activeTraits.push(ADKAgentsTrait);
+    console.log(`[ZenithBoot] 🤖 AI Agents (CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent) habilitados.`);
+  }
+
+  // ── Plugin Marketplace ──────────────────────────────────────────────────
+  activeTraits.push(PluginMarketplaceTrait);
+  console.log(`[ZenithBoot] 🛒 Plugin Marketplace habilitado.`);
+
+  // ── Capa de Fase 2: Notificaciones, Favoritos, Tags, Webhooks, CSV ────────
+  activeTraits.push(NotificationsTrait);
+  activeTraits.push(FavoritesTagsTrait);
+  activeTraits.push(WebhookManagerTrait);
+  activeTraits.push(CSVTrait);
+  console.log(`[ZenithBoot] 🔔 Phase 2: Notifications (SSE), Favorites, Tags, Webhook Manager, CSV Import/Export.`);
+
+  // ── Fase 3: Email Sync, Calendar Sync, Automation Rules Engine ──────────
+  activeTraits.push(EmailSyncTrait);
+  activeTraits.push(CalendarSyncTrait);
+  activeTraits.push(AutomationTrait);
+  console.log(`[ZenithBoot] 📧 Phase 3: Email Sync (IMAP/SMTP), Calendar Sync (Google/CalDAV/iCal), Automation Rules Engine.`);
+  return activeTraits;
+}
+
+/**
  * Composes and bootstraps a complete Zenith Engine instance for the given application configuration.
  *
  * Orchestrates the full startup sequence:
  *   1. Selects active traits based on topology and feature flags (database, billing, AI, edge, etc.)
- *   2. Composes traits via Barrits `composeTraitDescriptors` into a unified engine API
+ *   2. Composes traits with `composeZenith` (barrits, ordered by consumed capabilities)
  *   3. Generates OpenAPI v3.1 spec with live cloud code function discovery
  *   4. Initializes database adapters (MongoDB, ScyllaDB) and storage (RustFS/S3)
  *   5. Conditionally connects optional adapters (Kafka, IPFS, Neo4j, Stripe)
@@ -168,207 +377,8 @@ export async function createZenithApp(config: ZenithConfig) {
   console.log(`🚀 Bootstrapping Zenith Engine for App: ${config.appId}...`);
 
   try {
-    const topology = config.topology || ["http", "runner", "ai", "graphql", "zeromq"];
-    
-    const activeTraits: unknown[] = [
-      StorageRustfsTrait,
-      CryptoTrait,
-      SchemaManagementTrait,
-      UserManagementTrait,
-      MediaStreamTrait,
-      ACLTrait,
-      RateLimitTrait,
-      RestCrudTrait,
-      CloudCodeTrait,
-      FileStorageTrait,
-      ObservabilityTrait,
-      MigrationTrait,
-    ];
-
-    if (config.databaseURI?.startsWith("mongodb")) {
-      activeTraits.push(DatabaseMongoTrait);
-    } else if (config.databaseURI?.startsWith("cassandra") || config.databaseURI?.startsWith("scylla")) {
-      activeTraits.push(DatabaseScyllaTrait);
-    } else {
-      activeTraits.push(DatabaseMongoTrait);
-    }
-
-    if (config.features?.saas) {
-      activeTraits.push(BillingTrait);
-      console.log(`[ZenithBoot] 🛒 SaaS/Billing Layer Enabled.`);
-    }
-    
-    if (config.features?.ecommerce) {
-      activeTraits.push(OpenSearchTrait);
-      console.log(`[ZenithBoot] 🛍️ E-Commerce/Search Layer Enabled.`);
-    }
-
-    if (config.features?.gdpr) {
-      activeTraits.push(SegmentationTrait);
-      console.log(`[ZenithBoot] 🛡️ GDPR/Segmentation Layer Enabled.`);
-    }
-    
-    if (config.features?.edge) {
-      activeTraits.push(EdgeTrait);
-      console.log(`[ZenithBoot] ⚡ WASM Edge Computing Enabled.`);
-    }
-
-    if (config.features?.events) {
-      activeTraits.push(EventStreamingTrait);
-      console.log(`[ZenithBoot] 📬 Event Sourcing (Kafka) Enabled.`);
-    }
-
-    if (config.features?.web3) {
-      activeTraits.push(Web3Trait);
-      activeTraits.push(IPFSStorageTrait);
-      console.log(`[ZenithBoot] 🌐 Web3 & IPFS Storage Enabled.`);
-    }
-
-    if (config.features?.federation) {
-      activeTraits.push(FederationTrait);
-      console.log(`[ZenithBoot] 🌍 Multi-Region Federation (CRDT) Enabled.`);
-    }
-
-    if (topology.includes("http")) {
-      activeTraits.push(ServerTrait);
-      activeTraits.push(RealtimeTrait);
-    }
-    
-    if (topology.includes("graphql")) {
-      activeTraits.push(GraphQLTrait);
-    }
-    
-    if (topology.includes("ai") && config.features?.ai) {
-      activeTraits.push(AITrait);
-      console.log(`[ZenithBoot] 🧠 AI Agent Layer Enabled.`);
-    }
-
-    if (topology.includes("runner")) {
-      activeTraits.push(RunnerTrait);
-      activeTraits.push(ShellApiTrait);
-    }
-
-    if (topology.includes("http")) {
-      activeTraits.push(WebhookTrait);
-    }
-
-    if (topology.includes("grpc")) {
-      activeTraits.push(gRPCTrait);
-    }
-
-    if (topology.includes("zeromq")) {
-      activeTraits.push(ZeroMQTrait);
-    }
-
-    if (config.features?.e2ee_media) {
-      activeTraits.push(E2EEKeysTrait);
-      activeTraits.push(SFrameSignalingTrait);
-      console.log(`[ZenithBoot] 🔒 E2EE Media & Signaling Enabled.`);
-    }
-
-    activeTraits.push(FeatureFlagsTrait);
-
-    if (config.features?.vectordb) {
-      activeTraits.push(VectorDBTrait);
-      console.log(`[ZenithBoot] 🧠 Vector DB (Semantic Search + RAG) Enabled.`);
-    }
-
-    if (config.features?.iot) {
-      activeTraits.push(IoTTrait);
-      console.log(`[ZenithBoot] 📡 IoT Layer (MQTT + Device Registry + SenML) Enabled.`);
-    }
-
-    if (config.features?.agents) {
-      activeTraits.push(AgentOrchestratorTrait);
-      console.log(`[ZenithBoot] 🤖 Agent Orchestrator (ReAct Loop + Tool Calling) Enabled.`);
-    }
-
-    if (config.features?.timeseries) {
-      activeTraits.push(TimeSeriesTrait);
-      console.log(`[ZenithBoot] 📈 TimeSeries (ScyllaDB + Grafana DS API) Enabled.`);
-    }
-
-    if (config.features?.workflow) {
-      activeTraits.push(WorkflowTrait);
-      console.log(`[ZenithBoot] ⚡ Workflow Engine (iPaaS Trigger→Action) Enabled.`);
-    }
-
-    if (config.features?.multiTenant) {
-      activeTraits.push(TenantTrait);
-      console.log(`[ZenithBoot] 🏢 Multi-Tenant RLS Enabled.`);
-    }
-
-    if (config.features?.compliance) {
-      activeTraits.push(ComplianceTrait);
-      console.log(`[ZenithBoot] ⚖️  Compliance (GDPR/SOC2 + Immutable Audit Trail) Enabled.`);
-    }
-
-    if (config.features?.cache !== false) {
-      activeTraits.push(CacheTrait);
-      console.log(`[ZenithBoot] ⚡ Cache Layer (LRU in-memory + Redis adapter, tag-invalidation) Enabled.`);
-    }
-
-    if (config.features?.push) {
-      activeTraits.push(PushTrait);
-      console.log(`[ZenithBoot] 🔔 Push Notifications (FCM/APNs, device registry, channels) Enabled.`);
-    }
-
-    if (config.features?.queue !== false) {
-      activeTraits.push(JobQueueTrait);
-      console.log(`[ZenithBoot] 📦 Job Queue (persistent, retry, DLQ, scheduled, priority) Enabled.`);
-    }
-
-    if (config.features?.resilience !== false) {
-      activeTraits.push(CircuitBreakerTrait);
-      console.log(`[ZenithBoot] 🛡️ Circuit Breaker (fail-fast, auto-recovery, fallback) Enabled.`);
-    }
-
-    // ── Capa de negocio principal (CRM + ERP) ──────────────────────────────
-    // Van al final del pipeline base (después de db, cloud, acl, ratelimit, events).
-    activeTraits.push(CRMTrait);
-    activeTraits.push(ERPTrait);
-    console.log(`[ZenithBoot] 💼 CRM + ERP Traits registrados (CRUD, Smart DB Routing, Audit).`);
-
-    // ── Capa de colaboración (depende de db, cloud, events, storage) ────────
-    activeTraits.push(CollaborationTrait);
-    activeTraits.push(WorkspaceTrait);
-    activeTraits.push(ViewsTrait);
-    activeTraits.push(TimelineTrait);
-    console.log(`[ZenithBoot] 🤝 Collaboration Layer: Notes, Tasks, Comments, Attachments, Views, Timeline.`);
-
-    // ── Capa de búsqueda y metadata dinámica ────────────────────────────────
-    activeTraits.push(SearchTrait);
-    activeTraits.push(MetadataTrait);
-    console.log(`[ZenithBoot] 🔍 Search + Metadata API (Custom Objects & Fields) habilitado.`);
-
-    // ── Capa de contenido y comunidad ───────────────────────────────────────
-    activeTraits.push(BlogForumTrait);
-    console.log(`[ZenithBoot] 📝 Blog + Forum (monetizable, SEO, votes) habilitado.`);
-
-    // ── Capa de Agentes AI (Google ADK) ─────────────────────────────────────
-    if (config.features?.agents !== false) {
-      activeTraits.push(ADKAgentsTrait);
-      console.log(`[ZenithBoot] 🤖 AI Agents (CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent) habilitados.`);
-    }
-
-    // ── Plugin Marketplace ──────────────────────────────────────────────────
-    activeTraits.push(PluginMarketplaceTrait);
-    console.log(`[ZenithBoot] 🛒 Plugin Marketplace habilitado.`);
-
-    // ── Capa de Fase 2: Notificaciones, Favoritos, Tags, Webhooks, CSV ────────
-    activeTraits.push(NotificationsTrait);
-    activeTraits.push(FavoritesTagsTrait);
-    activeTraits.push(WebhookManagerTrait);
-    activeTraits.push(CSVTrait);
-    console.log(`[ZenithBoot] 🔔 Phase 2: Notifications (SSE), Favorites, Tags, Webhook Manager, CSV Import/Export.`);
-
-    // ── Fase 3: Email Sync, Calendar Sync, Automation Rules Engine ──────────
-    activeTraits.push(EmailSyncTrait);
-    activeTraits.push(CalendarSyncTrait);
-    activeTraits.push(AutomationTrait);
-    console.log(`[ZenithBoot] 📧 Phase 3: Email Sync (IMAP/SMTP), Calendar Sync (Google/CalDAV/iCal), Automation Rules Engine.`);
-
-    const composition = composeTraitDescriptors(activeTraits);
+    const activeTraits = selectTraits(config);
+    const composition = composeZenith(activeTraits);
     const engine = composition.traits as unknown as EngineAPI;
     console.log("[ZenithBoot] Final Composed Capabilities:", Object.keys(engine));
 
@@ -401,6 +411,7 @@ export async function createZenithApp(config: ZenithConfig) {
 
     const metaRoutes = [
       {
+        access: "public",
         method: "GET",
         path: "/openapi.json",
         handler: (_req: Request, _ctx: unknown) =>
@@ -414,6 +425,7 @@ export async function createZenithApp(config: ZenithConfig) {
           }),
       },
       {
+        access: "public",
         method: "GET",
         path: "/swagger",
         handler: (_req: Request, _ctx: unknown) =>
@@ -443,19 +455,23 @@ export async function createZenithApp(config: ZenithConfig) {
     await mongoClient.connect();
     const mongoPlugin = createMongoAdapter(mongoClient.db(config.appId));
 
-    const scyllaUri = (config as Record<string, unknown>).authDatabaseURI as string || "localhost:90614";
-    const scyllaHost = scyllaUri.split(":")[0];
-    const scyllaPort = parseInt(scyllaUri.split(":")[1] || "9042", 10);
-    const scyllaClient = new cassandra.Client({ 
-      contactPoints: [scyllaHost], 
-      protocolOptions: { port: scyllaPort },
-      localDataCenter: 'datacenter1' 
-    });
-    await scyllaClient.connect();
-    const scyllaPlugin = createScyllaAdapter(scyllaClient);
+    // ScyllaDB only when this app uses it (database or auth/time-series store): an unconfigured
+    // Scylla used to block every boot.
+    const scyllaUri = (config as Record<string, unknown>).authDatabaseURI as string | undefined
+      ?? (config.databaseURI?.match(/^(?:cassandra|scylla):\/\/(.+)$/)?.[1]);
+    if (scyllaUri) {
+      const scyllaHost = scyllaUri.split(":")[0];
+      const scyllaPort = parseInt(scyllaUri.split(":")[1] || "9042", 10);
+      const scyllaClient = new cassandra.Client({
+        contactPoints: [scyllaHost],
+        protocolOptions: { port: scyllaPort },
+        localDataCenter: 'datacenter1'
+      });
+      await scyllaClient.connect();
+      optionalCall(engine, "injectScyllaPlugin", createScyllaAdapter(scyllaClient));
+    }
 
     optionalCall(engine, "injectMongoPlugin", mongoPlugin);
-    optionalCall(engine, "injectScyllaPlugin", scyllaPlugin);
 
     // engine-auth: users, sessions and token verification. A bad configuration stops the boot
     // (fail closed); without one the user routes answer 503 and every request is anonymous.
@@ -488,7 +504,7 @@ export async function createZenithApp(config: ZenithConfig) {
 
     if (config.features?.web3) {
        const ipfsPlugin = createIPFSAdapter("https://ipfs.io");
-       optionalCall(engine, "injectPlugin", ipfsPlugin);
+       optionalCall(engine, "injectIPFSPlugin", ipfsPlugin);
     }
 
     if (config.features?.graph) {

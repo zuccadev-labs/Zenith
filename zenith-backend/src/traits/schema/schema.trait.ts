@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithSchemaManagement
  * @barrits-provides schema-routes, schema, schemaValidator
- * @barrits-consumes db, acl, telemetry
+ * @barrits-consumes db
  * @barrits-state schemas, systemClasses
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const SchemaManagementTrait = createTraitDescriptor({
   name: "ZenithSchemaManagement",
   provides: ["schema-routes", "schema", "schemaValidator"],
-  consumes: ["db", "acl", "telemetry"],
+  consumes: ["db"],
   state: ["schemas", "systemClasses"],
   runtimes: ["deno"],
   summary: "Parse Server-compatible schema management: add/update/delete columns, set CLP (class-level permissions), validate objects against schema, system class protection.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
     const traitApi: any = {
       schemas: new Map<string, any>(),
       systemClasses: ["_User", "_Role", "_Session", "_Installation", "_Product", "_Audience", "_AudienceMembership", "_AdUnit", "_group", "_IdempotencyRequest", "_JobStatus"],

@@ -335,17 +335,20 @@ export function applyRateLimit(rateLimiter: any): PipelineStep {
   return async (req: Request, ctx: ZenithRequestContext) => {
     // Master Key bypasses rate limiting
     if (ctx.masterKey) return ctx;
+    if (!rateLimiter?.consume) throw ZenithErrors.internal("rate limiter unavailable");
 
     const url = new URL(req.url);
-    const identifier = req.headers.get("X-Forwarded-For")
-      || req.headers.get("CF-Connecting-IP")
-      || "unknown";
+    // [H-02] The address resolved by extractContext (socket, or X-Forwarded-For only behind a
+    // trusted proxy). Reading the header here would let any client pick its own bucket.
+    const identifier = ctx.clientIp ?? "unknown";
 
     // Endpoints de autenticación: cuota estricta contra fuerza bruta
-    const isSensitive = url.pathname === "/login" || url.pathname === "/users";
+    const isSensitive = url.pathname === "/login" || (url.pathname === "/users" && req.method === "POST");
     const limit = isSensitive ? AUTH_MAX : GLOBAL_MAX;
+    const bucket = `${isSensitive ? "auth" : "api"}:${identifier}`;
 
-    await rateLimiter.checkLimit(identifier, url.pathname, limit, WINDOW_MS);
+    const r = await rateLimiter.consume(bucket, 1, { max: limit, refillPerSecond: limit / (WINDOW_MS / 1000) });
+    if (!r.allowed) throw ZenithErrors.rateLimited();
     return ctx;
   };
 }

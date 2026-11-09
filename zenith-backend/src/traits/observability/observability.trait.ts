@@ -4,8 +4,8 @@
  *
  * @barrits-trait
  * @barrits-summary ZenithObservability
- * @barrits-provides observability-routes, observability, tracer, logger, metric-registry
- * @barrits-consumes telemetry
+ * @barrits-provides observability-routes, observability, tracer, logger, metric-registry, telemetry
+ * @barrits-consumes
  * @barrits-state tracer, logger, metrics
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,13 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const ObservabilityTrait = createTraitDescriptor({
   name: "ZenithObservability",
-  provides: ["observability-routes", "observability", "tracer", "logger", "metric-registry"],
-  consumes: ["telemetry"],
+  provides: ["observability-routes", "observability", "tracer", "logger", "metric-registry", "telemetry"],
+  consumes: [],
   state: ["tracer", "logger", "metrics"],
   runtimes: ["deno"],
   summary: "OpenTelemetry traces, structured JSON logs, Prometheus-compatible metrics (with remote_write and Loki shipper for Phase 1.G). Telemetry middleware for inbound HTTP/WS/gRPC.",
   create: (deps: Record<string, any>) => {
-    const telemetry = deps["telemetry"];
 
     const noopAsyncFn = () => Promise.resolve();
     const noopFn = () => undefined;
@@ -191,12 +190,14 @@ export const ObservabilityTrait = createTraitDescriptor({
     const observability_routes = [
       {
         method: "GET" as const,
+        access: "public" as const,
         path: "/health",
         _openapi: { summary: "Liveness probe" },
         handler: async () => new Response(JSON.stringify(await traitApi.health()), { status: 200, headers: { "content-type": "application/json" } }),
       },
       {
         method: "GET" as const,
+        access: "public" as const,
         path: "/ready",
         _openapi: { summary: "Readiness probe" },
         handler: async () => {
@@ -212,6 +213,7 @@ export const ObservabilityTrait = createTraitDescriptor({
       },
       {
         method: "GET" as const,
+        access: "public" as const,
         path: "/version",
         _openapi: { summary: "Service version info" },
         handler: async () => new Response(JSON.stringify({ name: "zenith-backend", version: "1.0.0", deno: Deno.version.deno }), { status: 200, headers: { "content-type": "application/json" } }),
@@ -224,6 +226,18 @@ export const ObservabilityTrait = createTraitDescriptor({
       "tracer": tracer,
       "logger": logger,
       "metric-registry": metrics,
+      // What the other traits log and trace through: log/info/warn/error/debug and
+      // withSpan(name, attributes?, fn).
+      "telemetry": {
+        log: (msg: string, ...args: any[]) => logger.info(msg, ...args),
+        info: (msg: string, ...args: any[]) => logger.info(msg, ...args),
+        warn: (msg: string, ...args: any[]) => logger.warn(msg, ...args),
+        error: (msg: string, ...args: any[]) => logger.error(msg, ...args),
+        debug: (msg: string, ...args: any[]) => logger.debug(msg, ...args),
+        withSpan: async <T>(_name: string, attrsOrFn: Record<string, unknown> | (() => Promise<T>), fn?: () => Promise<T>): Promise<T> =>
+          await (typeof attrsOrFn === "function" ? attrsOrFn : fn!)(),
+        metrics,
+      },
     };
   },
 });

@@ -5,7 +5,8 @@
  * @barrits-trait
  * @barrits-summary ZenithRestCrud
  * @barrits-provides crud-routes, crud
- * @barrits-consumes db, acl, schema, cloud, ratelimit, telemetry, federation, events
+ * @barrits-consumes acl, cloud, db, ratelimit, schema
+ * @barrits-tags uses:events, uses:federation
  * @barrits-state registeredCollections
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,18 +16,19 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const RestCrudTrait = createTraitDescriptor({
   name: "ZenithRestCrud",
   provides: ["crud-routes", "crud"],
-  consumes: ["db", "acl", "schema", "cloud", "ratelimit", "telemetry", "federation", "events"],
+  consumes: ["acl", "cloud", "db", "ratelimit", "schema"],
+  tags: ["uses:events", "uses:federation"],
   state: ["registeredCollections"],
   runtimes: ["deno"],
   summary: "Parse Server-compatible REST CRUD endpoints: GET/POST/PUT/DELETE on /classes/:className, file upload, batch operations, increment/decrement, ACL enforcement, master key override.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const acl = deps["acl"];
-    const schema = deps["schema"];
-    const cloud = deps["cloud"];
-    const ratelimit = deps["ratelimit"];
-    const federation = deps["federation"];
-    const events = deps["events"];
+    const db = deps.traits["db"];
+    const acl = deps.traits["acl"];
+    const schema = deps.traits["schema"];
+    const cloud = deps.traits["cloud"];
+    const ratelimit = deps.traits["ratelimit"];
+    const federation = deps.traits["federation"];
+    const events = deps.traits["events"];
 
     const traitApi: any = {
       listClass: async (className: string, query: Record<string, any>, ctx: any) => {

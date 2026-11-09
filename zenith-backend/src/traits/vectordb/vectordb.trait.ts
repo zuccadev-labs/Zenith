@@ -4,8 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithVectorDB
  * @barrits-provides vectordb-routes, vectordb, vectorStore
- * @barrits-consumes db, telemetry
- * @barrits-state collections, embedder, adapter
+ * @barrits-consumes db
+ * @barrits-state collections, embedder, vectorAdapter
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
@@ -47,12 +47,12 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export const VectorDBTrait = createTraitDescriptor({
   name: "ZenithVectorDB",
   provides: ["vectordb-routes", "vectordb", "vectorStore"],
-  consumes: ["db", "telemetry"],
-  state: ["collections", "embedder", "adapter"],
+  consumes: ["db"],
+  state: ["collections", "embedder", "vectorAdapter"],
   runtimes: ["deno"],
   summary: "Vector database for semantic search and RAG: pluggable embedders (Ollama, OpenAI), Qdrant adapter, in-memory fallback, HNSW index for ANN search, metadata filtering.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       collections: new Map<string, Array<{ id: string; vector: number[]; metadata: any }>>(),

@@ -14,7 +14,8 @@
  * @barrits-trait
  * @barrits-summary ZenithCollaboration
  * @barrits-provides collaboration_routes, collaboration
- * @barrits-consumes db, acl, cloud, storage, events
+ * @barrits-consumes cloud, db, fileStore, storage
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -70,17 +71,18 @@ const COLLAB_SCHEMAS = {
 export const CollaborationTrait = createTraitDescriptor({
   name: "ZenithCollaboration",
   provides: ["collaboration_routes", "collaboration"],
-  consumes: ["db", "acl", "cloud", "storage", "events"],
+  consumes: ["cloud", "db", "fileStore", "storage"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Notes (rich text), Tasks (with kanban position), Comments (@mentions), Attachments — all linked to any record via polymorphic Target pattern.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const cloud  = deps["cloud"];
-    const events = deps["events"];
-    const fileStore = deps["storage"] ?? deps["fileStore"];
+    const db     = deps.traits["db"];
+    const cloud  = deps.traits["cloud"];
+    const events = deps.traits["events"];
+    const fileStore = deps.traits["storage"] ?? deps.traits["fileStore"];
 
     // Registrar schemas
     if (cloud?.defineSchema) {

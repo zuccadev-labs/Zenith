@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithTenant
  * @barrits-provides tenant-routes, tenant, tenantManager
- * @barrits-consumes db, acl, featureflags, telemetry
+ * @barrits-consumes db
  * @barrits-state tenants
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -27,12 +27,12 @@ export interface TenantConfig {
 export const TenantTrait = createTraitDescriptor({
   name: "ZenithTenant",
   provides: ["tenant-routes", "tenant", "tenantManager"],
-  consumes: ["db", "acl", "featureflags", "telemetry"],
+  consumes: ["db"],
   state: ["tenants"],
   runtimes: ["deno"],
   summary: "Multi-tenant management: tenant registry, RLS (row-level security) enforcement, isolation strategies (shared/schema/db-per-tenant), per-tenant feature flags, tenant-scoped API keys.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       tenants: new Map<string, TenantConfig>(),

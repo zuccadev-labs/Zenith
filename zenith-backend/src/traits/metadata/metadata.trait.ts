@@ -13,7 +13,7 @@
  * @barrits-trait
  * @barrits-summary ZenithMetadata
  * @barrits-provides metadata_routes, metadata
- * @barrits-consumes db, schema, acl
+ * @barrits-consumes db, schema
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -77,15 +77,15 @@ const SYSTEM_CLASSES = new Set([
 export const MetadataTrait = createTraitDescriptor({
   name: "ZenithMetadata",
   provides: ["metadata_routes", "metadata"],
-  consumes: ["db", "schema", "acl"],
+  consumes: ["db", "schema"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Custom Objects and Custom Fields runtime API. Create any business entity with full CRUD, views, search and API support — no redeploy needed.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const schema = deps["schema"];
+    const db     = deps.traits["db"];
+    const schema = deps.traits["schema"];
 
     // Registro en memoria (sincronizado con _CustomObject en DB)
     const customObjects = new Map<string, MetaObject>();

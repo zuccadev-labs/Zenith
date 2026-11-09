@@ -12,10 +12,12 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { buildDynamicRouter, healthHandler, ZenithRouter } from "../../src/core/router.ts";
+import { assertThrows } from "@std/assert";
 import type { RouteHandler } from "../../src/core/pipeline.ts";
 import type { ZenithRequestContext } from "../../src/core/types.ts";
 
-const emptyCtx: ZenithRequestContext = {} as any;
+// Routing tests run as the master key; access rules have their own tests at the end.
+const emptyCtx: ZenithRequestContext = { masterKey: true } as any;
 
 // ─── Health handler ──────────────────────────────────────────────────────────
 
@@ -190,4 +192,43 @@ Deno.test("buildDynamicRouter - skips non-route entries", async () => {
   const dispatch = router.dispatch();
   const res = await dispatch(new Request("http://x/health"), emptyCtx);
   assertEquals(res.status, 200);
+});
+
+// ─── Access (deny by default) ────────────────────────────────────────────────
+
+const anon = {} as ZenithRequestContext;
+const user = { auth: { userId: "u1", roles: [] } } as unknown as ZenithRequestContext;
+const apiKey = (scopes: string[]) => ({ apiKey: { scopes } }) as unknown as ZenithRequestContext;
+
+Deno.test("access - a route that does not say is master-only", async () => {
+  const d = new ZenithRouter().get("/x", () => new Response("ok")).dispatch();
+  const a = await d(new Request("http://x/x"), anon);
+  assertEquals([a.status, (await a.json()).code], [401, 209]);
+  const u = await d(new Request("http://x/x"), user);
+  assertEquals([u.status, (await u.json()).code], [403, 119]);
+  assertEquals((await d(new Request("http://x/x"), apiKey(["classes:read"]))).status, 403);
+  assertEquals((await d(new Request("http://x/x"), apiKey(["*"]))).status, 200);
+  assertEquals((await d(new Request("http://x/x"), emptyCtx)).status, 200);
+});
+
+Deno.test("access - user and public routes", async () => {
+  const d = new ZenithRouter()
+    .on("GET", "/u", () => new Response("u"), "user")
+    .on("GET", "/p", () => new Response("p"), "public")
+    .dispatch();
+  assertEquals((await d(new Request("http://x/u"), anon)).status, 401);
+  assertEquals((await d(new Request("http://x/u"), user)).status, 200);
+  assertEquals((await d(new Request("http://x/u"), apiKey([]))).status, 200);
+  assertEquals((await d(new Request("http://x/p"), anon)).status, 200);
+});
+
+Deno.test("access - trait routes default to master and may declare their access", async () => {
+  const d = buildDynamicRouter({ traits: { t_routes: [
+    { method: "GET", path: "/closed", handler: () => new Response("c") },
+    { method: "GET", path: "/open", access: "public", handler: () => new Response("o") },
+  ] } }).dispatch();
+  assertEquals((await d(new Request("http://x/closed"), anon)).status, 401);
+  assertEquals((await d(new Request("http://x/open"), anon)).status, 200);
+  assertEquals((await d(new Request("http://x/health"), anon)).status, 200);
+  assertThrows(() => new ZenithRouter().on("GET", "/y", () => new Response(""), "everyone" as any));
 });

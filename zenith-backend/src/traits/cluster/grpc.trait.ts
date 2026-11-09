@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithgRPC
  * @barrits-provides grpc, grpc-server
- * @barrits-consumes db, acl, telemetry, mtls
+ * @barrits-consumes telemetry
+ * @barrits-tags uses:mtls
  * @barrits-state grpcServer, mtlsConfig
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,13 +15,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const gRPCTrait = createTraitDescriptor({
   name: "ZenithgRPC",
   provides: ["grpc", "grpc-server"],
-  consumes: ["db", "acl", "telemetry", "mtls"],
+  consumes: ["telemetry"],
+  tags: ["uses:mtls"],
   state: ["grpcServer", "mtlsConfig"],
   runtimes: ["deno"],
   summary: "gRPC server with mTLS, SPKI pinning (per ADR-002), reflection support, and protocol-buffer codecs for cluster-internal RPC and external clients.",
   create: (deps: Record<string, unknown>) => {
-    const mtls = deps["mtls"];
-    const telemetry = deps["telemetry"];
+    const mtls = deps.traits["mtls"];
+    const telemetry = deps.traits["telemetry"];
 
     const isDevMode = Deno.args.includes("--mode=development") || Deno.env.get("ZENITH_MODE") === "development";
 

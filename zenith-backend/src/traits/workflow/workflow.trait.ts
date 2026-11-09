@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithWorkflow
  * @barrits-provides workflow-routes, workflow, workflowEngine
- * @barrits-consumes db, events, cloud, telemetry
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-state workflows, cronJobs
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,14 +15,15 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const WorkflowTrait = createTraitDescriptor({
   name: "ZenithWorkflow",
   provides: ["workflow-routes", "workflow", "workflowEngine"],
-  consumes: ["db", "events", "cloud", "telemetry"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: ["workflows", "cronJobs"],
   runtimes: ["deno"],
   summary: "iPaaS-style workflow engine: define trigger→action pipelines, schedule with cron, retry policies, conditional branching, error handling, persistent execution history.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const events = deps["events"];
-    const cloud = deps["cloud"];
+    const db = deps.traits["db"];
+    const events = deps.traits["events"];
+    const cloud = deps.traits["cloud"];
 
     const traitApi: any = {
       workflows: new Map<string, { name: string; trigger: any; actions: any[]; enabled: boolean; schedule?: string }>(),

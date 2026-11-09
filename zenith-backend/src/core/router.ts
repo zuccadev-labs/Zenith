@@ -14,10 +14,35 @@ import type { RouteHandler } from "./pipeline.ts";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD";
 
+/**
+ * Who may call a route. Deny by default (OWASP): a route that does not say is `master`.
+ * - `public`: anyone (health, docs, sign-up and log-in).
+ * - `user`: a verified user (`ctx.auth`), an API key, or the master key. The handler still checks
+ *   object-level permissions.
+ * - `master`: the master key, `Zen-Internal-Token`, or an API key with scope `*`.
+ */
+export type RouteAccess = "public" | "user" | "master";
+
 export interface RouteDefinition {
   method: HttpMethod | "*";
   pattern: URLPattern;
   handler: RouteHandler;
+  access: RouteAccess;
+}
+
+const isMaster = (ctx: ZenithRequestContext) => ctx.masterKey === true || (ctx.apiKey?.scopes ?? []).includes("*");
+
+/** `null` if `ctx` may call a route with `access`, otherwise the refusal. */
+export function denied(access: RouteAccess, ctx: ZenithRequestContext): Response | null {
+  if (access === "public" || isMaster(ctx)) return null;
+  if (access === "user" && (ctx.auth?.userId || ctx.apiKey)) return null;
+  const anonymous = !ctx.auth?.userId && !ctx.apiKey;
+  return new Response(
+    JSON.stringify(anonymous
+      ? { code: 209, error: "Authentication required." }
+      : { code: 119, error: "This operation requires the master key." }),
+    { status: anonymous ? 401 : 403, headers: { "Content-Type": "application/json" } },
+  );
 }
 
 // ─── Builder del Router ────────────────────────────────────────────────────────
@@ -25,11 +50,13 @@ export interface RouteDefinition {
 export class ZenithRouter {
   private readonly routes: RouteDefinition[] = [];
 
-  on(method: HttpMethod | "*", path: string, handler: RouteHandler): this {
+  on(method: HttpMethod | "*", path: string, handler: RouteHandler, access: RouteAccess = "master"): this {
+    if (!["public", "user", "master"].includes(access)) throw new Error(`route ${method} ${path}: unknown access ${JSON.stringify(access)}`);
     this.routes.push({
       method,
       pattern: new URLPattern({ pathname: path }),
       handler,
+      access,
     });
     return this;
   }
@@ -79,6 +106,8 @@ export class ZenithRouter {
         const match = route.pattern.exec({ pathname });
         if (match) {
           // Inyectar params en el contexto
+          const refusal = denied(route.access, ctx);
+          if (refusal) return refusal;
           const params = (match.pathname.groups ?? {}) as Record<string, string>;
           const enrichedCtx = { ...ctx, params };
           return await route.handler(req, enrichedCtx);
@@ -111,7 +140,7 @@ export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
   const router = new ZenithRouter();
   
   // Endpoint de salud base
-  router.get("/health", healthHandler);
+  router.on("GET", "/health", healthHandler, "public");
 
   // Escaneo dinámico de rutas expuestas por los Traits (Flattened Barrits Capabilities)
   const flattenedDeps = deps.traits || deps;
@@ -120,7 +149,7 @@ export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
       console.log(`[Router] Mounting ${value.length} routes from capability: ${key}`);
       for (const route of value) {
         if (route.method && route.path && route.handler) {
-          router.on(route.method, route.path, route.handler);
+          router.on(route.method, route.path, route.handler, route.access ?? "master");
         }
       }
     }

@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithGraphQL
  * @barrits-provides graphql-routes, graphql, gqlExecutor
- * @barrits-consumes db, acl, schema, crud, telemetry
+ * @barrits-consumes acl, crud, db, schema
  * @barrits-state schema, rootValue
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,15 +15,15 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const GraphQLTrait = createTraitDescriptor({
   name: "ZenithGraphQL",
   provides: ["graphql-routes", "graphql", "gqlExecutor"],
-  consumes: ["db", "acl", "schema", "crud", "telemetry"],
+  consumes: ["acl", "crud", "db", "schema"],
   state: ["schema", "rootValue"],
   runtimes: ["deno"],
   summary: "GraphQL endpoint with auto-generated schema from REST CRUD, custom resolvers, subscriptions over WebSocket, persisted queries, query depth/complexity limits.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const acl = deps["acl"];
-    const schema = deps["schema"];
-    const crud = deps["crud"];
+    const db = deps.traits["db"];
+    const acl = deps.traits["acl"];
+    const schema = deps.traits["schema"];
+    const crud = deps.traits["crud"];
 
     const traitApi: any = {
       schema: null as any,

@@ -9,7 +9,8 @@
  * @barrits-trait
  * @barrits-summary ZenithSearch
  * @barrits-provides search_routes, search
- * @barrits-consumes db, vectordb
+ * @barrits-consumes db
+ * @barrits-tags uses:vectordb
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -31,15 +32,16 @@ const SEARCH_INDEX: Record<string, string[]> = {
 export const SearchTrait = createTraitDescriptor({
   name: "ZenithSearch",
   provides: ["search_routes", "search"],
-  consumes: ["db", "vectordb"],
+  consumes: ["db"],
+  tags: ["uses:vectordb"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Global full-text search across CRM/ERP records. Advanced filter engine (eq/neq/gt/lt/in/like/ilike). Optional AI semantic search via VectorDB.",
 
   create: (deps: Record<string, any>) => {
-    const db       = deps["db"];
-    const vectordb = deps["vectordb"];
+    const db       = deps.traits["db"];
+    const vectordb = deps.traits["vectordb"];
 
     const api = {
       /**
