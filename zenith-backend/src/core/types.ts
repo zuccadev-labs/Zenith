@@ -135,6 +135,12 @@ export interface ZenithConfig {
     readonly workflow?: boolean;    // Activa WorkflowTrait (BPMN, state machines, cron)
     readonly multiTenant?: boolean; // Activa TenantTrait (row-level isolation, tenant routing)
     readonly compliance?: boolean;  // Activa ComplianceTrait (SOC2, HIPAA, GDPR reporting)
+
+    // Activos salvo que se pongan a false
+    readonly cache?: boolean;       // CacheTrait
+    readonly queue?: boolean;       // JobQueueTrait
+    readonly resilience?: boolean;  // CircuitBreakerTrait
+    readonly push?: boolean;        // PushTrait (desactivado por defecto)
   };
 }
 
