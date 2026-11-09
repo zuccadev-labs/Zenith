@@ -34,6 +34,13 @@ export interface ZenithConfig {
    * Grado Militar: Previene el bypass de restricciones por IP usando headers manipulados.
    */
   readonly trustedProxies?: string[];
+
+  /**
+   * engine-auth: users, sessions and token verification (Parse `/users`, `/login`, `/logout`,
+   * `/users/me`, and `Authorization: Bearer` from any service of the ecosystem).
+   * Without it the user routes answer 503 and every request is anonymous.
+   */
+  readonly engineAuth?: import("../traits/auth/engine-auth.ts").EngineAuthConfig;
   
   /**
    * Configuración de Logs y Observabilidad (Parse Parity)
@@ -135,6 +142,8 @@ export interface ZenithConfig {
 
 export interface ZenithRequestContext {
   readonly appId: string;
+  /** Client address from the socket, or from X-Forwarded-For only behind `trustedProxies` (H-02). */
+  readonly clientIp?: string;
   /**
    * [H-02] Flag booleano: `true` si la request se autenticó con la master key
    * estática (o el JWT Zen-Internal-Token). NUNCA contiene el valor real de
@@ -173,6 +182,17 @@ export interface ZenithRequestContext {
 export interface ZenithAuthContext {
   readonly userId: string;
   readonly roles: string[];
+  /** Directory groups from engine-auth (LDAP/FreeIPA), when the token carries them. */
+  readonly groups?: string[];
+  readonly scope?: string;
+  /** engine-auth client that obtained the token. */
+  readonly clientId?: string;
+  /** engine-auth session id (`sid`). */
+  readonly sessionId?: string;
+  /** RFC 8693 actor (`act.sub`): the agent acting on the user's behalf. */
+  readonly actor?: string;
+  /** `session` (Parse session token) or `bearer` (access token presented directly). */
+  readonly via?: "session" | "bearer";
 }
 
 // ─── Operaciones CRUD ─────────────────────────────────────────────────────────

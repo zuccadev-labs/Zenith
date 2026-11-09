@@ -182,7 +182,11 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
     },
 
     insert: async (collection: string, data: ZenithObject): Promise<ZenithObject> => {
-      const serialized = serializePointers(data);
+      // A caller-chosen objectId (Parse `allowCustomObjectId`) becomes the primary key, so a
+      // duplicate fails on the unique _id instead of creating a twin.
+      const { objectId, ...rest } = data as ZenithObject & { objectId?: string };
+      const _id = objectId && /^[0-9a-f]{24}$/i.test(objectId) ? new ObjectId(objectId) : objectId;
+      const serialized = serializePointers(_id ? { _id, ...rest } : rest);
       const result = await db.collection(collection).insertOne(serialized);
       return { ...data, objectId: result.insertedId.toString() };
     },
@@ -243,6 +247,8 @@ export const DatabaseMongoTrait = createTraitDescriptor({
         insert: (col: string, data: ZenithObject) => adapter!.insert(col, data),
         update: (col: string, id: string, data: Partial<ZenithObject>) => adapter!.update(col, id, data),
         delete: (col: string, id: string) => adapter!.delete(col, id),
+        // Compare-and-set: the update applies only if `conditions` still hold (leases, optimistic locks).
+        updateIf: (col: string, id: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>) => adapter!.updateIf!(col, id, conditions, data),
       }
     };
   }
