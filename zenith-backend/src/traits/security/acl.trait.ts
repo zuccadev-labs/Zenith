@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithACL
  * @barrits-provides acl-routes, acl, aclEnforcer
- * @barrits-consumes db, telemetry
+ * @barrits-consumes db
  * @barrits-state roleCache
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const ACLTrait = createTraitDescriptor({
   name: "ZenithACL",
   provides: ["acl-routes", "acl", "aclEnforcer"],
-  consumes: ["db", "telemetry"],
+  consumes: ["db"],
   state: ["roleCache"],
   runtimes: ["deno"],
   summary: "Parse Server-compatible ACL (Access Control List) and CLP (Class-Level Permissions) enforcement. Role inheritance, public read/write, per-user grants, master key bypass.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       roleCache: new Map<string, Set<string>>(),

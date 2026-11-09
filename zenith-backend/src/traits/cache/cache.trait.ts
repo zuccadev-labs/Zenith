@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithCache
  * @barrits-provides cache-routes, cache, cacheManager
- * @barrits-consumes telemetry
+ * @barrits-consumes
  * @barrits-state store, adapter
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,7 +15,7 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const CacheTrait = createTraitDescriptor({
   name: "ZenithCache",
   provides: ["cache-routes", "cache", "cacheManager"],
-  consumes: ["telemetry"],
+  consumes: [],
   state: ["store", "adapter"],
   runtimes: ["deno"],
   summary: "Cache facade: in-memory LRU + Redis adapter, TTL-based expiry, tag-based invalidation, write-through/write-behind patterns, cache stampede prevention.",

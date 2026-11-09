@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithShellAPI
  * @barrits-provides shell-routes, shell, commandRunner
- * @barrits-consumes telemetry, acl
+ * @barrits-consumes telemetry
  * @barrits-state execHistory, maxHistory
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,12 +15,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const ShellApiTrait = createTraitDescriptor({
   name: "ZenithShellAPI",
   provides: ["shell-routes", "shell", "commandRunner"],
-  consumes: ["telemetry", "acl"],
+  consumes: ["telemetry"],
   state: ["execHistory", "maxHistory"],
   runtimes: ["deno"],
   summary: "Shell command execution trait for system-administration endpoints. Sandboxed via Deno permissions, command whitelist, audit trail, SoD (separation of duties) checks.",
   create: (deps: Record<string, any>) => {
-    const telemetry = deps["telemetry"];
+    const telemetry = deps.traits["telemetry"];
 
     const ALLOWED_COMMANDS = new Set([
       "ls", "pwd", "echo", "cat", "head", "tail", "grep", "wc",

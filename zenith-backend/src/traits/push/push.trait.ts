@@ -4,8 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithPush
  * @barrits-provides push-routes, push, pushManager
- * @barrits-consumes db, acl, telemetry
- * @barrits-state installations, channels
+ * @barrits-consumes db
+ * @barrits-state installations, pushChannels
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const PushTrait = createTraitDescriptor({
   name: "ZenithPush",
   provides: ["push-routes", "push", "pushManager"],
-  consumes: ["db", "acl", "telemetry"],
-  state: ["installations", "channels"],
+  consumes: ["db"],
+  state: ["installations", "pushChannels"],
   runtimes: ["deno"],
   summary: "Push notifications: device installation registry, channel-based subscriptions, FCM/APNs adapter, Parse Server-compatible /push endpoint, scheduled delivery.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       installations: new Map<string, { installationId: string; deviceToken: string; pushType: "fcm" | "apns"; channels: string[] }>(),

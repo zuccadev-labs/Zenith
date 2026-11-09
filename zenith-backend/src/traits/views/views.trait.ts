@@ -9,7 +9,7 @@
  * @barrits-trait
  * @barrits-summary ZenithViews
  * @barrits-provides views_routes, views
- * @barrits-consumes db, acl
+ * @barrits-consumes cloud, db
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -57,18 +57,18 @@ const VIEWS_SCHEMAS = {
 export const ViewsTrait = createTraitDescriptor({
   name: "ZenithViews",
   provides: ["views_routes", "views"],
-  consumes: ["db", "acl"],
+  consumes: ["cloud", "db"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Saved Views (Kanban/Table/Calendar/List) with persistent Filters, Sorts and Field visibility per user.",
 
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
-    if (deps["cloud"]?.defineSchema) {
+    if (deps.traits["cloud"]?.defineSchema) {
       for (const [name, fields] of Object.entries(VIEWS_SCHEMAS)) {
-        deps["cloud"].defineSchema(name, fields, {});
+        deps.traits["cloud"].defineSchema(name, fields, {});
       }
     }
 

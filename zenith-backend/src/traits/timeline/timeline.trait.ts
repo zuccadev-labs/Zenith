@@ -9,7 +9,7 @@
  * @barrits-trait
  * @barrits-summary ZenithTimeline
  * @barrits-provides timeline_routes, timeline
- * @barrits-consumes db, collaboration
+ * @barrits-consumes db
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -29,14 +29,14 @@ const TIMELINE_ICON: Record<string, string> = {
 export const TimelineTrait = createTraitDescriptor({
   name: "ZenithTimeline",
   provides: ["timeline_routes", "timeline"],
-  consumes: ["db", "collaboration"],
+  consumes: ["db"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Unified chronological activity feed per record: Notes, Tasks, Comments, Attachments, Activities, System events.",
 
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const api = {
       /**

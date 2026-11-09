@@ -21,7 +21,8 @@
  * @barrits-trait
  * @barrits-summary ZenithEmailSync
  * @barrits-provides email_routes, emailSync
- * @barrits-consumes db, events, acl
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -96,17 +97,18 @@ const EMAIL_SCHEMA = {
 export const EmailSyncTrait = createTraitDescriptor({
   name: "ZenithEmailSync",
   provides: ["email_routes", "emailSync"],
-  consumes: ["db", "events", "acl"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
   summary: "IMAP/SMTP email sync with CRM threads. Adapter pattern: swap provider (Gmail, Outlook, SES) without changing API. Threads linked to Contact/Lead/Deal via polymorphic Target.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const events = deps.traits["events"];
 
-    if (deps["cloud"]?.defineSchema) {
-      for (const [n, f] of Object.entries(EMAIL_SCHEMA)) deps["cloud"].defineSchema(n, f as any, {});
+    if (deps.traits["cloud"]?.defineSchema) {
+      for (const [n, f] of Object.entries(EMAIL_SCHEMA)) deps.traits["cloud"].defineSchema(n, f as any, {});
     }
 
     // ── Match email → CRM record ─────────────────────────────────────────────

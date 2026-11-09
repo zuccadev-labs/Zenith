@@ -15,7 +15,7 @@
  * @barrits-trait
  * @barrits-summary ZenithPluginMarketplace
  * @barrits-provides marketplace_routes, pluginRegistry
- * @barrits-consumes db, acl
+ * @barrits-consumes db
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -61,14 +61,14 @@ const PLUGIN_ADAPTERS = new Map<string, { manifest: PluginManifest; adapter: any
 export const PluginMarketplaceTrait = createTraitDescriptor({
   name: "ZenithPluginMarketplace",
   provides: ["marketplace_routes", "pluginRegistry"],
-  consumes: ["db", "acl"],
+  consumes: ["db"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Plugin Marketplace: discover, install, enable/disable plugins. Adapter pattern — plugins register their own Trait. CLI `zen plugin` commands use this API.",
 
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     // Bootstrap: cargar plugins instalados de la DB
     (async () => {

@@ -16,7 +16,8 @@
  * @barrits-trait
  * @barrits-summary ZenithADKAgents
  * @barrits-provides adk_routes, adkAgents
- * @barrits-consumes ai, vectordb, db, events
+ * @barrits-consumes db
+ * @barrits-tags uses:ai, uses:events, uses:vectordb
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -60,17 +61,18 @@ const TOOL_REGISTRY  = new Map<string, ADKTool>();
 export const ADKAgentsTrait = createTraitDescriptor({
   name: "ZenithADKAgents",
   provides: ["adk_routes", "adkAgents"],
-  consumes: ["ai", "vectordb", "db", "events"],
+  consumes: ["db"],
+  tags: ["uses:ai", "uses:events", "uses:vectordb"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Google ADK-compatible AI Agents: CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent. Adapter pattern for custom agents.",
 
   create: (deps: Record<string, any>) => {
-    const ai       = deps["ai"];
-    const vectordb = deps["vectordb"];
-    const db       = deps["db"];
-    const events   = deps["events"];
+    const ai       = deps.traits["ai"];
+    const vectordb = deps.traits["vectordb"];
+    const db       = deps.traits["db"];
+    const events   = deps.traits["events"];
 
     // ─── Herramientas CRM compartidas ─────────────────────────────────────────
 

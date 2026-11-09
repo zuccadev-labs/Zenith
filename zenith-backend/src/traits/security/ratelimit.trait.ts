@@ -20,7 +20,7 @@ export const RateLimitTrait = createTraitDescriptor({
   runtimes: ["deno"],
   summary: "Token-bucket rate limiter with per-key quotas, burst support, sliding window, distributed (Redis-backed optional), adaptive limits per API key/role.",
   create: (deps: Record<string, any>) => {
-    const telemetry = deps["telemetry"];
+    const telemetry = deps.traits["telemetry"];
 
     const traitApi: any = {
       buckets: new Map<string, { tokens: number; lastRefill: number; maxTokens: number; refillRate: number }>(),

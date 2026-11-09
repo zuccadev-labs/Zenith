@@ -4,8 +4,9 @@
  * @barrits-trait
  * @barrits-summary ZenithAgentOrchestrator
  * @barrits-provides agent-orchestrator-routes, agent-orchestrator, agents
- * @barrits-consumes ai, vectordb, db, telemetry
- * @barrits-state agents, tools
+ * @barrits-consumes
+ * @barrits-tags uses:ai
+ * @barrits-state agents, agentTools
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
@@ -38,12 +39,13 @@ export interface AgentRunResult {
 export const AgentOrchestratorTrait = createTraitDescriptor({
   name: "ZenithAgentOrchestrator",
   provides: ["agent-orchestrator-routes", "agent-orchestrator", "agents"],
-  consumes: ["ai", "vectordb", "db", "telemetry"],
-  state: ["agents", "tools"],
+  consumes: [],
+  tags: ["uses:ai"],
+  state: ["agents", "agentTools"],
   runtimes: ["deno"],
   summary: "Agent orchestrator: define agents with system prompts and tools, execute ReAct loop (Thought → Action → Observation), persist conversation history, support multi-agent handoff.",
   create: (deps: Record<string, any>) => {
-    const ai = deps["ai"];
+    const ai = deps.traits["ai"];
 
     const traitApi: any = {
       agents: new Map<string, AgentDefinition>(),

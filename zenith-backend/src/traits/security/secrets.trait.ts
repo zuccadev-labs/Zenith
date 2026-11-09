@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithSecrets
  * @barrits-provides secrets-routes, secrets, secretStore
- * @barrits-consumes vault, telemetry
+ * @barrits-consumes
+ * @barrits-tags uses:vault
  * @barrits-state secretCache
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,12 +15,13 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const SecretsTrait = createTraitDescriptor({
   name: "ZenithSecrets",
   provides: ["secrets-routes", "secrets", "secretStore"],
-  consumes: ["vault", "telemetry"],
+  consumes: [],
+  tags: ["uses:vault"],
   state: ["secretCache"],
   runtimes: ["deno"],
   summary: "Secrets facade over HashiCorp Vault (with KV/PKI/Transit), with in-memory TTL cache, automatic rotation hooks, audit trail integration.",
   create: (deps: Record<string, any>) => {
-    const vault = deps["vault"];
+    const vault = deps.traits["vault"];
 
     const traitApi: any = {
       secretCache: new Map<string, { value: string; expiresAt: number }>(),

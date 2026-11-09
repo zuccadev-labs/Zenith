@@ -20,7 +20,8 @@
  * @barrits-trait
  * @barrits-summary ZenithCalendarSync
  * @barrits-provides calendar_routes, calendarSync
- * @barrits-consumes db, events, acl
+ * @barrits-consumes cloud, db
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -100,17 +101,18 @@ const CALENDAR_SCHEMA = {
 export const CalendarSyncTrait = createTraitDescriptor({
   name: "ZenithCalendarSync",
   provides: ["calendar_routes", "calendarSync"],
-  consumes: ["db", "events", "acl"],
+  consumes: ["cloud", "db"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
   summary: "Calendar sync (Google/Outlook/CalDAV). Events linked to CRM records via Target. Booking slots, iCal feeds, conflict detection. Adapter pattern for provider swap.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const events = deps["events"];
+    const db     = deps.traits["db"];
+    const events = deps.traits["events"];
 
-    if (deps["cloud"]?.defineSchema) {
-      for (const [n, f] of Object.entries(CALENDAR_SCHEMA)) deps["cloud"].defineSchema(n, f as any, {});
+    if (deps.traits["cloud"]?.defineSchema) {
+      for (const [n, f] of Object.entries(CALENDAR_SCHEMA)) deps.traits["cloud"].defineSchema(n, f as any, {});
     }
 
     // ── Match attendees → CRM records ────────────────────────────────────────

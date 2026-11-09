@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithMigration
  * @barrits-provides migrations, migration-runner
- * @barrits-consumes db, schema, telemetry
+ * @barrits-consumes db, schema
  * @barrits-state registeredMigrations, appliedMigrations
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -20,13 +20,13 @@ export interface ZenithMigration {
 export const MigrationTrait = createTraitDescriptor({
   name: "ZenithMigration",
   provides: ["migrations", "migration-runner"],
-  consumes: ["db", "schema", "telemetry"],
+  consumes: ["db", "schema"],
   state: ["registeredMigrations", "appliedMigrations"],
   runtimes: ["deno"],
   summary: "Schema migration runner with up/down support, transaction wrapping, and tracking of applied migrations per Zenith app instance.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const schema = deps["schema"];
+    const db = deps.traits["db"];
+    const schema = deps.traits["schema"];
 
     const traitApi: any = {
       registeredMigrations: new Map<string, ZenithMigration>(),

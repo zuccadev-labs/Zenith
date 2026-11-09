@@ -3,8 +3,9 @@
  *
  * @barrits-trait
  * @barrits-summary ZenithCoreServer
- * @barrits-provides getHandler
- * @barrits-consumes database-crud, authentication, media-stream, schema-validation, telemetry, access-control, rest-crud, rate-limiting
+ * @barrits-provides getHandler, initKeys
+ * @barrits-consumes authentication, ratelimit, telemetry
+ * @barrits-tags uses:billing-metering
  * @barrits-state serverInstance
  * @barrits-stability stable
  * @barrits-runtime deno
@@ -19,8 +20,9 @@ import { bootstrapApiKey } from "../security/api-keys/bootstrap.ts";
 
 export const ServerTrait = createTraitDescriptor({
   name: "ZenithCoreServer",
-  provides: ["getHandler"],
-  consumes: ["database-crud", "authentication", "media-stream", "schema-validation", "telemetry", "access-control", "rest-crud", "rate-limiting"],
+  provides: ["getHandler", "initKeys"],
+  consumes: ["authentication", "ratelimit", "telemetry"],
+  tags: ["uses:billing-metering"],
   state: ["serverInstance"],
   runtimes: ["deno"],
   create: (deps: Record<string, unknown>) => {
@@ -34,8 +36,9 @@ export const ServerTrait = createTraitDescriptor({
         _publicKey = publicKey;
       },
       getHandler: (config: ZenithConfig) => {
-        const depsAny = deps as any;
-        const obs = depsAny["telemetry"];
+        // barrits hands every composed capability, live, under `traits`.
+        const caps = (deps as any).traits as Record<string, any>;
+        const obs = caps["telemetry"];
         obs?.log?.(`[ZenithServer] Building handler for App ID: ${config.appId}`);
 
         // 1. Construir el Router con dependencias inyectadas (Auto-descubrimiento)
@@ -63,15 +66,15 @@ export const ServerTrait = createTraitDescriptor({
           }),
           applyCORS("*"),
           validateAppId(config.appId),
-          resolveAuthentication(depsAny["authentication"]),
-          applyRateLimit(depsAny["rate-limiting"]),
+          resolveAuthentication(caps["authentication"]),
+          applyRateLimit(caps["ratelimit"]),
         ];
 
         // 3. Crear el Request Handler con Telemetría Global
         const rawDispatch = router.dispatch();
         const tracedDispatch = async (req: Request, ctx: any) => {
             const url = new URL(req.url);
-            const currentObs = depsAny["telemetry"];
+            const currentObs = caps["telemetry"];
             if (currentObs?.withSpan) {
               return await currentObs.withSpan(`HTTP ${req.method} ${url.pathname}`, {
                 "http.method": req.method,
@@ -80,7 +83,7 @@ export const ServerTrait = createTraitDescriptor({
                  const response = await rawDispatch(req, ctx);
 
                  // Lógica de Negocio Corporativa: Metering (Consumo de API y Ancho de Banda)
-                 const billing = depsAny["billing-metering"];
+                 const billing = caps["billing-metering"];
                  if (billing && ctx.auth?.userId) {
                   try {
                     // Contamos 1 petición

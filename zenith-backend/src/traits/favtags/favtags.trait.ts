@@ -9,7 +9,7 @@
  * @barrits-trait
  * @barrits-summary ZenithFavoritesTags
  * @barrits-provides favtags_routes, favorites, tags
- * @barrits-consumes db, acl
+ * @barrits-consumes cloud, db
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -43,17 +43,17 @@ const FAVTAGS_SCHEMAS = {
 export const FavoritesTagsTrait = createTraitDescriptor({
   name: "ZenithFavoritesTags",
   provides: ["favtags_routes", "favorites", "tags"],
-  consumes: ["db", "acl"],
+  consumes: ["cloud", "db"],
   state: [],
   runtimes: ["deno"],
   summary: "Favorites (any record, per-user, reorderable) and transversal Tags (color-coded, assignable to any record via TagAssignment).",
 
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
-    if (deps["cloud"]?.defineSchema) {
+    if (deps.traits["cloud"]?.defineSchema) {
       for (const [name, fields] of Object.entries(FAVTAGS_SCHEMAS)) {
-        deps["cloud"].defineSchema(name, fields, {});
+        deps.traits["cloud"].defineSchema(name, fields, {});
       }
     }
 

@@ -5,8 +5,9 @@
  * @barrits-trait
  * @barrits-summary ZenithWeb3
  * @barrits-provides web3-routes, web3, web3Bridge
- * @barrits-consumes db, acl, telemetry, ipfs
- * @barrits-state providers
+ * @barrits-consumes db
+ * @barrits-tags uses:ipfs
+ * @barrits-state web3Providers
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
@@ -15,13 +16,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const Web3Trait = createTraitDescriptor({
   name: "ZenithWeb3",
   provides: ["web3-routes", "web3", "web3Bridge"],
-  consumes: ["db", "acl", "telemetry", "ipfs"],
-  state: ["providers"],
+  consumes: ["db"],
+  tags: ["uses:ipfs"],
+  state: ["web3Providers"],
   runtimes: ["deno"],
   summary: "Web3 bridge: EVM wallet connection, viem-based transaction signing, IPFS storage integration, NFT minting, smart-contract event indexing, signature verification (EIP-191, EIP-712).",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const ipfs = deps["ipfs"];
+    const db = deps.traits["db"];
+    const ipfs = deps.traits["ipfs"];
 
     const traitApi: any = {
       providers: new Map<string, { rpc: string; chainId: number }>(),

@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithFileStorage
  * @barrits-provides storage-routes, storage, fileStore
- * @barrits-consumes db, acl, cloud, telemetry
+ * @barrits-consumes acl, cloud, db
  * @barrits-state defaultBucket
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,14 +15,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const FileStorageTrait = createTraitDescriptor({
   name: "ZenithFileStorage",
   provides: ["storage-routes", "storage", "fileStore"],
-  consumes: ["db", "acl", "cloud", "telemetry"],
+  consumes: ["acl", "cloud", "db"],
   state: ["defaultBucket"],
   runtimes: ["deno"],
   summary: "Parse Server-compatible file storage: multipart upload, download, delete, with content-type detection, ACL, cloud triggers (beforeSaveFile/afterSaveFile), presigned URLs.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const acl = deps["acl"];
-    const cloud = deps["cloud"];
+    const db = deps.traits["db"];
+    const acl = deps.traits["acl"];
+    const cloud = deps.traits["cloud"];
 
     const traitApi: any = {
       defaultBucket: "zenith-files",

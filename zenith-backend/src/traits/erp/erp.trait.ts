@@ -12,7 +12,8 @@
  * @barrits-trait
  * @barrits-summary ZenithERPTrait
  * @barrits-provides erp_routes, erp
- * @barrits-consumes db, acl, cloud, ratelimit, telemetry, events
+ * @barrits-consumes acl, cloud, db, telemetry
+ * @barrits-tags uses:events
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -188,18 +189,19 @@ function recalculateTotals(lines: Array<{ price: number; qty: number; tax?: numb
 export const ERPTrait = createTraitDescriptor({
   name: "ZenithERPTrait",
   provides: ["erp_routes", "erp"],
-  consumes: ["db", "acl", "cloud", "ratelimit", "telemetry", "events"],
+  consumes: ["acl", "cloud", "db", "telemetry"],
+  tags: ["uses:events"],
   state: [],
   runtimes: ["deno"],
 
   summary: "Enterprise ERP: CRUD completo (Product, Order, Invoice, Payment, Employee, Warehouse, Inventory), auditorías inmutables en ScyllaDB, lógica transaccional de inventario.",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps["db"];
-    const acl    = deps["acl"];
-    const cloud  = deps["cloud"];
-    const events = deps["events"];
-    const obs    = deps["telemetry"];
+    const db     = deps.traits["db"];
+    const acl    = deps.traits["acl"];
+    const cloud  = deps.traits["cloud"];
+    const events = deps.traits["events"];
+    const obs    = deps.traits["telemetry"];
 
     // 1. Registrar schemas
     if (cloud?.defineSchema) {

@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithSFrameSignaling
  * @barrits-provides sframe-signaling-routes, sframe-signaling, signaling
- * @barrits-consumes db, acl, e2ee-keys, telemetry
+ * @barrits-consumes db
  * @barrits-state activeRooms
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const SFrameSignalingTrait = createTraitDescriptor({
   name: "ZenithSFrameSignaling",
   provides: ["sframe-signaling-routes", "sframe-signaling", "signaling"],
-  consumes: ["db", "acl", "e2ee-keys", "telemetry"],
+  consumes: ["db"],
   state: ["activeRooms"],
   runtimes: ["deno"],
   summary: "WebRTC SFrame selective-encryption signaling: per-participant key distribution for selective forward secrecy, room-based key rotation, sender/receiver scope negotiation.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       activeRooms: new Map<string, { roomId: string; participants: Map<string, { keyId: string; joinedAt: number }>; createdAt: number }>(),

@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithIoT
  * @barrits-provides iot-routes, iot, deviceManager
- * @barrits-consumes db, acl, events, telemetry
+ * @barrits-consumes db
+ * @barrits-tags uses:events
  * @barrits-state devices, alertRules
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -49,13 +50,14 @@ export interface SenMLRecord {
 export const IoTTrait = createTraitDescriptor({
   name: "ZenithIoT",
   provides: ["iot-routes", "iot", "deviceManager"],
-  consumes: ["db", "acl", "events", "telemetry"],
+  consumes: ["db"],
+  tags: ["uses:events"],
   state: ["devices", "alertRules"],
   runtimes: ["deno"],
   summary: "IoT device management: device registry with token-based auth, SenML telemetry ingestion, MQTT bridge, alert rules, time-series downsampling.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const events = deps["events"];
+    const db = deps.traits["db"];
+    const events = deps.traits["events"];
 
     const traitApi: any = {
       devices: new Map<string, IoTDevice>(),

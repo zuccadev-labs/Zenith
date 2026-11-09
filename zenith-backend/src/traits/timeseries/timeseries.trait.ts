@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithTimeSeries
  * @barrits-provides timeseries-routes, timeseries, timeSeriesManager
- * @barrits-consumes db, telemetry
+ * @barrits-consumes db
  * @barrits-state activeSeries, aggregationCache
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,12 +15,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const TimeSeriesTrait = createTraitDescriptor({
   name: "ZenithTimeSeries",
   provides: ["timeseries-routes", "timeseries", "timeSeriesManager"],
-  consumes: ["db", "telemetry"],
+  consumes: ["db"],
   state: ["activeSeries", "aggregationCache"],
   runtimes: ["deno"],
   summary: "Time-series data store: high-cardinality metric ingestion, downsampling, retention policies, Grafana datasource API, Prometheus remote_write compatibility.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       activeSeries: new Map<string, Array<{ timestamp: number; value: number; tags: Record<string, string> }>>(),

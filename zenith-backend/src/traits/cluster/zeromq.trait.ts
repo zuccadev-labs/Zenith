@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithZeroMQ
  * @barrits-provides cluster-transport
- * @barrits-consumes telemetry
+ * @barrits-consumes
  * @barrits-state zmqServerRunning
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -16,7 +16,7 @@ let clusterLib: Deno.DynamicLibrary<any> | null = null;
 export const ZeroMQTrait = createTraitDescriptor({
   name: "ZenithZeroMQ",
   provides: ["cluster-transport"],
-  consumes: ["telemetry"],
+  consumes: [],
   state: ["zmqServerRunning"],
   runtimes: ["deno"],
   summary: "ZeroMQ-based cluster transport for ultra-low latency inter-node messaging via Rust FFI.",

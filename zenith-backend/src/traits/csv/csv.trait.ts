@@ -12,7 +12,7 @@
  * @barrits-trait
  * @barrits-summary ZenithCSV
  * @barrits-provides csv_routes, csvManager
- * @barrits-consumes db, acl
+ * @barrits-consumes db
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -86,13 +86,13 @@ function toCSV(rows: Record<string, any>[], fields: string[]): string {
 export const CSVTrait = createTraitDescriptor({
   name: "ZenithCSV",
   provides: ["csv_routes", "csvManager"],
-  consumes: ["db", "acl"],
+  consumes: ["db"],
   state: [],
   runtimes: ["deno"],
   summary: "CSV Import (multipart, batch insert, validation) and Export (streaming, advanced filters) for Contact, Lead, Deal, Account, Product, Employee, Invoice.",
 
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const api = {
       async importCSV(className: string, csvText: string, options: { batchSize?: number; dryRun?: boolean } = {}) {

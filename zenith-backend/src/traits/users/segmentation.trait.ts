@@ -5,7 +5,8 @@
  * @barrits-trait
  * @barrits-summary ZenithSegmentation
  * @barrits-provides segmentation-routes, segmentation, audienceManager
- * @barrits-consumes db, acl, telemetry, events
+ * @barrits-consumes db
+ * @barrits-tags uses:events
  * @barrits-state segmentCache
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,13 +16,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const SegmentationTrait = createTraitDescriptor({
   name: "ZenithSegmentation",
   provides: ["segmentation-routes", "segmentation", "audienceManager"],
-  consumes: ["db", "acl", "telemetry", "events"],
+  consumes: ["db"],
+  tags: ["uses:events"],
   state: ["segmentCache"],
   runtimes: ["deno"],
   summary: "GDPR/LGPD-compliant user segmentation: dynamic segments based on rules, consent-aware exports, data subject access request (DSAR) fulfillment, right-to-be-forgotten.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const events = deps["events"];
+    const db = deps.traits["db"];
+    const events = deps.traits["events"];
 
     const traitApi: any = {
       segmentCache: new Map<string, { count: number; computedAt: number }>(),

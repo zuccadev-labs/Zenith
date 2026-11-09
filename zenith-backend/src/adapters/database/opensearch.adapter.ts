@@ -3,9 +3,9 @@
  *
  * @barrits-trait
  * @barrits-summary ZenithOpenSearch
- * @barrits-provides search-engine, injectPlugin
+ * @barrits-provides search-engine, injectOpenSearchPlugin
  * @barrits-consumes
- * @barrits-state plugin
+ * @barrits-state opensearch_plugin
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -83,14 +83,14 @@ export function createOpenSearchAdapter(client: any): SearchAdapter {
  */
 export const OpenSearchTrait = createTraitDescriptor({
   name: "ZenithOpenSearch",
-  provides: ["search-engine", "injectPlugin"],
+  provides: ["search-engine", "injectOpenSearchPlugin"],
   consumes: [],
-  state: ["plugin"],
+  state: ["opensearch_plugin"],
   runtimes: ["deno"],
   create: (_deps: Record<string, unknown>) => {
     let adapter: SearchAdapter | null = null;
     return {
-      injectPlugin: (plugin: SearchAdapter) => {
+      injectOpenSearchPlugin: (plugin: SearchAdapter) => {
         adapter = plugin;
         console.log("[OpenSearchTrait] OpenSearch/ElasticSearch Plugin Injected");
       },

@@ -213,6 +213,9 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
       return result.matchedCount === 0 ? null : { objectId, ...data } as ZenithObject;
     },
 
+    listClasses: async (): Promise<string[]> =>
+      (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name).filter((n) => !n.startsWith("system.")).sort(),
+
     delete: async (collection: string, objectId: string): Promise<void> => {
       let queryId: any = objectId;
       try { queryId = new ObjectId(objectId); } catch (_e) { /* not an ObjectId */ }
@@ -249,6 +252,7 @@ export const DatabaseMongoTrait = createTraitDescriptor({
         delete: (col: string, id: string) => adapter!.delete(col, id),
         // Compare-and-set: the update applies only if `conditions` still hold (leases, optimistic locks).
         updateIf: (col: string, id: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>) => adapter!.updateIf!(col, id, conditions, data),
+        listClasses: () => adapter!.listClasses!(),
       }
     };
   }

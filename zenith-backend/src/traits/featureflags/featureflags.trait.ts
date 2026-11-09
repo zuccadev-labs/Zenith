@@ -58,7 +58,7 @@ export const FeatureFlagsTrait = createTraitDescriptor({
   runtimes: ["deno"],
   summary: "Feature flag engine: per-plan gating, percentage rollouts, A/B testing, user-level overrides, runtime toggling without restart.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       overrides: new Map<string, boolean>(),

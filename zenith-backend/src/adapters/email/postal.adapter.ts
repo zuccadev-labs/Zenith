@@ -3,7 +3,7 @@
  *
  * @barrits-trait
  * @barrits-summary ZenithEmailPostal
- * @barrits-provides injectPlugin, sendMail, sendPasswordResetEmail, sendVerificationEmail
+ * @barrits-provides injectPostalPlugin, sendMail, sendPasswordResetEmail, sendVerificationEmail
  * @barrits-consumes
  * @barrits-state plugin
  * @barrits-stability stable
@@ -88,14 +88,14 @@ export function createPostalAdapter(options: PostalAdapterOptions): EmailAdapter
  */
 export const EmailPostalTrait = createTraitDescriptor({
   name: "ZenithEmailPostal",
-  provides: ["injectPlugin", "sendMail", "sendPasswordResetEmail", "sendVerificationEmail"],
+  provides: ["injectPostalPlugin", "sendMail", "sendPasswordResetEmail", "sendVerificationEmail"],
   consumes: [],
   state: ["plugin"],
   runtimes: ["deno"],
   create: (_deps: Record<string, unknown>) => {
     let adapter: EmailAdapter | null = null;
     return {
-      injectPlugin: (plugin: EmailAdapter) => {
+      injectPostalPlugin: (plugin: EmailAdapter) => {
         adapter = plugin;
         console.log("[EmailTrait] Postal Email Plugin Injected");
       },

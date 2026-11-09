@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithRealtime
  * @barrits-provides realtime, realtimeServer, liveQuery
- * @barrits-consumes db, acl, events, telemetry
+ * @barrits-consumes db
+ * @barrits-tags uses:events
  * @barrits-state channels, subscribers
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,13 +15,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const RealtimeTrait = createTraitDescriptor({
   name: "ZenithRealtime",
   provides: ["realtime", "realtimeServer", "liveQuery"],
-  consumes: ["db", "acl", "events", "telemetry"],
+  consumes: ["db"],
+  tags: ["uses:events"],
   state: ["channels", "subscribers"],
   runtimes: ["deno"],
   summary: "Realtime/WebSocket layer: channel-based pub/sub, live query subscriptions (server-push on matching data changes), presence tracking, room management, heartbeat.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const events = deps["events"];
+    const db = deps.traits["db"];
+    const events = deps.traits["events"];
 
     const traitApi: any = {
       channels: new Map<string, Set<WebSocket>>(),

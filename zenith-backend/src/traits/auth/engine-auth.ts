@@ -587,6 +587,7 @@ export function userRoutes(facade: () => EngineAuthFacade) {
   const ip = (ctx: Ctx) => ctx.clientIp ?? "0.0.0.0";
   return [
     {
+      access: "public" as const,
       method: "POST" as const,
       path: "/users",
       _openapi: { summary: "Sign up (engine-auth account + Parse profile)", tags: ["User Management"] },
@@ -599,6 +600,7 @@ export function userRoutes(facade: () => EngineAuthFacade) {
       },
     },
     {
+      access: "public" as const,
       method: "POST" as const,
       path: "/login",
       _openapi: { summary: "Log in (username or email, password)", tags: ["User Management"] },
@@ -612,12 +614,14 @@ export function userRoutes(facade: () => EngineAuthFacade) {
     },
     {
       // Credentials in a URL end up in access logs and browser history (OWASP). Parse SDKs use POST.
+      access: "public" as const,
       method: "GET" as const,
       path: "/login",
       _openapi: { summary: "Refused: send the credentials with POST /login", tags: ["User Management"] },
       handler: async () => json({ code: P.OTHER_CAUSE, error: "Use POST /login: credentials are never accepted in the URL." }, 405),
     },
     {
+      access: "public" as const,
       method: "POST" as const,
       path: "/logout",
       _openapi: { summary: "Log out (ends the engine-auth session too)", tags: ["User Management"] },
@@ -631,6 +635,7 @@ export function userRoutes(facade: () => EngineAuthFacade) {
       },
     },
     {
+      access: "public" as const,
       method: "GET" as const,
       path: "/users/me",
       _openapi: { summary: "Current user", tags: ["User Management"] },
@@ -642,7 +647,7 @@ export function userRoutes(facade: () => EngineAuthFacade) {
         }
       },
     },
-    { method: "POST" as const, path: "/requestPasswordReset", _openapi: { summary: "Not available yet (501)" }, handler: notYet("Password reset") },
-    { method: "POST" as const, path: "/verificationEmailRequest", _openapi: { summary: "Not available yet (501)" }, handler: notYet("E-mail verification") },
+    { access: "public" as const, method: "POST" as const, path: "/requestPasswordReset", _openapi: { summary: "Not available yet (501)" }, handler: notYet("Password reset") },
+    { access: "public" as const, method: "POST" as const, path: "/verificationEmailRequest", _openapi: { summary: "Not available yet (501)" }, handler: notYet("E-mail verification") },
   ];
 }

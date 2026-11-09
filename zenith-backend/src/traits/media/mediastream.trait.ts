@@ -5,7 +5,7 @@
  * @barrits-trait
  * @barrits-summary ZenithMediaStream
  * @barrits-provides mediastream-routes, mediastream, streaming
- * @barrits-consumes db, storage, acl, telemetry
+ * @barrits-consumes db, storage
  * @barrits-state activeStreams
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,13 +15,13 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const MediaStreamTrait = createTraitDescriptor({
   name: "ZenithMediaStream",
   provides: ["mediastream-routes", "mediastream", "streaming"],
-  consumes: ["db", "storage", "acl", "telemetry"],
+  consumes: ["db", "storage"],
   state: ["activeStreams"],
   runtimes: ["deno"],
   summary: "Media streaming (HLS/DASH), live ingest endpoint, transcoding queue, bandwidth adaptation. Parse Server-compatible media file handling.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const storage = deps["storage"];
+    const db = deps.traits["db"];
+    const storage = deps.traits["storage"];
 
     const traitApi: any = {
       activeStreams: new Map<string, { channelId: string; startedAt: number; viewers: number }>(),

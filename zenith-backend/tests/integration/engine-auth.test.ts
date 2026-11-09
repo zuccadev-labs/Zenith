@@ -18,12 +18,10 @@ import { createRequestHandler, extractContext, resolveAuthentication } from "../
 import { DatabaseMongoTrait, createMongoAdapter } from "../../src/adapters/database/mongo.adapter.ts";
 import { MongoClient } from "mongodb";
 
-const BIN = Deno.env.get("ENGINE_AUTH_BIN");
+import { AUD, BIN, EngineAuth, LIB_DIR, PASSWORD } from "./_engine_auth_lab.ts";
+
 const MONGO = Deno.env.get("ZENITH_TEST_MONGO");
-const LIB_DIR = Deno.env.get("ZUTOOL_LIB_DIR");
 const ignore = !BIN || !LIB_DIR;
-const AUD = "https://zenith.example.test";
-const PASSWORD = "una frase larga y fácil";
 const SESSION_KEY = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
 
 // ─── A database with the semantics the facade relies on ─────────────────────
@@ -124,65 +122,6 @@ async function openTestDb(): Promise<TestDb> {
   };
 }
 
-// ─── engine-auth ─────────────────────────────────────────────────────────────
-
-class EngineAuth {
-  constructor(readonly url: string, readonly dir: string, readonly child: Deno.ChildProcess) {}
-
-  static async start(extra: Record<string, unknown> = {}): Promise<EngineAuth> {
-    const dir = await Deno.makeTempDir({ prefix: "zenith-engine-auth-" });
-    await Deno.mkdir(`${dir}/features`);
-    await Deno.copyFile(`${LIB_DIR}/libzutool_auth.so`, `${dir}/features/libzutool_auth.so`);
-    const built = await new Deno.Command(BIN!, { args: ["manifest", "build", `${dir}/features`], stdout: "null", stderr: "piped" }).output();
-    assert(built.success, new TextDecoder().decode(built.stderr));
-    const l = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-    const port = (l.addr as Deno.NetAddr).port;
-    l.close();
-    const url = `http://127.0.0.1:${port}`;
-    const cfg = {
-      issuer: url, bind: [`127.0.0.1:${port}`], signup: "open", trustedProxies: ["127.0.0.1"],
-      clients: [{ id: "zenith", name: "Zenith", redirectUris: ["http://127.0.0.1/cb"], audiences: [AUD, "https://otro.example.test"], firstParty: true }],
-      ...extra,
-    };
-    await Deno.writeTextFile(`${dir}/config.json`, JSON.stringify(cfg));
-    const log = await Deno.open(`${dir}/engine.log`, { write: true, create: true });
-    const child = new Deno.Command(BIN!, {
-      args: ["--state-dir", dir, "--manifest", `${dir}/features/features.json`, "serve"],
-      stdout: "null", stderr: "piped",
-    }).spawn();
-    child.stderr.pipeTo(log.writable).catch(() => {});
-    const t = Date.now();
-    for (;;) {
-      try {
-        if ((await fetch(`${url}/healthz`)).ok) break;
-      } catch { /* not yet */ }
-      if (Date.now() - t > 20_000) throw new Error(`engine-auth did not start: ${await Deno.readTextFile(`${dir}/engine.log`)}`);
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    return new EngineAuth(url, dir, child);
-  }
-
-  async cli(args: string[], stdin = ""): Promise<{ ok: boolean; out: any }> {
-    const p = new Deno.Command(BIN!, {
-      args: ["--state-dir", this.dir, "--manifest", `${this.dir}/features/features.json`, "-o", "json", ...args],
-      stdin: "piped", stdout: "piped", stderr: "null",
-    }).spawn();
-    const w = p.stdin.getWriter();
-    await w.write(new TextEncoder().encode(stdin));
-    await w.close();
-    const o = await p.output();
-    let out: any = null;
-    try { out = JSON.parse(new TextDecoder().decode(o.stdout)); } catch { /* none */ }
-    return { ok: o.success, out };
-  }
-
-  async stop() {
-    try { this.child.kill("SIGTERM"); } catch { /* gone */ }
-    await this.child.status;
-    await Deno.remove(this.dir, { recursive: true }).catch(() => {});
-  }
-}
-
 // ─── A Zenith instance: composed trait + the real pipeline ───────────────────
 
 function zenith(ea: EngineAuth, db: AuthCrud, configure = true) {
@@ -194,7 +133,7 @@ function zenith(ea: EngineAuth, db: AuthCrud, configure = true) {
   if (configure) {
     composed["user-manager"].configure({ issuer: ea.url, clientId: "zenith", audience: AUD, sessionKey: SESSION_KEY, libDir: LIB_DIR });
   }
-  const whoami = [{ method: "GET", path: "/whoami", handler: async (_r: Request, ctx: any) => Response.json(ctx.auth ?? null) }];
+  const whoami = [{ access: "public", method: "GET", path: "/whoami", handler: async (_r: Request, ctx: any) => Response.json(ctx.auth ?? null) }];
   const router = buildDynamicRouter({ ...composed, "probe-routes": whoami });
   const handle = createRequestHandler([extractContext({ configMasterKey: "m" }), resolveAuthentication(composed.authentication)], router.dispatch());
   const call = async (method: string, path: string, opts: { body?: unknown; token?: string; bearer?: string; ip?: string } = {}) => {

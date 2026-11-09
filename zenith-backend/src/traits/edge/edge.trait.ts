@@ -4,7 +4,7 @@
  * @barrits-trait
  * @barrits-summary ZenithEdge
  * @barrits-provides edge-routes, edge, edgeRuntime
- * @barrits-consumes db, acl, telemetry
+ * @barrits-consumes db
  * @barrits-state wasmModules
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,12 +14,12 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const EdgeTrait = createTraitDescriptor({
   name: "ZenithEdge",
   provides: ["edge-routes", "edge", "edgeRuntime"],
-  consumes: ["db", "acl", "telemetry"],
+  consumes: ["db"],
   state: ["wasmModules"],
   runtimes: ["deno"],
   summary: "WASM-based edge computing runtime: deploy WASM modules that execute on edge nodes close to users, V8 isolate pooling, request/response transformation.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
+    const db = deps.traits["db"];
 
     const traitApi: any = {
       wasmModules: new Map<string, { bytes: Uint8Array; exports: string[]; loadedAt: number }>(),

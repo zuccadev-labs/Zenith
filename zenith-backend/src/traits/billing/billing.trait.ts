@@ -4,7 +4,8 @@
  * @barrits-trait
  * @barrits-summary ZenithBilling
  * @barrits-provides billing-routes, billing, billingManager
- * @barrits-consumes db, acl, webhook, telemetry
+ * @barrits-consumes db
+ * @barrits-tags uses:webhook
  * @barrits-state stripeAdapter
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -14,13 +15,14 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 export const BillingTrait = createTraitDescriptor({
   name: "ZenithBilling",
   provides: ["billing-routes", "billing", "billingManager"],
-  consumes: ["db", "acl", "webhook", "telemetry"],
+  consumes: ["db"],
+  tags: ["uses:webhook"],
   state: ["stripeAdapter"],
   runtimes: ["deno"],
   summary: "SaaS billing facade (Stripe adapter by default): subscriptions, customers, invoices, webhooks. Plan tier enforcement, metered usage, dunning.",
   create: (deps: Record<string, any>) => {
-    const db = deps["db"];
-    const webhook = deps["webhook"];
+    const db = deps.traits["db"];
+    const webhook = deps.traits["webhook"];
 
     const traitApi: any = {
       stripeAdapter: null as any,

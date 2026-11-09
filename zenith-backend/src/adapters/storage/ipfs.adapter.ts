@@ -5,7 +5,7 @@
  * @barrits-summary ZenithIPFSAdapter
  * @barrits-provides ipfs_deleteFile, ipfs_download, ipfs_getSignedUrl, injectIPFSPlugin, ipfs_upload
  * @barrits-consumes
- * @barrits-state plugin
+ * @barrits-state ipfs_plugin
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -52,7 +52,7 @@ export const IPFSStorageTrait = createTraitDescriptor({
   name: "ZenithIPFSAdapter",
   provides: ["ipfs_deleteFile", "ipfs_download", "ipfs_getSignedUrl", "injectIPFSPlugin", "ipfs_upload"],
   consumes: [],
-  state: ["plugin"],
+  state: ["ipfs_plugin"],
   runtimes: ["deno"],
   create: (_deps) => {
     let adapter: StorageAdapter | null = null;

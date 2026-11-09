@@ -255,6 +255,7 @@ export interface DatabaseAdapter {
    * Devuelve null si no se aplicó. Opcional: no todos los motores pueden garantizarlo.
    */
   updateIf?(collection: string, objectId: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>): Promise<ZenithObject | null>;
+  listClasses?(): Promise<string[]>;
   delete(collection: string, objectId: string): Promise<void>;
   disconnect(): Promise<void>;
 }
