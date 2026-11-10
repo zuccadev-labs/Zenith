@@ -166,7 +166,7 @@ services:
       - LUX_PORT=6379
       - LUX_DATA_DIR=/data
       - LUX_BIND_HOST=0.0.0.0
-      - LUX_PASSWORD=${LUX_PASSWORD}
+      - LUX_PASSWORD=${LUX_PASSWORD:?LUX_PASSWORD is required in .env}
     volumes:
       - lux_data:/data
     restart: unless-stopped

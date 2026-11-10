@@ -46,6 +46,19 @@ No deben abrirse nunca a usuarios: `/shell/*`, `/runner/*`, `/secrets/*`, `/edge
 `$inQuery` ejecuta su subconsulta sin ACL ni CLP sobre cualquier colección. El CRUD lo rechaza a los usuarios. Si
 se quiere ofrecer, el adaptador tiene que pasar la subconsulta por las mismas comprobaciones.
 
+### Dos sistemas de API keys
+- **Las del servidor** (`/zen/api-keys`, `ApiKeyManager` sobre MongoDB) son las que autentican peticiones.
+- **Las de workspace** (`/zen/apikeys`, colección `ZenithApiKey`) se crean, pero el pipeline no las valida.
+  Hay que unificarlas o retirar las de workspace. `ZenithAPIKey` del SDK usa las de workspace.
+
+### El motor aún no está en JSR
+`zen init` apunta `@zuccadev-labs/zenith` al `src/mod.ts` del monorepo. Al publicar el motor en JSR, cambiar
+`CORE_ENTRY` en `zenith-cli/zen.ts` por `jsr:@zuccadev-labs/zenith`.
+
+### `zenith-cli/ai_harness.ts`
+No lo usa nada. Sus herramientas son simuladas; `process_payment` responde "Payment Dispatched" sin cobrar. No
+debe conectarse a un agente tal como está.
+
 ### `updatedAt` no se actualiza
 El adaptador de Mongo descarta `updatedAt` en `update`, así que conserva el valor de la creación. Parse lo
 actualiza en cada escritura.
@@ -73,27 +86,19 @@ Todo está en su última versión estable o LTS. Hay tres excepciones, forzadas 
 - **`@solana/web3.js` 1.99:** la 3.x existe, pero el wallet-adapter exige `^1.99`.
 - **Proxmox en Pulumi:** se usa `VmLegacy`, el recurso estable de la v8; `Vm` está marcado como experimental.
 
-### Errores que ya existían (no los causa la actualización)
-- **Ejemplo de Vite:** 18 errores de tipos.
-  - MUI 9 retiró las props de sistema (`<Typography fontWeight={800}>` pasa a `sx={{ fontWeight: 800 }}`).
-  - El SDK no declara `attributes` en `ZenithObject` ni el segundo argumento de `upload`.
-  - El build de Vite sí funciona.
-- **CLI:** 7 errores de tipos, iguales antes y después.
-  - Hay comandos sin `run` exportado.
-  - `parseArgs` con `number`.
-  - Importa `manager.ts` del backend, que necesita `@node-rs/argon2`, y el CLI no lo tiene en su import map.
+### Errores de tipos: resueltos (2026-11-10)
+El ejemplo de Vite (20) y el CLI (7) compilan sin errores. Quedan avisos de estilo de lint, que ya existían: 61 en
+el ejemplo y unos 45 en el CLI, sobre todo `any`.
 
-### Laboratorio (`lab-infra/docker`): migrar los datos antes de actualizar en `192.168.14.50`
-Las imágenes ahora tienen versión fija (ninguna `:latest`). Si los volúmenes ya tienen datos, hay que migrarlos;
-no basta con cambiar la imagen:
-- **MongoDB 7.0 → 9.0:** pasar por 8.0 y subir `featureCompatibilityVersion` en cada salto.
-- **PostgreSQL 15 → 18:** `pg_dump`/`pg_restore` o `pg_upgrade`. La imagen 18 guarda los datos en
-  `/var/lib/postgresql/18/docker`; el volumen se monta ahora en `/var/lib/postgresql`.
-- **ScyllaDB 5.2 → 2026.1 (LTS):** actualizar por versiones intermedias. Desde 2025 la licencia es source-available.
-- **MariaDB 10.11 → 12.3 (LTS):** después, `mariadb-upgrade`.
-- **RabbitMQ 3.12 → 4.4:** activar todos los feature flags antes del salto. Hay que probar Postal con la 4.x.
-- **SurrealDB → v4:** exportar e importar. El almacenamiento es `rocksdb:`, en lugar de `file:`.
-- **Novu 3:** la imagen `web` se sustituye por `dashboard` (puerto 4000, variables `VITE_*`).
+### Laboratorio
+Se recrea desde cero; no hay datos que migrar. El procedimiento, los requisitos de cómputo y las correcciones
+probadas están en `lab-infra/docs/recrear-desde-cero.md`.
+
+Pendiente:
+- **Credenciales MQTT de los dispositivos.** EMQX ya no acepta conexiones anónimas, así que cada dispositivo
+  necesita usuario y contraseña en EMQX. Lo correcto es que EMQX le pregunte a Zenith por HTTP
+  (`deviceId`/`deviceToken` contra `deviceTokenHash` del trait IoT); esa ruta aún no existe.
+- **Recursos de la VM:** se recomiendan 6 vCPU, 16 GB y 100 GB de disco (hoy 4, 12 y 60).
 
 ### Imagen Docker
 - **Base de ejecución:** `debian:13-slim`. distroless no sirve porque `@node-rs/argon2` busca `/usr/bin/ldd`
