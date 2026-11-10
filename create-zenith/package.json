@@ -1,0 +1,22 @@
+{
+  "name": "@zuccadev-labs/create-zenith",
+  "version": "0.1.0",
+  "description": "npm create @zuccadev-labs/zenith <name>: creates a Zenith server project (zen init). Requires Deno.",
+  "type": "module",
+  "bin": {
+    "create-zenith": "./index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "author": "Zuccadev Labs",
+  "license": "MIT"
+}
