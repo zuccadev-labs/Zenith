@@ -31,6 +31,8 @@
  * y es compatible con Swagger UI, Redoc, Stoplight Elements, etc.
  */
 
+import { collectTraitRoutes, type RouteAccess, type RouteScope } from "./route-collection.ts";
+
 // ── Public types ─────────────────────────────────────────────────────────────
 
 export interface OpenApiOptions {
@@ -65,6 +67,11 @@ export interface OpenApiOptions {
    * Default: true.
    */
   includeBuiltinSchemas?: boolean;
+  /**
+   * Routes served outside the traits (`/health`, `/zen/api-keys`). They are documented under the
+   * "core" provider, exactly as the router mounts them.
+   */
+  extraRoutes?: RouteEntry[];
 }
 
 export interface OpenApiSchema {
@@ -142,6 +149,8 @@ export interface OpenApiOperation {
   }>;
   security?: Array<Record<string, string[]>>;
   deprecated?: boolean;
+  /** Which API key scope a route needs when it checks per operation (OpenAPI extension). */
+  "x-api-key-scope"?: string;
 }
 
 /** Metadata opcional adjuntable a un route. */
@@ -427,21 +436,13 @@ function exampleFor(name: string): string {
   }
 }
 
-/** Detecta si un valor es un array de RouteEntry. */
-function isRoutesArray(value: unknown): value is RouteEntry[] {
-  if (!Array.isArray(value) || value.length === 0) return false;
-  const first = value[0];
-  if (!first || typeof first !== "object") return false;
-  const r = first as Record<string, unknown>;
-  return typeof r.method === "string" && typeof r.path === "string";
-}
 
 /** Convierte provider name → tag (snake/kebab → Title Case). */
 function providerToTag(provider: string): string {
   // e.g. "user_routes" → "user" → "User"
   // e.g. "crud_routes" → "crud" → "CRUD" (acronym)
   // e.g. "sframe_signaling_routes" → "sframe signaling" → "Sframe Signaling"
-  const base = provider.replace(/_routes$/, "").replace(/_/g, " ");
+  const base = provider.replace(/[-_]?routes$/i, "").replace(/[-_]/g, " ").trim() || "core";
 
   // Acrónimos conocidos — se preservan en mayúsculas
   const ACRONYMS = new Set([
@@ -486,16 +487,20 @@ function defaultResponses(method: string): OpenApiOperation["responses"] {
   return base;
 }
 
-/** Default security para un route. */
-function defaultSecurity(_hasRequestBody: boolean): OpenApiOperation["security"] {
-  // En Zenith, todos los endpoints requieren algún tipo de auth
-  // (excepto /health, que se filtra en el caller).
-  return [
-    { "apiKeyBearer": [] },
-    { "apiKeyHeader": [] },
-    { "sessionToken": [] },
-    { "jwtRs256": [] },
-  ];
+/**
+ * Security of a route from its `access`, as the pipeline enforces it (ADR-013). Unset is "master",
+ * the router's default.
+ */
+function securityFor(access: RouteAccess | undefined, scope: RouteScope | undefined): OpenApiOperation["security"] {
+  if (access === "public") return [];
+  if (access === "user") {
+    const session: Array<Record<string, string[]>> = [{ "sessionToken": [] }, { "jwtRs256": [] }];
+    // API keys reach a user route only with a declared scope (router.ts `denied`).
+    if (scope === undefined) return session;
+    const keyScopes = scope === "per-operation" ? [] : [scope];
+    return [{ "apiKeyBearer": keyScopes }, { "apiKeyHeader": keyScopes }, ...session];
+  }
+  return [{ "masterKey": [] }];
 }
 
 // ── Main entry point ───────────────────────────────────────────────────────
@@ -522,14 +527,13 @@ export function generateOpenApiFromState(
 ): OpenApiSpec {
   const includeBuiltin = options.includeBuiltinSchemas !== false;
 
-  // 1. Detectar todos los `*_routes` arrays en el state
-  const discovered: Array<{ provider: string; routes: RouteEntry[] }> = [];
-  for (const [key, value] of Object.entries(state)) {
-    if (!key.endsWith("_routes")) continue;
-    if (isRoutesArray(value)) {
-      discovered.push({ provider: key, routes: value });
-    }
+  // 1. The same routes the router mounts (route-collection.ts), plus those outside the traits.
+  const byProvider = new Map<string, RouteEntry[]>();
+  for (const { provider, route } of collectTraitRoutes(state)) {
+    byProvider.set(provider, [...(byProvider.get(provider) ?? []), route as RouteEntry]);
   }
+  if (options.extraRoutes?.length) byProvider.set("core", [...(byProvider.get("core") ?? []), ...options.extraRoutes]);
+  const discovered = [...byProvider].map(([provider, routes]) => ({ provider, routes }));
 
   // 2. Construir paths
   const paths: OpenApiSpec["paths"] = {};
@@ -564,9 +568,10 @@ export function generateOpenApiFromState(
         parameters: paramByName.size > 0 ? [...paramByName.values()] : undefined,
         ...(meta.requestBody ? { requestBody: meta.requestBody } : {}),
         responses: meta.responses ?? defaultResponses(method),
-        security: meta.security ?? defaultSecurity(
-          Boolean(meta.requestBody || method === "post" || method === "put" || method === "patch"),
-        ),
+        security: meta.security ?? securityFor(route.access as RouteAccess | undefined, route.scope as RouteScope | undefined),
+        ...(route.scope === "per-operation"
+          ? { "x-api-key-scope": "Per operation: data:read, data:create, data:write or data:delete (users:read / users:write for _User)." }
+          : {}),
         ...(meta.deprecated ? { deprecated: true } : {}),
       };
 
@@ -634,17 +639,8 @@ export function extractAllRoutes(state: ZenithState): Array<{
   hasMetadata: boolean;
 }> {
   const out: Array<{ provider: string; method: string; path: string; hasMetadata: boolean }> = [];
-  for (const [key, value] of Object.entries(state)) {
-    if (!key.endsWith("_routes")) continue;
-    if (!isRoutesArray(value)) continue;
-    for (const r of value) {
-      out.push({
-        provider: key,
-        method: r.method,
-        path: r.path,
-        hasMetadata: Boolean(r._openapi),
-      });
-    }
+  for (const { provider, route } of collectTraitRoutes(state)) {
+    out.push({ provider, method: route.method, path: route.path, hasMetadata: Boolean(route._openapi) });
   }
   return out;
 }

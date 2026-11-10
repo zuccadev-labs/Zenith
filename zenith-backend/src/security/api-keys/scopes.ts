@@ -100,3 +100,25 @@ export const DEFAULT_RATE_LIMITS: Record<"sk" | "pk" | "rk", number> = {
   pk: 6000,    // cliente público: alto volumen pero solo lectura
   rk: 60,      // restricted: bajo
 };
+
+/** The data operations an API key may be scoped to. */
+export type DataOperation = "read" | "create" | "write" | "delete";
+
+/**
+ * The scope an API key needs for `op` on `className`: `users:*` for `_User`, `data:*` for the rest.
+ * Updates and increments are `write`; `create` and `delete` are separate so a key can add without erasing.
+ */
+export function dataScope(op: DataOperation, className: string): ApiKeyScope {
+  if (className === "_User") return op === "read" ? "users:read" : "users:write";
+  return `data:${op}`;
+}
+
+/**
+ * Why the request's API key may not do what needs `scope`, or null if it may (or no API key is
+ * involved: sessions and the master key are governed by ACL/CLP and `access`, not by key scopes).
+ * When a session and a key arrive together, the key still limits the request.
+ */
+export function missingKeyScope(ctx: { apiKey?: { scopes: readonly string[] } }, scope: ApiKeyScope): string | null {
+  if (!ctx.apiKey) return null;
+  return hasScope(ctx.apiKey.scopes as ApiKeyScope[], scope) ? null : `This API key lacks the scope ${scope}.`;
+}

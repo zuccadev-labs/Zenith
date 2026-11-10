@@ -21,13 +21,18 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD";
  *   object-level permissions.
  * - `master`: the master key, `Zen-Internal-Token`, or an API key with scope `*`.
  */
-export type RouteAccess = "public" | "user" | "master";
+import type { RouteAccess, RouteScope } from "./route-collection.ts";
+import { missingKeyScope } from "../security/api-keys/scopes.ts";
+import { collectTraitRoutes, HEALTH_ROUTE } from "./route-collection.ts";
+export type { RouteAccess, RouteScope };
 
 export interface RouteDefinition {
   method: HttpMethod | "*";
   pattern: URLPattern;
   handler: RouteHandler;
   access: RouteAccess;
+  /** What an API key needs here (see RouteScope). */
+  scope?: RouteScope;
 }
 
 const isMaster = (ctx: ZenithRequestContext) => ctx.masterKey === true || (ctx.apiKey?.scopes ?? []).includes("*");
@@ -44,10 +49,22 @@ export function callerFields(ctx: ZenithRequestContext): { master: boolean; user
   return { master: isMaster(ctx), user: { objectId: userId, id: userId, roles } };
 }
 
+const forbidden = (error: string): Response =>
+  new Response(JSON.stringify({ code: 119, error }), { status: 403, headers: { "Content-Type": "application/json" } });
+
 /** `null` if `ctx` may call a route with `access`, otherwise the refusal. */
-export function denied(access: RouteAccess, ctx: ZenithRequestContext): Response | null {
+export function denied(access: RouteAccess, ctx: ZenithRequestContext, scope?: RouteScope): Response | null {
   if (access === "public" || isMaster(ctx)) return null;
-  if (access === "user" && (ctx.auth?.userId || ctx.apiKey)) return null;
+  if (access === "user" && ctx.apiKey) {
+    // An API key only reaches what its scopes cover. Fail closed: a user route that declares no
+    // scope is not open to API keys at all. "per-operation" routes (/batch) check each operation.
+    const why = scope === undefined
+      ? "This route does not accept API keys."
+      : scope === "per-operation" ? null : missingKeyScope(ctx, scope);
+    if (why) return forbidden(why);
+    return null;
+  }
+  if (access === "user" && ctx.auth?.userId) return null;
   const anonymous = !ctx.auth?.userId && !ctx.apiKey;
   return new Response(
     JSON.stringify(anonymous
@@ -62,15 +79,21 @@ export function denied(access: RouteAccess, ctx: ZenithRequestContext): Response
 export class ZenithRouter {
   private readonly routes: RouteDefinition[] = [];
 
-  on(method: HttpMethod | "*", path: string, handler: RouteHandler, access: RouteAccess = "master"): this {
+  on(method: HttpMethod | "*", path: string, handler: RouteHandler, access: RouteAccess = "master", scope?: RouteScope): this {
     if (!["public", "user", "master"].includes(access)) throw new Error(`route ${method} ${path}: unknown access ${JSON.stringify(access)}`);
     this.routes.push({
       method,
       pattern: new URLPattern({ pathname: path }),
       handler,
       access,
+      ...(scope ? { scope } : {}),
     });
     return this;
+  }
+
+  /** What is mounted: method, path and access of every route, in order. */
+  list(): Array<{ method: HttpMethod | "*"; path: string; access: RouteAccess; scope?: RouteScope }> {
+    return this.routes.map((r) => ({ method: r.method, path: r.pattern.pathname, access: r.access, ...(r.scope ? { scope: r.scope } : {}) }));
   }
 
   get(path: string, handler: RouteHandler): this {
@@ -118,7 +141,7 @@ export class ZenithRouter {
         const match = route.pattern.exec({ pathname });
         if (match) {
           // Inyectar params en el contexto
-          const refusal = denied(route.access, ctx);
+          const refusal = denied(route.access, ctx, route.scope);
           if (refusal) return refusal;
           const params = (match.pathname.groups ?? {}) as Record<string, string>;
           const enrichedCtx = { ...ctx, params, ...callerFields(ctx) };
@@ -152,20 +175,16 @@ export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
   const router = new ZenithRouter();
   
   // Endpoint de salud base
-  router.on("GET", "/health", healthHandler, "public");
+  router.on("GET", HEALTH_ROUTE.path, healthHandler, "public");
 
-  // Escaneo dinámico de rutas expuestas por los Traits (Flattened Barrits Capabilities)
-  const flattenedDeps = deps.traits || deps;
-  for (const [key, value] of Object.entries(flattenedDeps)) {
-    if (key.toLowerCase().includes("routes") && Array.isArray(value)) {
-      console.log(`[Router] Mounting ${value.length} routes from capability: ${key}`);
-      for (const route of value) {
-        if (route.method && route.path && route.handler) {
-          router.on(route.method, route.path, route.handler, route.access ?? "master");
-        }
-      }
-    }
+  // Rutas de los traits: la misma lista que documenta OpenAPI (route-collection.ts).
+  const mounted = new Map<string, number>();
+  for (const { provider, route } of collectTraitRoutes(deps.traits || deps)) {
+    if (typeof route.handler !== "function") continue;
+    router.on(route.method as HttpMethod | "*", route.path, route.handler as RouteHandler, route.access ?? "master", route.scope);
+    mounted.set(provider, (mounted.get(provider) ?? 0) + 1);
   }
+  for (const [provider, n] of mounted) console.log(`[Router] Mounting ${n} routes from capability: ${provider}`);
 
   return router;
 }

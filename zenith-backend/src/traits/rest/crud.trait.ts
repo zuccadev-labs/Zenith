@@ -25,6 +25,7 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithError, ZenithErrorCode, ZenithErrors } from "../../core/errors.ts";
+import { type DataOperation, dataScope, missingKeyScope } from "../../security/api-keys/scopes.ts";
 import {
   aclAllows, applyOps, type Caller, clientClassName, clientFields, clientOrder, clientPaging, clientWhere,
   type ClpOp, clpAllows, defaultAcl, type Doc, fieldList, isServerClass, MAX_BATCH, opsOnCreate, withReadAcl,
@@ -102,6 +103,12 @@ export const RestCrudTrait = createTraitDescriptor({
       return obj;
     };
 
+    /** API keys only do what their scopes cover; batch operations go through here too. */
+    const keyMayDo = (ctx: any, op: DataOperation, className: string) => {
+      const why = missingKeyScope(ctx ?? {}, dataScope(op, className));
+      if (why) throw new ZenithError(ZenithErrorCode.OPERATION_FORBIDDEN, why, 403);
+    };
+
     const traitApi: any = {
       /** `allowClientClassCreation` (default false): users may create classes that do not exist yet. */
       configure: (cfg: { allowClientClassCreation?: boolean } = {}) => {
@@ -109,6 +116,7 @@ export const RestCrudTrait = createTraitDescriptor({
       },
 
       listClass: async (className: string, query: Record<string, any>, ctx: any) => {
+        keyMayDo(ctx, "read", className);
         const caller = callerOf(ctx);
         const wantCount = query.count === "1" || query.count === 1 || query.count === true;
         await classFor(className, "find", caller);
@@ -133,6 +141,7 @@ export const RestCrudTrait = createTraitDescriptor({
       },
 
       getObject: async (className: string, objectId: string, query: Record<string, any>, ctx: any) => {
+        keyMayDo(ctx, "read", className);
         const caller = callerOf(ctx);
         await classFor(className, "get", caller);
         await cloud.runBeforeFind(className, { objectId, query, ...hooks(caller) });
@@ -143,6 +152,7 @@ export const RestCrudTrait = createTraitDescriptor({
       },
 
       createObject: async (className: string, body: Record<string, any>, ctx: any) => {
+        keyMayDo(ctx, "create", className);
         const caller = callerOf(ctx);
         await classFor(className, "create", caller, true);
         const data = opsOnCreate(clientFields(body));
@@ -157,6 +167,7 @@ export const RestCrudTrait = createTraitDescriptor({
       },
 
       updateObject: async (className: string, objectId: string, body: Record<string, any>, ctx: any) => {
+        keyMayDo(ctx, "write", className);
         const caller = callerOf(ctx);
         await classFor(className, "update", caller);
         const existing = await readFor(className, objectId, "w", caller);
@@ -172,6 +183,7 @@ export const RestCrudTrait = createTraitDescriptor({
       },
 
       deleteObject: async (className: string, objectId: string, ctx: any) => {
+        keyMayDo(ctx, "delete", className);
         const caller = callerOf(ctx);
         await classFor(className, "delete", caller);
         const existing = await readFor(className, objectId, "w", caller);
@@ -239,7 +251,7 @@ export const RestCrudTrait = createTraitDescriptor({
 
     const crud_routes = [
       {
-        method: "GET" as const, path: "/classes/:className", access: "user",
+        method: "GET" as const, path: "/classes/:className", access: "user", scope: "per-operation" as const,
         _openapi: {
           summary: "List objects in a class",
           parameters: [classParam, ...["where", "limit", "skip", "order", "include", "keys", "count"].map((name) => ({ name, in: "query", schema: { type: "string" } }))],
@@ -247,12 +259,12 @@ export const RestCrudTrait = createTraitDescriptor({
         handler: async (req: Request, ctx: any) => json(await traitApi.listClass(p(ctx).className, queryOf(req), ctx)),
       },
       {
-        method: "GET" as const, path: "/classes/:className/:objectId", access: "user",
+        method: "GET" as const, path: "/classes/:className/:objectId", access: "user", scope: "per-operation" as const,
         _openapi: { summary: "Get a single object", parameters: [classParam, idParam, { name: "include", in: "query", schema: { type: "string" } }] },
         handler: async (req: Request, ctx: any) => json(await traitApi.getObject(p(ctx).className, p(ctx).objectId, queryOf(req), ctx)),
       },
       {
-        method: "POST" as const, path: "/classes/:className", access: "user",
+        method: "POST" as const, path: "/classes/:className", access: "user", scope: "per-operation" as const,
         _openapi: { summary: "Create a new object", parameters: [classParam], requestBody: objectBody },
         handler: async (req: Request, ctx: any) => {
           const { className } = p(ctx);
@@ -261,17 +273,17 @@ export const RestCrudTrait = createTraitDescriptor({
         },
       },
       {
-        method: "PUT" as const, path: "/classes/:className/:objectId", access: "user",
+        method: "PUT" as const, path: "/classes/:className/:objectId", access: "user", scope: "per-operation" as const,
         _openapi: { summary: "Update an object", parameters: [classParam, idParam], requestBody: objectBody },
         handler: async (req: Request, ctx: any) => json(await traitApi.updateObject(p(ctx).className, p(ctx).objectId, await bodyOf(req), ctx)),
       },
       {
-        method: "DELETE" as const, path: "/classes/:className/:objectId", access: "user",
+        method: "DELETE" as const, path: "/classes/:className/:objectId", access: "user", scope: "per-operation" as const,
         _openapi: { summary: "Delete an object", parameters: [classParam, idParam] },
         handler: async (_req: Request, ctx: any) => json(await traitApi.deleteObject(p(ctx).className, p(ctx).objectId, ctx)),
       },
       {
-        method: "POST" as const, path: "/classes/:className/:objectId/Increment", access: "user",
+        method: "POST" as const, path: "/classes/:className/:objectId/Increment", access: "user", scope: "per-operation" as const,
         _openapi: { summary: "Atomic increment on a numeric field", parameters: [classParam, idParam], requestBody: objectBody },
         handler: async (req: Request, ctx: any) => {
           const entries = Object.entries(await bodyOf(req) ?? {});
@@ -281,7 +293,7 @@ export const RestCrudTrait = createTraitDescriptor({
         },
       },
       {
-        method: "POST" as const, path: "/batch", access: "user",
+        method: "POST" as const, path: "/batch", access: "user", scope: "per-operation" as const,
         _openapi: { summary: "Run up to 50 operations in one request (not a transaction)" },
         handler: async (req: Request, ctx: any) => json(await traitApi.batch((await bodyOf(req))?.requests, ctx)),
       },
