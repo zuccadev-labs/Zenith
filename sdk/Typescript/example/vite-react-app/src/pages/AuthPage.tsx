@@ -143,7 +143,7 @@ export default function AuthPage() {
       >
         {/* Header */}
         <Box sx={{ mb: 1, textAlign: 'center' }}>
-          <Typography variant="h4" fontWeight={800} sx={{ color: '#e2e8f0' }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: '#e2e8f0' }}>
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(226,232,240,0.5)', mt: 0.5 }}>

@@ -92,6 +92,11 @@ export class ZenithObject {
     return this.objectId;
   }
 
+  /** A copy of the object's fields, as Parse.Object.attributes. Change them with set(). */
+  public get attributes(): Readonly<Record<string, any>> {
+    return { ...this._attributes };
+  }
+
   public get(key: string): any {
     if (key === "objectId") return this.objectId;
     if (key === "createdAt") return this.createdAt;
