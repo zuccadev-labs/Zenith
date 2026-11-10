@@ -81,5 +81,5 @@ export type {
 } from "./automation/ZenithAutomationCSV.js";
 
 // ─── React ───────────────────────────────────────────────────────────────────
-// Exported as a subpath: @zuccadev-labs/zenith/react
-// Usage: import { ZenithProvider, useZenithUser } from '@zuccadev-labs/zenith/react';
+// Exported as a subpath: @zuccadev-labs/zenith-client/react
+// Usage: import { ZenithProvider, useZenithUser } from '@zuccadev-labs/zenith-client/react';

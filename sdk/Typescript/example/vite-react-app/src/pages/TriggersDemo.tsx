@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Box, Button, Typography, Paper, TextField, Alert, CircularProgress, Chip } from '@mui/material';
-import { useZenithUser } from '@zuccadev-labs/zenith/react';
+import { useZenithUser } from '@zuccadev-labs/zenith-client/react';
 import { ShieldAlert, Send } from 'lucide-react';
-import { ZenithObject } from '@zuccadev-labs/zenith';
+import { ZenithObject } from '@zuccadev-labs/zenith-client';
 
 export default function TriggersDemo() {
   const { user } = useZenithUser();

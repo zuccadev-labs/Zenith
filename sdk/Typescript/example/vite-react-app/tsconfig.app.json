@@ -23,8 +23,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@zuccadev-labs/zenith/react": ["../../src/react/mod.ts"],
-      "@zuccadev-labs/zenith": ["../../src/index.ts"]
+      "@zuccadev-labs/zenith-client/react": ["../../src/react/mod.ts"],
+      "@zuccadev-labs/zenith-client": ["../../src/index.ts"]
     },
     "ignoreDeprecations": "6.0"
   },

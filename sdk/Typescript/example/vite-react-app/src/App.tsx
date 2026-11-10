@@ -1,7 +1,7 @@
 import React from 'react';
 import { ThemeProvider, createTheme, CssBaseline, AppBar, Toolbar, Typography, Button, Box, Chip } from "@mui/material";
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { useZenithUser } from "@zuccadev-labs/zenith/react";
+import { useZenithUser } from "@zuccadev-labs/zenith-client/react";
 import { Key } from 'lucide-react';
 
 import Dashboard from './pages/Dashboard';
@@ -32,7 +32,7 @@ const darkTheme = createTheme({
 function Navigation() {
   const { user, setUser } = useZenithUser();
   const handleLogout = async () => {
-    const { ZenithUser } = await import('@zuccadev-labs/zenith');
+    const { ZenithUser } = await import('@zuccadev-labs/zenith-client');
     await ZenithUser.logOut();
     setUser(null);
   };

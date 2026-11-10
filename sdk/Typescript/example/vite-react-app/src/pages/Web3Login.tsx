@@ -4,8 +4,8 @@ import { useAccount, useConnect, useSignMessage } from 'wagmi';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import bs58 from 'bs58';
-import { useZenithUser } from '@zuccadev-labs/zenith/react';
-import { Zenith } from '@zuccadev-labs/zenith';
+import { useZenithUser } from '@zuccadev-labs/zenith-client/react';
+import { Zenith } from '@zuccadev-labs/zenith-client';
 
 const NONCE_PREFIX = "Zenith Authentication Nonce: ";
 
@@ -43,7 +43,7 @@ export default function Web3Login() {
       await Zenith.setSessionTokenAsync(res.sessionToken);
       
       // Update global context
-      const { ZenithUser } = await import('@zuccadev-labs/zenith');
+      const { ZenithUser } = await import('@zuccadev-labs/zenith-client');
       const currentUser = await ZenithUser.currentAsync();
       setUser(currentUser);
 
@@ -80,7 +80,7 @@ export default function Web3Login() {
       // 3. Hydrate session locally
       await Zenith.setSessionTokenAsync(res.sessionToken);
       
-      const { ZenithUser } = await import('@zuccadev-labs/zenith');
+      const { ZenithUser } = await import('@zuccadev-labs/zenith-client');
       const currentUser = await ZenithUser.currentAsync();
       setUser(currentUser);
 

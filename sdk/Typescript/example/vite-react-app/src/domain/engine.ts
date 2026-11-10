@@ -1,5 +1,5 @@
 import { composeTraitDescriptors, createTraitDescriptor } from "@zuccadev-labs/barrits";
-import { Zenith } from "@zuccadev-labs/zenith";
+import { Zenith } from "@zuccadev-labs/zenith-client";
 
 /** A form as the createForm/getForms cloud functions return it. */
 export interface Form {

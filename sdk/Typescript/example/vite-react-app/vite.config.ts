@@ -10,8 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       'jotai': path.resolve(__dirname, 'node_modules/jotai'),
-      '@zuccadev-labs/zenith/react': path.resolve(__dirname, '../../src/react/mod.ts'),
-      '@zuccadev-labs/zenith': path.resolve(__dirname, '../../src/index.ts'),
+      '@zuccadev-labs/zenith-client/react': path.resolve(__dirname, '../../src/react/mod.ts'),
+      '@zuccadev-labs/zenith-client': path.resolve(__dirname, '../../src/index.ts'),
     }
   },
   server: {

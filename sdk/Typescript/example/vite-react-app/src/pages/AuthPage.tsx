@@ -3,7 +3,7 @@ import {
   Container, Typography, Box, TextField, Button, Paper, Alert,
   CircularProgress, Divider, Chip, InputAdornment, IconButton, LinearProgress
 } from '@mui/material';
-import { useZenithUser } from '@zuccadev-labs/zenith/react';
+import { useZenithUser } from '@zuccadev-labs/zenith-client/react';
 import { LogIn, UserPlus, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -94,7 +94,7 @@ export default function AuthPage() {
 
     setLoading(true);
     try {
-      const { ZenithUser } = await import('@zuccadev-labs/zenith');
+      const { ZenithUser } = await import('@zuccadev-labs/zenith-client');
       let u: any;
       if (isLogin) {
         u = await ZenithUser.logIn(username.trim(), password);

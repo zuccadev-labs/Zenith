@@ -6,8 +6,8 @@ import {
   FormControlLabel, Checkbox, Tooltip, CircularProgress
 } from '@mui/material';
 import { Key, Plus, Trash2, Copy, CheckCheck, AlertTriangle } from 'lucide-react';
-import { useZenithUser } from '@zuccadev-labs/zenith/react';
-import { ZenithAPIKey } from '@zuccadev-labs/zenith';
+import { useZenithUser } from '@zuccadev-labs/zenith-client/react';
+import { ZenithAPIKey } from '@zuccadev-labs/zenith-client';
 
 // ─── Scope selector ───────────────────────────────────────────────────────────
 

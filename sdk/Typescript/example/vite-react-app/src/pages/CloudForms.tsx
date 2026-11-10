@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Button, Typography, Paper, TextField, Alert, CircularProgress, Divider, Chip, List, ListItem, ListItemText, IconButton } from '@mui/material';
-import { useZenithUser } from '@zuccadev-labs/zenith/react';
+import { useZenithUser } from '@zuccadev-labs/zenith-client/react';
 import { Send, CloudCog, Trash2, Edit2, X } from 'lucide-react';
 import { FrontendEngine } from '../domain/engine';
-import { ZenithObject } from '@zuccadev-labs/zenith';
+import { ZenithObject } from '@zuccadev-labs/zenith-client';
 
 export default function CloudForms() {
   const { user } = useZenithUser();
