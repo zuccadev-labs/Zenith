@@ -1,5 +1,7 @@
 # Migrating from self-hosted Parse-Server to Zenith
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Audience:** engineering teams running Parse-Server in production.
 > **Time to migrate:** 2-4 weeks for a typical app (1-3 engineers).
 > **Tooling:** `zenith-cli migrate parse-server` (planned Phase 4.0 GA).

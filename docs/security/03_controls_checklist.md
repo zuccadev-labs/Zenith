@@ -1,5 +1,7 @@
 # Zenith Security Controls Checklist (NIST 800-53 / ISO 27001 / SOC 2)
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Frameworks covered:** NIST SP 800-53 Rev. 5 (Moderate), ISO 27001:2022, SOC 2 Type II.
 > **Date:** 2026-06-06
 > **Owner:** Security lead

@@ -1,5 +1,7 @@
 # Investigación 11: HashiCorp Vault como gestor de secretos (H-4)
 
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 **Autor**: Zenith Core Team
 **Fecha**: 2026-06-06
 **Status**: Cerrado

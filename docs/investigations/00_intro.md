@@ -1,5 +1,7 @@
 # Proyecto Zenith: El BaaS de la Era de la Inteligencia Artificial
 
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 Estoy construyendo el BaaS de la era de la Inteligencia Artificial. Reducir la fricción para que un LLM no alucine código de backend y orqueste todo mediante AST y Traits declarativos es un enfoque disruptivo.
 Aquí tienes una propuesta de descripción profesional, el análisis de tu arquitectura y una nueva ronda de nombres ultra-específicos para esta visión.
 

@@ -1,5 +1,7 @@
 # Zenith — Service Level Indicators (SLI) & Objectives (SLO)
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Methodology:** Google SRE Workbook, Chapter 5 (SLI/SLO).
 > **Date:** 2026-06-06
 > **Owner:** SRE lead, Product lead.

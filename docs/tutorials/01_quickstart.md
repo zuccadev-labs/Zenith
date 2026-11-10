@@ -1,133 +1,125 @@
-# Quickstart — Build a To-Do app in 5 minutes
+# Quickstart: un servidor Zenith y una app que lo usa
 
-> **Goal:** store and list "to-do" items using the Zenith REST API from any language.
-> **Prerequisites:** API key (any type), 5 minutes.
+> Vigente a 2026-11-10. Comprobado contra el código: `zenith-cli/zen.ts`, `zenith-backend/src/traits/`
+> y `sdk/Typescript/src/`. Sustituye a la versión anterior, que describía un servicio alojado
+> (`api.zenith.io`, regiones, `@zenith/sdk-typescript`, SDK de Python) que no existe. La versión
+> anterior sigue en el historial de git.
 
-## 1. Get your keys
+Zenith tiene dos SDK y este tutorial usa los dos:
 
-If you just signed up, your keys are in your 1Password vault under
-"Zenith". The relevant ones for this tutorial:
+- **SDK de servidor**: el motor `@zuccadev-labs/zenith` y el comando `zen`. Crean y ejecutan tu backend.
+- **SDK de cliente**: `@zuccadev-labs/zenith-client`. Lo usa tu app para hablar con ese backend.
 
-- **App ID:** `acme-corp-prod`
-- **API key (any):** `sk_live_***` (or `pk_live_***` for browser)
+## 1. Requisitos
 
-## 2. Make your first request
+- Deno 2.4 o posterior.
+- MongoDB. Para probar: `docker run -d --name zenith-mongo -p 27017:27017 --memory 1g mongo:9`.
+
+## 2. Instalar `zen` (servidor)
 
 ```bash
-curl https://api.zenith.io/v1/classes/Todo \
-  -H "X-Parse-Application-Id: acme-corp-prod" \
-  -H "Authorization: Bearer sk_live_***" \
+deno install -g -A --unstable-kv -n zen jsr:@zuccadev-labs/zenith-cli/zen
+```
+
+Alternativa desde npm, que comprueba Deno y crea el proyecto del paso 3:
+`npm create @zuccadev-labs/zenith miapp`.
+
+> **Hasta que se publique:** desde un clon del monorepo,
+> `alias zen="deno run -A --unstable-kv --config $PWD/zenith-cli/deno.json $PWD/zenith-cli/zen.ts"`.
+> Los proyectos creados así enlazan el motor local de `zenith-backend/`.
+
+## 3. Crear y arrancar el proyecto
+
+```bash
+zen init miapp
+cd miapp
+zen dev            # recarga en caliente en http://localhost:1337
+```
+
+`zen init` genera `zen.config.ts`, `cloud/main.ts`, `plugins/`, `deno.json`, `.gitignore` y un `.env`
+con permisos 600 que contiene una master key aleatoria de 64 bytes y la URI de MongoDB. El `.env`
+no se sube a git.
+
+Comprueba que responde: `curl http://localhost:1337/health`. La API completa del proyecto está en
+`http://localhost:1337/swagger`; `/openapi.json` documenta exactamente las rutas montadas.
+
+## 4. Definir una clase (servidor, master key)
+
+Por seguridad, `/classes` solo acepta clases definidas antes (ADR-014). Defínela con la master key,
+que el servidor solo acepta desde localhost:
+
+```bash
+source .env
+curl -X POST http://localhost:1337/schemas/Todo \
+  -H "X-Parse-Application-Id: $ZENITH_APP_ID" \
+  -H "X-Parse-Master-Key: $ZENITH_MASTER_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"title": "Buy milk", "done": false}'
+  -d '{"fields": {"title": {"type": "String"}, "done": {"type": "Boolean"}}}'
 ```
 
-Expected response (201 Created):
+## 5. Cloud code (servidor)
 
-```json
-{
-  "objectId": "abc123",
-  "createdAt": "2026-06-06T12:00:00.000Z"
-}
-```
+`cloud/main.ts`:
 
-## 3. Query your to-dos
+```ts
+import { Zen } from "@zuccadev-labs/zenith";
 
-```bash
-curl "https://api.zenith.io/v1/classes/Todo?where={\"done\":false}&limit=10" \
-  -H "X-Parse-Application-Id: acme-corp-prod" \
-  -H "Authorization: Bearer sk_live_***"
-```
-
-Response:
-
-```json
-{
-  "results": [
-    {
-      "objectId": "abc123",
-      "title": "Buy milk",
-      "done": false,
-      "createdAt": "2026-06-06T12:00:00.000Z",
-      "updatedAt": "2026-06-06T12:00:00.000Z"
-    }
-  ]
-}
-```
-
-## 4. Use the SDK (TypeScript)
-
-```bash
-npm install @zenith/sdk-typescript
-```
-
-```typescript
-import { Zenith } from "@zenith/sdk-typescript";
-
-const zenith = new Zenith({
-  appId: "acme-corp-prod",
-  apiKey: process.env.ZENITH_API_KEY!,
-  region: "us-east-1",
+Zen.Cloud.define("hello", (req) => ({ message: `hola ${req.params.name ?? "mundo"}` }));
+Zen.Cloud.beforeSave("Todo", (req) => {
+  if (!req.object.title) throw new Error("title es obligatorio");
 });
-
-const todo = await zenith.classes("Todo").create({
-  title: "Buy milk",
-  done: false,
-});
-console.log(todo.objectId);
-
-const open = await zenith.classes("Todo").query({ done: false }).limit(10).find();
-console.log(open.results);
 ```
 
-## 5. Use the SDK (Python)
+`zen dev` recarga solo. Hoy las funciones cloud solo se pueden llamar con master key (ADR-013):
 
 ```bash
-pip install zenith-sdk
+curl -X POST http://localhost:1337/functions/hello -H "X-Parse-Application-Id: $ZENITH_APP_ID" \
+  -H "X-Parse-Master-Key: $ZENITH_MASTER_KEY" -H "Content-Type: application/json" -d '{"name":"zen"}'
 ```
 
-```python
-from zenith import Zenith
+## 6. Quién puede llamar a qué
 
-zenith = Zenith(
-    app_id="acme-corp-prod",
-    api_key=os.environ["ZENITH_API_KEY"],
-    region="us-east-1",
-)
+| Credencial | Para | Cómo |
+|---|---|---|
+| Sesión de usuario | Apps de usuario final (navegador, móvil) | `ZenithUser.logIn`. Requiere engine-auth configurado (`engineAuth` en `zen.config.ts`, ADR-012); sin él, las rutas de usuario responden 503 |
+| API key `sk_` | Backends de confianza | `zen api-keys create --name ci --env test`. El texto de la key se muestra una sola vez |
+| API key `pk_` | Lectura pública | Solo hace lo que permiten sus scopes (por defecto, `data:read`): el servidor rechaza con 403 cualquier escritura |
+| Master key | Administración, solo desde localhost | `.env`. Nunca en un cliente |
 
-todo = zenith.classes("Todo").create({"title": "Buy milk", "done": False})
-print(todo["objectId"])
+## 7. La app (cliente)
 
-open_todos = zenith.classes("Todo").query(done=False).limit(10).find()
-print(open_todos["results"])
+```bash
+npm install @zuccadev-labs/zenith-client
 ```
 
-## 6. Subscribe to real-time updates (WebSocket)
+> **Hasta que se publique:** `cd sdk/Typescript && npm run build`, y en tu app
+> `npm install <ruta>/sdk/Typescript`.
 
-```typescript
-import { Zenith } from "@zenith/sdk-typescript";
+```ts
+import { Zenith, ZenithObject, ZenithQuery, ZenithUser } from "@zuccadev-labs/zenith-client";
 
-const zenith = new Zenith({ /* ... */ });
+Zenith.initialize({ appId: "miapp", serverURL: "http://localhost:1337" });
 
-const live = zenith.liveQuery("Todo", { done: false });
-live.on("create", (todo) => console.log("new todo:", todo));
-live.on("update", (todo) => console.log("updated:", todo));
-live.subscribe();
+await ZenithUser.logIn("alice", "s3cret");      // sesión de usuario (paso 6)
+
+const todo = new ZenithObject("Todo");
+todo.set({ title: "Comprar leche", done: false });
+await todo.save();                              // POST /classes/Todo
+
+const pendientes = await new ZenithQuery("Todo").equalTo("done", false).limit(10).find();
 ```
 
-## 7. Next steps
+Con React: `import { ZenithProvider, useZenithQuery } from "@zuccadev-labs/zenith-client/react"`.
+Hay un ejemplo completo en `sdk/Typescript/example/vite-react-app`.
 
-- **Auth**: see `tutorials/02_user_auth.md`
-- **File upload**: see `tutorials/03_files.md`
-- **Cloud functions**: see `tutorials/04_cloud_functions.md`
-- **Push notifications**: see `tutorials/05_push.md`
-- **Real-time queries**: see `tutorials/06_live_queries.md`
+## 8. Producción
 
-## 8. Troubleshooting
+```bash
+zen compile --output miapp-server   # un binario con cloud/ y plugins/ dentro
+```
 
-| Error                       | Cause                                       | Fix                                   |
-| --------------------------- | ------------------------------------------- | ------------------------------------- |
-| `401 invalid session token` | Missing or wrong API key                    | Check `Authorization: Bearer` header  |
-| `403 forbidden`             | Key lacks scope for this operation         | Re-issue with `data:write` scope      |
-| `404 class does not exist`  | First write to a new class — schema is auto-created | Just retry; the class is created on first write |
-| `429 rate limit exceeded`   | Exceeded the per-key rate limit             | Reduce request rate or upgrade plan   |
-| `502 bad gateway`           | Backend pod restarting                      | Retry with exponential backoff        |
+## Lo que todavía no funciona
+
+Está documentado en `zenith-backend/docs/pending.md`:
+- **Usuarios:** la recuperación de contraseña y la verificación de email responden 501.
+- **Rutas solo con master key:** funciones cloud, archivos, LiveQuery y los módulos de negocio no se pueden usar desde un navegador.

@@ -1,5 +1,7 @@
 # API Rate Limiting Policy
 
+> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../index.md).
+
 > **Effective:** 2026-06-06
 > **Owner:** API lead, Security lead.
 

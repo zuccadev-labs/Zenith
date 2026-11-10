@@ -1,5 +1,7 @@
 # WebRTC Media Integration & Resiliency
 
+> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../index.md).
+
 This document outlines the architecture, integration patterns, and best practices for implementing Real-Time Communication (WebRTC) using the Zenith Cloud Functions and the Zenith React SDK. 
 
 The Zenith Media framework is designed to provide enterprise-grade reliability, including automatic exponential backoff reconnection, seamless peer lifecycle management, and blind Selective Forwarding Unit (SFU) signaling for Zero-Knowledge architectures (Strict SFrame).

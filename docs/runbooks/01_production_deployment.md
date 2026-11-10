@@ -1,5 +1,7 @@
 # 01 — Production Deployment
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Owner:** Platform Engineering
 > **Cadence:** every Tuesday 14:00 UTC (after standup)
 > **Risk level:** low for canary; medium for full rollout

@@ -1,5 +1,7 @@
 # 09 — OpenAPI 3.1 desde el AST Compuesto de Barrits: Generación Automática de la Superficie de Ataque
 
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 > **Fase**: Sprint 2 — Phase 1.F (Enterprise Hardening)
 > **Autor**: Equipo Zenith — @zuccadev-labs
 > **Fecha**: 2026-06-06
