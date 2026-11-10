@@ -59,3 +59,8 @@ export const HEALTH_ROUTE: TraitRoute = {
   access: "public",
   _openapi: { tag: "Meta", summary: "Health check", responses: { "200": { description: "The server is up" } } },
 };
+
+/** Whether a trait already serves `GET /health` (then the router does not mount {@link HEALTH_ROUTE}). */
+export function hasTraitHealthRoute(routes: Array<{ route: TraitRoute }>): boolean {
+  return routes.some(({ route }) => route.method.toUpperCase() === "GET" && route.path === HEALTH_ROUTE.path);
+}

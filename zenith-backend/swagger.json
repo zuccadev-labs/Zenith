@@ -76,10 +76,6 @@
       "name": "Mediastream"
     },
     {
-      "name": "Meta",
-      "description": "API spec y documentation"
-    },
-    {
       "name": "Metadata"
     },
     {
@@ -137,6 +133,10 @@
     },
     {
       "name": "Workspace"
+    },
+    {
+      "name": "Meta",
+      "description": "API spec and documentation"
     }
   ],
   "paths": {
@@ -1713,14 +1713,81 @@
     },
     "/health": {
       "get": {
-        "summary": "Health check",
+        "summary": "Liveness probe",
         "operationId": "gethealth",
         "tags": [
-          "Meta"
+          "Observability"
         ],
         "responses": {
           "200": {
-            "description": "The server is up"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
           }
         },
         "security": []
