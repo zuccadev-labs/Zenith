@@ -19,7 +19,7 @@
     - name: Wait for MariaDB to accept connections
       command: >
         docker exec zenith-postal-mariadb
-        mysqladmin ping -h localhost -u postal -p"{{ postal_db_password }}"
+        mariadb-admin ping -h localhost -u postal -p"{{ postal_db_password }}"
       register: mariadb_status
       until: mariadb_status.rc == 0
       retries: 30

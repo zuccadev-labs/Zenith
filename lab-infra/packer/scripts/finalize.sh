@@ -69,7 +69,7 @@ ExecStart=/bin/bash -c '\
   set -a; source /opt/zenith-lab/.env; set +a; \
   \
   echo "=== Waiting for MariaDB..."; \
-  until docker exec zenith-postal-mariadb mysqladmin ping -h localhost -u postal -p"${POSTAL_DB_PASSWORD}" > /dev/null 2>&1; do \
+  until docker exec zenith-postal-mariadb mariadb-admin ping -h localhost -u postal -p"${POSTAL_DB_PASSWORD}" > /dev/null 2>&1; do \
     echo "Waiting for MariaDB..."; sleep 5; \
   done; \
   \

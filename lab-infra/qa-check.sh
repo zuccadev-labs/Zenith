@@ -177,7 +177,7 @@ check "Novu Web UI (port 4614)" "200" \
 echo ""
 echo "--- 11. POSTAL MAIL SERVER ---"
 check "Postal MariaDB alive" "mysqld is alive" \
-  "docker exec zenith-postal-mariadb mysqladmin ping -u postal -p${POSTAL_DB_PASSWORD} -h localhost 2>/dev/null"
+  "docker exec zenith-postal-mariadb mariadb-admin ping -u postal -p${POSTAL_DB_PASSWORD} -h localhost 2>/dev/null"
 
 check "Postal DB has tables" "additional_route|deliveries|messages|servers" \
   "docker exec zenith-postal-mariadb mysql -u postal -p${POSTAL_DB_PASSWORD} postal -e 'SHOW TABLES;' 2>/dev/null | head -5"
