@@ -150,3 +150,6 @@ lighthouse-report/
 *.swp
 .AppleDouble
 .DS_Store
+
+# Captura de referencia de la estructura de proyecto (solo local, no se sube)
+/WhatsApp Image 2026-05-25 at 3.41.07 PM.jpeg
