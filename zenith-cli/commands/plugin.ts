@@ -339,3 +339,6 @@ export async function runPluginCommand(args: string[]): Promise<void> {
       die(`Subcomando desconocido: ${sub}\nEjecut\u00e1 'zenith plugin help' para ver opciones.`);
   }
 }
+
+/** Registry entry point (args after "plugin"). */
+export const run = runPluginCommand;

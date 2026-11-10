@@ -7,8 +7,8 @@
  *   zen deploy --target docker → construye imagen Docker y la publica
  *   zen deploy --dry-run  → muestra el plan sin ejecutar
  */
-import { parseArgs } from "https://deno.land/std@0.224.0/cli/parse_args.ts";
-import { join, fromFileUrl } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { parseArgs } from "@std/cli/parse-args";
+import { join, fromFileUrl } from "@std/path";
 import { spinner } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {

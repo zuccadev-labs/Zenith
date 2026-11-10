@@ -1,315 +1,228 @@
-import { parseArgs } from "https://deno.land/std@0.224.0/cli/parse_args.ts";
-import { ensureDir } from "https://deno.land/std@0.224.0/fs/ensure_dir.ts";
-import { expandGlob } from "https://deno.land/std@0.224.0/fs/expand_glob.ts";
-import { dirname, join, resolve, relative, fromFileUrl } from "https://deno.land/std@0.224.0/path/mod.ts";
-
 /**
  * @module @zenith/cli/zen
- * Comandos de desarrollo: `init`, `dev`, `compile`.
  *
- * Exporta `run(command)` para ser invocado desde el dispatcher unificado
- * (`mod.ts`). También funciona como entrypoint independiente:
+ * The `zen` command. A Zenith project is
  *
- *   deno run -A zenith-cli/zen.ts init
- *   deno run -A zenith-cli/zen.ts dev
- *   deno run -A zenith-cli/zen.ts compile
+ *   zen.config.ts   the app's configuration (reads .env)
+ *   cloud/          cloud code: Zen.Cloud.define(...), triggers
+ *   plugins/        the project's own plugins (verified against plugins.lock.json)
+ *   .env            secrets, never committed
+ *   deno.json       import map: @zuccadev-labs/zenith → the engine
+ *
+ * and the engine stays a dependency: `zen dev` runs the project with hot reload, `zen compile`
+ * links it statically into one binary. Every other command comes from `commands/registry.ts`.
+ *
+ *   deno run -A zenith-cli/zen.ts <command> [args]
  */
+import { parseArgs } from "@std/cli/parse-args";
+import { ensureDir } from "@std/fs/ensure-dir";
+import { expandGlob } from "@std/fs/expand-glob";
+import { fromFileUrl, join, relative, resolve } from "@std/path";
+import { commandTable, helpText } from "./commands/registry.ts";
 
-const ZENITH_CORE_ENTRY = new URL("../zenith-backend/src/mod.ts", import.meta.url).href;
+export const VERSION = "0.2.0";
 
-async function runInit() {
-  const cwd = Deno.cwd();
-  console.log("🚀 Inicializando nuevo proyecto Zenith en:", cwd);
+/** The engine, until it is published on JSR (then: "jsr:@zuccadev-labs/zenith"). */
+const CORE_ENTRY = new URL("../zenith-backend/src/mod.ts", import.meta.url);
+const CORE_DENO_JSON = new URL("../zenith-backend/deno.json", import.meta.url);
+const CORE_DENO_LOCK = new URL("../zenith-backend/deno.lock", import.meta.url);
 
-  await ensureDir(join(cwd, "cloud"));
-  await ensureDir(join(cwd, "plugins"));
-
-  const envContent = `ZENITH_PORT=3000
-ZENITH_MASTER_KEY=super_secret_master_key
-ZENITH_APP_ID=my_enterprise_app
-ZENITH_DATABASE_URI=mongodb://localhost:27017
-`;
-
-  const configContent = `// Zenith Configuration
-export default {
-  appId: Deno.env.get("ZENITH_APP_ID") || "my_app",
-  masterKey: Deno.env.get("ZENITH_MASTER_KEY") || "secret",
-  databaseURI: Deno.env.get("ZENITH_DATABASE_URI") || "mongodb://localhost:27017",
-  port: parseInt(Deno.env.get("ZENITH_PORT") || "3000"),
+const exists = async (p: string) => {
+  try {
+    await Deno.lstat(p);
+    return true;
+  } catch (e) {
+    if (e instanceof Deno.errors.NotFound) return false;
+    throw e;
+  }
 };
-`;
 
-  const cloudContent = `import { Zen } from "@zuccadev-labs/zenith";
+const randomHex = (bytes: number) =>
+  Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
 
-Zen.Cloud.define("hello", async (req) => {
-  return { message: "Hello from Zenith Cloud Code!" };
+/** deno.json of a new project: the engine's own import map plus `@zuccadev-labs/zenith`. */
+async function projectDenoJson(): Promise<string> {
+  const core = JSON.parse(await Deno.readTextFile(CORE_DENO_JSON));
+  return JSON.stringify({
+    imports: { ...core.imports, "@zuccadev-labs/zenith": CORE_ENTRY.href },
+    nodeModulesDir: "auto",
+    ...(core.minimumDependencyAge ? { minimumDependencyAge: core.minimumDependencyAge } : {}),
+    tasks: { dev: "zen dev", compile: "zen compile" },
+  }, null, 2) + "\n";
+}
+
+async function runInit(args: string[]) {
+  const name = args[0];
+  if (name !== undefined && !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(name)) {
+    throw new Error(`Nombre de proyecto no válido: ${JSON.stringify(name)} (letras, números, _ y -).`);
+  }
+  const dir = name ? resolve(Deno.cwd(), name) : Deno.cwd();
+  const appId = (name ?? (dir.split(/[\\/]/).pop() || "zenith_app")).replace(/[^A-Za-z0-9_]/g, "_");
+  for (const f of ["zen.config.ts", "deno.json", ".env", "cloud/main.ts"]) {
+    if (await exists(join(dir, f))) throw new Error(`${join(dir, f)} ya existe: zen init no sobrescribe un proyecto.`);
+  }
+  console.log(`🚀 Nuevo proyecto Zenith en ${dir}`);
+  await ensureDir(join(dir, "cloud"));
+  await ensureDir(join(dir, "plugins"));
+
+  await Deno.writeTextFile(join(dir, ".env"), [
+    `ZENITH_APP_ID=${appId}`,
+    `# 64 bytes aleatorios. En producción, desde un gestor de secretos.`,
+    `ZENITH_MASTER_KEY=${randomHex(64)}`,
+    `ZENITH_DATABASE_URI=mongodb://127.0.0.1:27017/${appId}?directConnection=true`,
+    `ZENITH_PORT=1337`,
+    "",
+  ].join("\n"), { mode: 0o600 });
+
+  await Deno.writeTextFile(join(dir, "zen.config.ts"), `// Configuración de la app. Los secretos vienen de .env (zen dev lo carga).
+const env = (name: string): string => {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(\`Falta \${name}: defínelo en .env o en el entorno.\`);
+  return v;
+};
+const port = Number(Deno.env.get("ZENITH_PORT") ?? "1337");
+
+export default {
+  appId: env("ZENITH_APP_ID"),
+  masterKey: env("ZENITH_MASTER_KEY"),
+  databaseURI: env("ZENITH_DATABASE_URI"),
+  serverURL: \`http://localhost:\${port}\`,
+  port,
+  cloudCodePath: "./cloud/main.ts",
+  pluginsPath: "./plugins",
+  features: {},
+};
+`);
+
+  await Deno.writeTextFile(join(dir, "cloud", "main.ts"), `import { Zen } from "@zuccadev-labs/zenith";
+
+Zen.Cloud.define("hello", () => ({ message: "Hola desde Zenith Cloud Code" }));
+`);
+  await Deno.writeTextFile(join(dir, "plugins", ".gitkeep"), "");
+  await Deno.writeTextFile(join(dir, "deno.json"), await projectDenoJson());
+  // Start from the engine's lockfile: the exact versions and hashes the engine was tested with.
+  if (await exists(fromFileUrl(CORE_DENO_LOCK))) await Deno.copyFile(CORE_DENO_LOCK, join(dir, "deno.lock"));
+  await Deno.writeTextFile(join(dir, ".gitignore"), ".env\n.zenith/\nnode_modules/\n/zenith-app\n/zenith-app.exe\n");
+
+  console.log("✅ Creado: cloud/, plugins/, zen.config.ts, .env, deno.json, deno.lock, .gitignore");
+  console.log(`\n   ${name ? `cd ${name} && ` : ""}zen dev`);
+}
+
+/**
+ * .zenith/entry.ts: the program `zen dev` runs and `zen compile` links. With `staticLink`, cloud/
+ * and plugins/ are imported statically (a compiled binary cannot import project files later).
+ */
+async function writeEntry(cwd: string, staticLink: boolean): Promise<string> {
+  const zenithDir = join(cwd, ".zenith");
+  await ensureDir(zenithDir);
+  const imports: string[] = [];
+  if (staticLink) {
+    for (const glob of ["plugins/**/*.{ts,tsx}", "cloud/**/*.{ts,tsx}"]) {
+      for await (const e of expandGlob(join(cwd, glob))) {
+        if (e.isFile) imports.push(`import "./${relative(zenithDir, e.path).replace(/\\/g, "/")}";`);
+      }
+    }
+  }
+  await Deno.writeTextFile(join(zenithDir, "manifest.ts"), `// Generado por zen. No editar.\n${imports.join("\n")}\nexport const linked = ${imports.length};\n`);
+  const entry = join(zenithDir, "entry.ts");
+  await Deno.writeTextFile(entry, `// Generado por zen. No editar.
+import { createZenithApp } from "@zuccadev-labs/zenith";
+import config from "../zen.config.ts";
+import "./manifest.ts";
+
+const { handler } = await createZenithApp(config as any);
+if (!handler) throw new Error("Zenith started without HTTP routes.");
+const port = (config as any).port ?? 1337;
+Deno.serve({ port }, (req, info) => {
+  // The pipeline needs the client address: master key only from localhost, limits per client.
+  (req as unknown as { __socketAddr: Deno.NetAddr }).__socketAddr = info.remoteAddr as Deno.NetAddr;
+  return handler(req);
 });
-`;
+console.log(\`🌐 Zenith en http://localhost:\${port}\`);
+`);
+  return entry;
+}
 
-  await Deno.writeTextFile(join(cwd, ".env"), envContent);
-  await Deno.writeTextFile(join(cwd, "zen.config.ts"), configContent);
-  await Deno.writeTextFile(join(cwd, "cloud", "main.ts"), cloudContent);
-
-  console.log("✅ Proyecto inicializado. Carpetas creadas:");
-  console.log("   📂 cloud/ (Lógica de negocio)");
-  console.log("   📂 plugins/ (Tus adaptadores/Traits)");
-  console.log("   📄 zen.config.ts");
-  console.log("   📄 .env");
-  console.log("\nPara iniciar en desarrollo:");
-  console.log("   zen dev");
+async function requireProject(cwd: string) {
+  for (const f of ["zen.config.ts", "deno.json"]) {
+    if (!(await exists(join(cwd, f)))) throw new Error(`No hay ${f} en ${cwd}: ¿es un proyecto Zenith? (zen init)`);
+  }
 }
 
 async function runDev() {
   const cwd = Deno.cwd();
-  console.log("🛠️  Iniciando Zenith en Modo Desarrollo (Hot-Reloading)...");
-  
-  // En modo desarrollo, levantamos el motor con Deno.Command usando --watch
-  // y le pasamos el cwd para que pueda leer dinámicamente cloud/main.ts
-  const command = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      "-A",
-      "--no-check",
-      "--watch",
-      ZENITH_CORE_ENTRY,
-      "--mode=development"
-    ],
-    env: {
-      "ZENITH_CLOUD_CODE_PATH": join(cwd, "cloud", "main.ts"),
-    },
+  await requireProject(cwd);
+  const entry = await writeEntry(cwd, false);
+  console.log("🛠️  Zenith en desarrollo (recarga en caliente)…");
+  const envFile = (await exists(join(cwd, ".env"))) ? ["--env-file=.env"] : [];
+  const child = new Deno.Command(Deno.execPath(), {
+    args: ["run", "-A", "--unstable-kv", "--no-check", "--watch", ...envFile, "--config", join(cwd, "deno.json"), entry, "--mode=development"],
+    cwd,
     stdout: "inherit",
     stderr: "inherit",
-  });
-
-  const process = command.spawn();
-  await process.status;
+  }).spawn();
+  // Stopping `zen dev` stops the server too (otherwise it is left running, orphaned).
+  const signals: Deno.Signal[] = Deno.build.os === "windows" ? ["SIGINT"] : ["SIGINT", "SIGTERM"];
+  const stop = () => {
+    try { child.kill("SIGTERM"); } catch (_e) { /* already gone */ }
+  };
+  for (const s of signals) Deno.addSignalListener(s, stop);
+  const status = await child.status;
+  for (const s of signals) Deno.removeSignalListener(s, stop);
+  if (!status.success && status.signal === null) Deno.exit(status.code);
 }
 
-async function runCompile() {
+async function runCompile(args: string[]) {
   const cwd = Deno.cwd();
-  console.log("📦 Compilando Proyecto Zenith (Binario Único Sellado)...");
-
-  const zenithDir = join(cwd, ".zenith");
-  await ensureDir(zenithDir);
-
-  const pluginsGlob = join(cwd, "plugins", "**", "*.{ts,tsx}");
-  const cloudGlob = join(cwd, "cloud", "**", "*.{ts,tsx}");
-
-  const imports: string[] = [];
-  let idCounter = 0;
-
-  console.log("🔍 Escaneando User-Land...");
-
-  // Plugins
-  for await (const entry of expandGlob(pluginsGlob)) {
-    if (entry.isFile) {
-       console.log(`   📦 Found Plugin: ${entry.path}`);
-       const relPath = relative(zenithDir, entry.path).replace(/\\/g, "/");
-       imports.push(`import * as Plugin_${idCounter++} from "${relPath}";`);
-    }
-  }
-
-  // Cloud
-  for await (const entry of expandGlob(cloudGlob)) {
-    if (entry.isFile) {
-       console.log(`   ☁️ Found Cloud Code: ${entry.path}`);
-       const relPath = relative(zenithDir, entry.path).replace(/\\/g, "/");
-       imports.push(`import * as Cloud_${idCounter++} from "${relPath}";`);
-    }
-  }
-
-  const manifestContent = `
-// AUTO-GENERATED BY ZENITH CLI
-${imports.join("\n")}
-export const UserLandManifest = { total: ${idCounter} };
-`;
-
-  await Deno.writeTextFile(join(zenithDir, "manifest.ts"), manifestContent);
-
-  // Resolviendo rutas relativas para el compilador
-  const coreAbsPath = fromFileUrl(new URL("../zenith-backend/src/mod.ts", import.meta.url));
-  const coreRelativePath = relative(zenithDir, coreAbsPath).replace(/\\/g, "/");
-  const configRelativePath = relative(zenithDir, resolve(cwd, "zen.config.ts")).replace(/\\/g, "/");
-
-  const entryContent = `
-// 1. Cargamos el Motor Core de Zenith
-import { createZenithApp } from "${coreRelativePath}";
-// 2. Cargamos Configuración del Usuario
-import config from "${configRelativePath}";
-// 3. Cargamos Plugins y Cloud
-import "./manifest.ts";
-
-console.log("🚀 Zenith Bootstrap: Iniciando Binario de Producción...");
-
-async function boot() {
-  const { engine, handler } = await createZenithApp(config);
-  
-  if (handler) {
-    Deno.serve({ port: config.port || 3000 }, handler);
-    console.log(\`🌐 Zenith Master Server listening on port \${config.port || 3000}\`);
-  } else {
-    console.log(\`⚙️  Zenith Node started without HTTP routing\`);
-  }
-}
-
-boot();
-`;
-
-  const entryPath = join(zenithDir, "entry.ts");
-  await Deno.writeTextFile(entryPath, entryContent);
-
-  console.log("⚙️  Ejecutando Deno Compile...");
-
-  const denoJsonPath = fromFileUrl(new URL("../zenith-backend/deno.json", import.meta.url));
-
-  const command = new Deno.Command(Deno.execPath(), {
+  await requireProject(cwd);
+  const flags = parseArgs(args, { string: ["output"] });
+  const output = resolve(cwd, flags.output ?? "zenith-app");
+  const entry = await writeEntry(cwd, true);
+  console.log("📦 Compilando el proyecto en un binario…");
+  const status = await new Deno.Command(Deno.execPath(), {
     args: [
-      "compile",
-      "-A",
-      "--no-check",
-      "--config",
-      denoJsonPath,
-      "--output",
-      join(cwd, "zenith-backend"),
-      entryPath,
-      "--mode=production"
+      "compile", "--unstable-kv", "--no-check",
+      "--allow-net", "--allow-read", "--allow-env", "--allow-write", "--allow-sys", "--allow-ffi",
+      "--config", join(cwd, "deno.json"), "--output", output, entry, "--mode=production",
     ],
+    cwd,
     stdout: "inherit",
     stderr: "inherit",
-  });
+  }).spawn().status;
+  if (!status.success) throw new Error("La compilación falló.");
+  console.log(`✅ ${output}`);
+}
 
-  const process = command.spawn();
-  const status = await process.status;
+/** `init`, `dev`, `compile`: used by the registry. */
+export async function runDevCommand(name: "init" | "dev" | "compile", args: string[]) {
+  if (name === "init") return await runInit(args);
+  if (name === "dev") return await runDev();
+  return await runCompile(args);
+}
 
-  if (status.success) {
-    console.log("✅ Binario compilado exitosamente. Listo para Kubernetes / Producción.");
-  } else {
-    console.error("❌ Falló la compilación.");
+/** Runs `argv` (command first). `binary` is the name shown in help. Returns the exit code. */
+export async function main(argv: string[], binary = "zen"): Promise<number> {
+  const [cmd, ...rest] = argv;
+  if (!cmd || cmd === "help" || cmd === "--help" || cmd === "-h") {
+    console.log(helpText(binary, VERSION));
+    return 0;
+  }
+  if (cmd === "version" || cmd === "--version") {
+    console.log(`${binary} v${VERSION}`);
+    return 0;
+  }
+  const command = commandTable().get(cmd);
+  if (!command) {
+    console.error(`❌ Comando desconocido: ${cmd}. Usa: ${binary} --help`);
+    return 1;
+  }
+  try {
+    await command.run(rest);
+    return 0;
+  } catch (e) {
+    console.error(`❌ ${(e as Error).message ?? e}`);
+    return 1;
   }
 }
 
-// ─── Dispatcher exportable ──────────────────────────────────────────────────────
-
-/**
- * Ejecuta un comando del módulo de desarrollo.
- * Usado por `mod.ts` (entrypoint unificado) y por entrypoints standalone.
- */
-export async function run(command: string): Promise<void> {
-  switch (command) {
-    case "init":
-      await runInit();
-      return;
-    case "dev":
-      await runDev();
-      return;
-    case "compile":
-      await runCompile();
-      return;
-
-    // ── Infraestructura operacional ─────────────────────────────────────────
-    case "deploy": {
-      const { run: r } = await import("./commands/deploy.ts");
-      await r(Deno.args.slice(1));
-      return;
-    }
-    case "logs": {
-      const { run: r } = await import("./commands/logs.ts");
-      await r(Deno.args.slice(1));
-      return;
-    }
-    case "migrate": {
-      const { runMigrate } = await import("./commands/logs.ts");
-      await runMigrate(Deno.args.slice(1));
-      return;
-    }
-    case "test": {
-      const { runTest } = await import("./commands/logs.ts");
-      await runTest(Deno.args.slice(1));
-      return;
-    }
-
-    // ── Integraciones Fase 2/3 ──────────────────────────────────────────────
-    case "webhook": {
-      const { run: r } = await import("./commands/webhook.ts");
-      await r(Deno.args.slice(1));
-      return;
-    }
-    case "automation": {
-      const { run: r } = await import("./commands/automation.ts");
-      await r(Deno.args.slice(1));
-      return;
-    }
-    case "email": {
-      const { run: r } = await import("./commands/email.ts");
-      await r(Deno.args.slice(1));
-      return;
-    }
-    case "calendar": {
-      const { run: r } = await import("./commands/calendar.ts");
-      await r(Deno.args.slice(1));
-      return;
-    }
-
-    // ── Comandos existentes (plugin, api-keys, generate, agent) ────────────
-    case "plugin":        { const { run: r } = await import("./commands/plugin.ts");       await r(Deno.args.slice(1)); return; }
-    case "api-keys":      { const { run: r } = await import("./commands/api-keys.ts");     await r(Deno.args.slice(1)); return; }
-    case "generate":      { const { run: r } = await import("./commands/generate.ts");     await r(Deno.args.slice(1)); return; }
-    case "agent":         { const { run: r } = await import("./commands/agent.ts");        await r(Deno.args.slice(1)); return; }
-    case "plugins-lock":  { const { run: r } = await import("./commands/plugins-lock.ts"); await r(Deno.args.slice(1)); return; }
-
-    default:
-      console.log(`
-Zenith Framework CLI — v1.0.0
-
-Uso:
-  zen <comando> [subcomando] [flags]
-
-Comandos de desarrollo:
-  init        Crea la estructura base del proyecto (cloud/, plugins/, zen.config.ts)
-  dev         Levanta el backend en modo desarrollo con Hot-Reloading
-  compile     Empaqueta en un único binario ejecutable (AOT)
-  test        Ejecuta suites E2E  [--watch] [--coverage] [<suite>]
-
-Operaciones:
-  deploy      Despliega el servidor  [--target local|docker|k8s] [--dry-run]
-  logs        Muestra/sigue logs     [--follow] [--level] [--service] [--tail]
-  migrate     Migraciones de DB      run | status | rollback | create <name>
-  generate    Genera código y docs   schema | docs | sdk | openapi
-
-Plugin Marketplace:
-  plugin      Gestión de plugins     install | uninstall | list | publish
-  plugins-lock  Bloquea versiones de plugins
-
-Integraciones:
-  webhook     Gestión de webhooks    list | create | delete | pause | resume | test | deliveries
-  email       Email sync IMAP/SMTP   channels | threads | send | sync
-  calendar    Calendarios y booking  channels | events | slots | conflicts | ics | sync
-  automation  Motor IF-THEN          list | create | get | toggle | test | logs | delete | actions
-
-Seguridad y acceso:
-  api-keys    Gestión de API Keys    list | create | revoke
-  agent       Agentes AI             list | run | create | delete
-  mtls-gen-dev  Genera certificados mTLS para desarrollo
-
-Ejemplos:
-  zen init
-  zen dev
-  zen deploy --target k8s --tag v2.1.0
-  zen logs --follow --level error
-  zen webhook create --url https://hooks.corp.com --events "Lead.*,Deal.created"
-  zen automation create --name "Hot Lead" --trigger "Lead.*" --actions '[{"type":"create_task","params":{"title":"Follow up"}}]'
-  zen email channels create --email sales@corp.com --provider imap
-  zen calendar slots book ch_001 slot_001 --email client@acme.com
-  zen migrate run
-  zen test phase3 --coverage
-      `);
-  }
-}
-
-// ─── Entrypoint standalone ──────────────────────────────────────────────────────
-
-if (import.meta.main) {
-  const args = parseArgs(Deno.args);
-  const command = String(args._[0] ?? "");
-  await run(command);
-}
+if (import.meta.main) Deno.exit(await main(Deno.args, "zen"));

@@ -8,7 +8,7 @@
  *  - printJson(): salida JSON indentado
  *  - spinner: indicador de carga simple
  */
-import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { join } from "@std/path";
 
 export interface ZenCLIConfig {
   serverURL:  string;
@@ -33,7 +33,9 @@ export async function loadZenConfig(): Promise<ZenCLIConfig> {
   const port      = Deno.env.get("ZENITH_PORT")       ?? "3000";
   const serverURL = Deno.env.get("ZENITH_SERVER_URL")  ?? `http://localhost:${port}`;
   const appId     = Deno.env.get("ZENITH_APP_ID")      ?? "my_app";
-  const masterKey = Deno.env.get("ZENITH_MASTER_KEY")  ?? "secret";
+  const masterKey = Deno.env.get("ZENITH_MASTER_KEY");
+  // No default: a guessed key ("secret") must never be sent anywhere.
+  if (!masterKey) throw new Error("Falta ZENITH_MASTER_KEY (en .env o en el entorno).");
 
   return { serverURL, appId, masterKey };
 }
@@ -59,11 +61,8 @@ export async function zenApiCall(
 
   if (res.status === 204) return {};
 
-  const data = await res.json();
-  if (!res.ok) {
-    console.error(`❌ Error ${res.status}: ${data?.error ?? JSON.stringify(data)}`);
-    Deno.exit(1);
-  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${data?.error ?? JSON.stringify(data)}`);
   return data;
 }
 

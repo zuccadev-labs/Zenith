@@ -10,7 +10,7 @@
  *   zen webhook test   <objectId>
  *   zen webhook deliveries <objectId>
  */
-import { parseArgs } from "https://deno.land/std@0.224.0/cli/parse_args.ts";
+import { parseArgs } from "@std/cli/parse-args";
 import { loadZenConfig, zenApiCall, printTable, printJson } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {

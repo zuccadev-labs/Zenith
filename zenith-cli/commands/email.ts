@@ -11,7 +11,7 @@
  *   zen email threads close <threadId>
  *   zen email send --channel <id> --to user@co.com --subject "Hola" --body "Texto"
  */
-import { parseArgs } from "https://deno.land/std@0.224.0/cli/parse_args.ts";
+import { parseArgs } from "@std/cli/parse-args";
 import { loadZenConfig, zenApiCall, printTable, printJson, spinner } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {

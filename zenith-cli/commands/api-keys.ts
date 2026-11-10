@@ -1,225 +1,89 @@
 /**
  * @module @zenith/cli/commands/api-keys
  *
- * CLI para gestión de API Keys estilo Stripe.
+ * API keys estilo Stripe de la app, gestionadas en el servidor (`/zen/api-keys`, master key).
+ * Antes el comando creaba las claves en un almacén en memoria del propio CLI: desaparecían al
+ * terminar y el servidor nunca las conocía.
  *
- * Subcomandos:
- *   zenith api-keys create --app <appId> --prefix <sk|pk|rk> --env <live|test>
- *                          --scopes <scope1,scope2> --name "Production server #1"
- *                          [--expires 90d] [--rpm 1000]
- *   zenith api-keys list   --app <appId>
- *   zenith api-keys revoke  --id <keyId> --reason "compromised"
- *   zenith api-keys rotate  --id <keyId> [--grace 24h]
+ *   zen api-keys list
+ *   zen api-keys create --name "Servidor de producción" [--prefix sk|pk|rk] [--env live|test]
+ *                       [--scopes "data:read,data:write"] [--expires 90d] [--rpm 1000]
+ *   zen api-keys revoke --id <keyId> [--reason "filtrada"]
+ *   zen api-keys rotate --id <keyId> [--grace 24h]
  *
- * ⚠️  Por ahora usa InMemoryStore (no persistencia). Para producción,
- * conectar a MongoDBStore (Fase 1.G).
+ * Servidor y app: ZENITH_SERVER_URL, ZENITH_APP_ID y ZENITH_MASTER_KEY (o el .env del proyecto).
  */
-
-import { parseArgs } from "jsr:@std/cli/parse-args";
-import {
-  ApiKeyManager,
-  InMemoryStore,
-  DEFAULT_SCOPES,
-  type ApiKeyEnv,
-  type ApiKeyPrefix,
-  type ApiKeyScope,
-} from "../../zenith-backend/src/security/api-keys/mod.ts";
+import { parseArgs } from "@std/cli/parse-args";
+import { loadZenConfig, zenApiCall } from "./_utils.ts";
 
 const HELP = `
-zenith api-keys — Gestión de API Keys estilo Stripe
-====================================================
+zen api-keys — API keys de la app (en el servidor)
 
-USO:
-  zenith api-keys <subcomando> [opciones]
-
-SUBCOMANDOS:
-  create    Crea una nueva API key
-  list      Lista las keys de una app (sin el secreto)
-  revoke    Revoca una key inmediatamente
-  rotate    Rota una key (genera nueva + marca la vieja con grace period)
-
-EJEMPLOS:
-  zenith api-keys create --app myAppId1 --prefix sk --env live \\
-                         --scopes "data:read,data:write,users:read" \\
-                         --name "Production server #1" --expires 90d
-
-  zenith api-keys list   --app myAppId1
-  zenith api-keys revoke --id aB3xY9zK --reason "leaked in git"
-  zenith api-keys rotate --id aB3xY9zK --grace 24h
+  list                         Lista las claves (nunca el secreto)
+  create --name <n>            Crea una clave. Opciones: --prefix sk|pk|rk  --env live|test
+                               --scopes "a,b"  --expires 90d  --rpm 1000
+  revoke --id <id>             Revoca una clave ya. Opción: --reason "<motivo>"
+  rotate --id <id>             Crea una nueva con los mismos permisos; la vieja vale --grace (24h)
 `;
 
-function getManager(): ApiKeyManager {
-  // TODO Fase 1.G: usar MongoDBStore en producción
-  return new ApiKeyManager(new InMemoryStore());
-}
+const graceHours = (v: string | undefined): number => {
+  if (!v) return 24;
+  const m = v.match(/^(\d+)([mhd])$/);
+  if (!m) throw new Error(`--grace no válido: "${v}". Usa 30m, 24h o 7d.`);
+  const n = Number(m[1]);
+  return m[2] === "m" ? n / 60 : m[2] === "h" ? n : n * 24;
+};
 
-function die(msg: string, code = 1): never {
-  console.error(`❌ ${msg}`);
-  Deno.exit(code);
-}
-
-async function cmdCreate(args: ReturnType<typeof parseArgs>): Promise<void> {
-  const appId = args.app as string | undefined;
-  const prefix = (args.prefix as ApiKeyPrefix | undefined) ?? "sk";
-  const env = (args.env as ApiKeyEnv | undefined) ?? "live";
-  const name = (args.name as string | undefined) ?? "Unnamed key";
-  const scopesStr = (args.scopes as string | undefined) ?? "";
-  const expiresIn = args.expires as string | undefined;
-  const rpm = args.rpm ? parseInt(args.rpm as string, 10) : undefined;
-  const createdBy = (args["created-by"] as string | undefined) ?? "admin:cli";
-
-  if (!appId) die("--app es requerido");
-
-  if (!["sk", "pk", "rk"].includes(prefix)) {
-    die(`--prefix inválido: '${prefix}'. Use sk, pk o rk.`);
-  }
-  if (!["live", "test"].includes(env)) {
-    die(`--env inválido: '${env}'. Use live o test.`);
-  }
-
-  const scopes = scopesStr
-    ? (scopesStr.split(",").map(s => s.trim()) as ApiKeyScope[])
-    : DEFAULT_SCOPES[prefix];
-
-  const manager = getManager();
-  const result = await manager.create({
-    appId,
-    prefix,
-    env,
-    scopes,
-    name,
-    createdBy,
-    expiresIn,
-    requestsPerMinute: rpm,
-  });
-
-  console.log("✅ API key creada exitosamente\n");
-  console.log(`  ID:      ${result.record.id}`);
-  console.log(`  Prefix:  ${result.record.prefix}_${result.record.env}`);
-  console.log(`  App:     ${result.record.appId}`);
-  console.log(`  Name:    ${result.record.name}`);
-  console.log(`  Scopes:  ${result.record.scopes.join(", ")}`);
-  console.log(`  Rate:    ${result.record.rateLimit.requestsPerMinute} req/min`);
-  if (result.record.expiresAt) {
-    console.log(`  Expires: ${result.record.expiresAt}`);
-  } else {
-    console.log(`  Expires: never`);
-  }
-  console.log("");
-  console.log("🔐 KEY (guárdala AHORA — no se mostrará de nuevo):");
-  console.log(`  ${result.plaintext}`);
-  console.log("");
-  console.log("⚠️  Esta key da acceso completo al backend con los scopes concedidos.");
-  console.log("   Trátala como una contraseña. Si se filtra, revócala INMEDIATAMENTE:");
-  console.log(`   zenith api-keys revoke --id ${result.record.id} --reason "leaked"`);
-}
-
-async function cmdList(args: ReturnType<typeof parseArgs>): Promise<void> {
-  const appId = args.app as string | undefined;
-  if (!appId) die("--app es requerido");
-
-  const manager = getManager();
-  const keys = await manager.listByApp(appId);
-
-  if (keys.length === 0) {
-    console.log(`No hay API keys registradas para la app '${appId}'.`);
-    console.log("");
-    console.log("💡 Esto puede ser porque:");
-    console.log("   - Aún no creaste ninguna key para esta app:");
-    console.log(`     zenith api-keys create --app ${appId} --prefix sk --env live \\`);
-    console.log(`                            --name "Mi primera key"`);
-    console.log("   - El store es in-memory y los datos se pierden al reiniciar.");
-    console.log("     (Fase 1.G: MongoDBStore para persistencia entre procesos)");
-    return;
-  }
-
-  console.log(`API keys para la app '${appId}' (${keys.length}):\n`);
-  console.log("ID         PREFIX   ENV     SCOPES                            CREATED                LAST USED              EXPIRES                STATUS");
-  console.log("─────────  ───────  ──────  ───────────────────────────────  ────────────────────  ────────────────────  ────────────────────  ──────");
-  for (const k of keys) {
-    const scopes = k.scopes.join(",");
-    const truncated = scopes.length > 30 ? scopes.slice(0, 27) + "..." : scopes;
-    const status = k.revokedAt ? "REVOKED" : (k.expiresAt && new Date(k.expiresAt) < new Date() ? "EXPIRED" : "active");
-    console.log(
-      `${k.id.padEnd(10)}  ${k.prefix}_${k.env.padEnd(5)}  ${k.env.padEnd(7)}  ${truncated.padEnd(31)}  ${k.createdAt}  ${k.lastUsedAt ?? "(never)".padEnd(20)}  ${k.expiresAt ?? "never".padEnd(20)}  ${status}`,
-    );
-  }
-  console.log("");
-  console.log("⚠️  Los secretos NUNCA se listan. Solo se pueden ver al crear la key.");
-}
-
-async function cmdRevoke(args: ReturnType<typeof parseArgs>): Promise<void> {
-  const id = args.id as string | undefined;
-  const reason = (args.reason as string | undefined) ?? "manual";
-  const actor = (args.actor as string | undefined) ?? "admin:cli";
-
-  if (!id) die("--id es requerido");
-
-  const manager = getManager();
-  await manager.revoke(id, actor, reason);
-  console.log(`✅ Key ${id} revocada. Razón: ${reason}. Actor: ${actor}.`);
-}
-
-async function cmdRotate(args: ReturnType<typeof parseArgs>): Promise<void> {
-  const id = args.id as string | undefined;
-  const grace = args.grace as string | undefined;
-  const actor = (args.actor as string | undefined) ?? "admin:cli";
-
-  if (!id) die("--id es requerido");
-
-  let graceMs: number;
-  if (!grace) {
-    graceMs = 24 * 60 * 60 * 1000;  // 24h default
-  } else {
-    const m = grace.match(/^(\d+)([smhd])$/);
-    if (!m) die(`--grace inválido: '${grace}'. Use "24h", "30m", etc.`);
-    const n = parseInt(m[1], 10);
-    graceMs = (
-      m[2] === "s" ? n * 1000 :
-      m[2] === "m" ? n * 60_000 :
-      m[2] === "h" ? n * 3_600_000 :
-      n * 86_400_000
-    );
-  }
-
-  const manager = getManager();
-  const result = await manager.rotate(id, { createdBy: actor, gracePeriodMs: graceMs });
-
-  console.log("✅ Rotación completada\n");
-  console.log(`  Key vieja: ${id} (sigue válida por ${grace ?? "24h"})`);
-  console.log(`  Key nueva: ${result.record.id}`);
-  console.log("");
-  console.log("🔐 NUEVA KEY (guárdala AHORA — no se mostrará de nuevo):");
-  console.log(`  ${result.plaintext}`);
-  console.log("");
-  console.log("💡 Recomendado: actualiza tu código/app para usar la nueva key");
-  console.log("   y verifica que todo funcione antes de que expire la grace period.");
-}
-
-export async function runApiKeys(): Promise<void> {
-  const args = parseArgs(Deno.args, {
-    string: ["app", "prefix", "env", "scopes", "name", "expires", "rpm", "id", "reason", "grace", "created-by", "actor"],
-    boolean: ["help"],
+export async function run(argv: string[]): Promise<void> {
+  const args = parseArgs(argv, {
+    string: ["prefix", "env", "scopes", "name", "expires", "rpm", "id", "reason", "grace"],
+    boolean: ["help", "json"],
     alias: { help: "h" },
   });
+  const sub = args._[0] as string | undefined;
+  if (!sub || args.help) return void console.log(HELP);
+  const cfg = await loadZenConfig();
 
-  const subcommand = args._[0] as string | undefined;
-
-  if (!subcommand || args.help) {
-    console.log(HELP);
-    return;
-  }
-
-  switch (subcommand) {
-    case "create": return await cmdCreate(args);
-    case "list":   return await cmdList(args);
-    case "revoke": return await cmdRevoke(args);
-    case "rotate": return await cmdRotate(args);
+  switch (sub) {
+    case "list": {
+      const { results } = await zenApiCall(cfg, "GET", "/zen/api-keys");
+      if (args.json) return void console.log(JSON.stringify(results, null, 2));
+      if (!results.length) return void console.log(`La app ${cfg.appId} no tiene API keys.`);
+      for (const k of results) {
+        const status = k.revokedAt ? "REVOCADA" : k.expiresAt && new Date(k.expiresAt) < new Date() ? "EXPIRADA" : "activa";
+        console.log(`${k.id}  ${k.prefix}_${k.env}  ${status.padEnd(8)}  ${k.name}  [${k.scopes.join(",")}]  último uso: ${k.lastUsedAt ?? "nunca"}`);
+      }
+      return;
+    }
+    case "create": {
+      if (!args.name) throw new Error("--name es obligatorio.");
+      const rpm = args.rpm === undefined ? undefined : Number(args.rpm);
+      const res = await zenApiCall(cfg, "POST", "/zen/api-keys", {
+        name: args.name,
+        prefix: args.prefix ?? "sk",
+        env: args.env ?? "live",
+        scopes: args.scopes ? args.scopes.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        expiresIn: args.expires,
+        requestsPerMinute: rpm,
+      });
+      console.log(`✅ Clave ${res.record.id} (${res.record.prefix}_${res.record.env}) para ${res.record.appId}`);
+      console.log(`   Permisos: ${res.record.scopes.join(", ")}  ·  Expira: ${res.record.expiresAt ?? "nunca"}`);
+      console.log(`\n🔐 Guárdala ahora, no se vuelve a mostrar:\n   ${res.key}\n`);
+      return;
+    }
+    case "revoke": {
+      if (!args.id) throw new Error("--id es obligatorio.");
+      await zenApiCall(cfg, "POST", `/zen/api-keys/${encodeURIComponent(args.id)}/revoke`, { reason: args.reason ?? "manual" });
+      return void console.log(`✅ Clave ${args.id} revocada.`);
+    }
+    case "rotate": {
+      if (!args.id) throw new Error("--id es obligatorio.");
+      const res = await zenApiCall(cfg, "POST", `/zen/api-keys/${encodeURIComponent(args.id)}/rotate`, { graceHours: graceHours(args.grace) });
+      console.log(`✅ Nueva clave ${res.record.id}; la anterior (${res.previous}) sigue válida ${args.grace ?? "24h"}.`);
+      console.log(`\n🔐 Guárdala ahora, no se vuelve a mostrar:\n   ${res.key}\n`);
+      return;
+    }
     default:
-      die(`Subcomando desconocido: '${subcommand}'`);
+      throw new Error(`Subcomando desconocido: ${sub}. Usa: zen api-keys --help`);
   }
-}
-
-if (import.meta.main) {
-  await runApiKeys();
 }
