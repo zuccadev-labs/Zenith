@@ -8,7 +8,8 @@
  *   zen deploy --dry-run  → muestra el plan sin ejecutar
  */
 import { parseArgs } from "@std/cli/parse-args";
-import { join, fromFileUrl } from "@std/path";
+import { join } from "@std/path";
+import { runDevCommand } from "../zen.ts";
 import { spinner } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {
@@ -20,14 +21,13 @@ export async function run(args: string[]): Promise<void> {
 
   const cwd           = Deno.cwd();
   const configPath    = join(cwd, "zen.config.ts");
-  const coreEntry     = fromFileUrl(new URL("../../zenith-backend/src/mod.ts", import.meta.url));
   const outputBin     = join(cwd, "zenith-server");
   const dockerImage   = `${parsed.registry ?? "registry.io/zenith"}:${parsed.tag}`;
 
   if (parsed["dry-run"]) {
     console.log(`\n🔍 Dry-run — Plan de despliegue (target: ${parsed.target})\n`);
     console.log(`   Config:     ${configPath}`);
-    console.log(`   Entry:      ${coreEntry}`);
+    console.log(`   Entry:      .zenith/entry.ts (el proyecto: zen.config.ts, cloud/, plugins/)`);
     console.log(`   Output:     ${outputBin}`);
     console.log(`   Target:     ${parsed.target}`);
     if (parsed.target === "docker") console.log(`   Imagen:     ${dockerImage}`);
@@ -39,24 +39,8 @@ export async function run(args: string[]): Promise<void> {
 
   // ── Paso 1: Compilar binario ───────────────────────────────────────────────
 
-  const spin1 = spinner("Compilando binario (Deno AOT)...");
-  const compileProc = new Deno.Command(Deno.execPath(), {
-    args: [
-      "compile", "-A", "--no-check",
-      "--output", outputBin,
-      "--target", Deno.build.target,
-      coreEntry,
-    ],
-    stdout: "piped", stderr: "piped",
-  });
-  const compileResult = await compileProc.output();
-  spin1.stop(compileResult.success);
-
-  if (!compileResult.success) {
-    const err = new TextDecoder().decode(compileResult.stderr);
-    console.error("❌ Compilación fallida:\n" + err);
-    Deno.exit(1);
-  }
+  // The same binary as `zen compile`: the project, with cloud/ and plugins/ linked in.
+  await runDevCommand("compile", ["--output", outputBin]);
 
   // ── Paso 2: Target-specific deployment ────────────────────────────────────
 
@@ -75,7 +59,7 @@ export async function run(args: string[]): Promise<void> {
     const buildResult = await dockerBuild.output();
     spin2.stop(buildResult.success);
 
-    if (!buildResult.success) { console.error("❌ Docker build fallido."); Deno.exit(1); }
+    if (!buildResult.success) throw new Error("Docker build fallido.");
 
     if (parsed.push) {
       const spin3 = spinner(`Publicando ${dockerImage}...`);

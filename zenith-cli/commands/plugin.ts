@@ -37,7 +37,7 @@ import {
   type PluginPermission,
   validatePublicKey,
   verifyPlugin,
-} from "../../zenith-backend/src/security/plugin-signing/mod.ts";
+} from "@zuccadev-labs/zenith/plugin-signing";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -154,7 +154,7 @@ async function cmdSign(args: string[]): Promise<void> {
   const permissions = permissionsStr.split(",").map((p) => p.trim()) as PluginPermission[];
 
   const privB64 = await readPrivateKey(authorId, flags);
-  const { buildKeyId: _b, importPublicRaw: _i, ...rest } = await import("../../zenith-backend/src/security/plugin-signing/mod.ts");
+  const { buildKeyId: _b, importPublicRaw: _i, ...rest } = await import("@zuccadev-labs/zenith/plugin-signing");
   // Necesitamos la pub key para construir el keyId. Asumimos que la p\u00fablica est\u00e1 al lado.
   const pubPath = `${KEYS_DIR}/${authorId}.pub`;
   let pubB64: string;

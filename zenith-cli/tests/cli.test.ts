@@ -5,7 +5,7 @@
 import { assert, assertEquals, assertMatch, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { COMMANDS, commandTable, helpText } from "../commands/registry.ts";
-import { main, runDevCommand } from "../zen.ts";
+import { ENGINE_JSR, ENGINE_VERSION, main, runDevCommand } from "../zen.ts";
 
 const MONGO = Deno.env.get("ZENITH_TEST_MONGO");
 const tmp = () => Deno.makeTempDir({ prefix: "zen-cli-" });
@@ -77,6 +77,47 @@ Deno.test("init: the project structure, a random master key, never overwrites", 
   await assertRejects(() => inDir(p, () => runDevCommand("init", [])), Error, "ya existe");
   assertEquals(await Deno.readTextFile(join(p, ".env")), before, "nothing overwritten");
   await assertRejects(() => runDevCommand("init", ["../fuera"]), Error, "no válido");
+});
+
+async function withEnv<T>(vars: Record<string, string | undefined>, fn: () => Promise<T>): Promise<T> {
+  const old = Object.fromEntries(Object.keys(vars).map((k) => [k, Deno.env.get(k)]));
+  for (const [k, v] of Object.entries(vars)) v === undefined ? Deno.env.delete(k) : Deno.env.set(k, v);
+  try {
+    return await fn();
+  } finally {
+    for (const [k, v] of Object.entries(old)) v === undefined ? Deno.env.delete(k) : Deno.env.set(k, v);
+  }
+}
+
+Deno.test("init from JSR: the project depends on the published engine only", async () => {
+  const dir = await tmp();
+  await withEnv({ ZENITH_ENGINE: "jsr" }, () => inDir(dir, () => runDevCommand("init", ["pub"])));
+  const denoJson = JSON.parse(await Deno.readTextFile(join(dir, "pub", "deno.json")));
+  assertEquals(denoJson.imports, { "@zuccadev-labs/zenith": ENGINE_JSR });
+  assertEquals(denoJson.unstable, ["kv"]);
+  // No lockfile copied from a monorepo the user does not have: the first `zen dev` writes it.
+  await assertRejects(() => Deno.stat(join(dir, "pub", "deno.lock")), Deno.errors.NotFound);
+  await assertRejects(
+    () => withEnv({ ZENITH_ENGINE: "npm" }, () => inDir(dir, () => runDevCommand("init", ["otro"]))),
+    Error,
+    "ZENITH_ENGINE",
+  );
+});
+
+Deno.test("the engine version new projects get is the engine's own", async () => {
+  const engine = JSON.parse(await Deno.readTextFile(new URL("../../zenith-backend/deno.json", import.meta.url)));
+  assertEquals(ENGINE_VERSION, engine.version);
+  assertEquals(ENGINE_JSR, `jsr:@zuccadev-labs/zenith@^${engine.version}`);
+});
+
+Deno.test("generate openapi: the routes the router mounts, never an empty spec", async () => {
+  const dir = await tmp();
+  const out = join(dir, "openapi.json");
+  await inDir(dir, async () => assertEquals(await main(["generate", "openapi", "--out", out]), 0));
+  const spec = JSON.parse(await Deno.readTextFile(out));
+  const ops = Object.values(spec.paths as Record<string, object>).reduce((n, p) => n + Object.keys(p).length, 0);
+  assert(ops >= 200, `${ops} operations`);
+  for (const p of ["/classes/{className}", "/login", "/files/{filename}", "/zen/api-keys", "/health"]) assert(spec.paths[p], p);
 });
 
 /** A fake Zenith server that records what the CLI sends. */

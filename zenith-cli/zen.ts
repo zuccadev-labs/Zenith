@@ -12,7 +12,11 @@
  * and the engine stays a dependency: `zen dev` runs the project with hot reload, `zen compile`
  * links it statically into one binary. Every other command comes from `commands/registry.ts`.
  *
- *   deno run -A zenith-cli/zen.ts <command> [args]
+ * Zenith's server SDK is the engine (`@zuccadev-labs/zenith`) plus this CLI. The client SDKs
+ * (`sdk/`) only talk to a running server; they never create a project.
+ *
+ *   deno install -g -A --unstable-kv -n zen jsr:@zuccadev-labs/zenith-cli/zen
+ *   zen init miapp
  */
 import { parseArgs } from "@std/cli/parse-args";
 import { ensureDir } from "@std/fs/ensure-dir";
@@ -22,12 +26,16 @@ import { commandTable, helpText } from "./commands/registry.ts";
 
 export const VERSION = "0.2.0";
 
-/** The engine, until it is published on JSR (then: "jsr:@zuccadev-labs/zenith"). */
+/** The engine release new projects depend on. Keep in step with zenith-backend/deno.json (a test checks it). */
+export const ENGINE_VERSION = "0.1.0";
+export const ENGINE_JSR = `jsr:@zuccadev-labs/zenith@^${ENGINE_VERSION}`;
+
+/** In the monorepo, the engine next to this CLI. */
 const CORE_ENTRY = new URL("../zenith-backend/src/mod.ts", import.meta.url);
 const CORE_DENO_JSON = new URL("../zenith-backend/deno.json", import.meta.url);
 const CORE_DENO_LOCK = new URL("../zenith-backend/deno.lock", import.meta.url);
 
-const exists = async (p: string) => {
+const exists = async (p: string): Promise<boolean> => {
   try {
     await Deno.lstat(p);
     return true;
@@ -37,22 +45,40 @@ const exists = async (p: string) => {
   }
 };
 
-const randomHex = (bytes: number) =>
+const randomHex = (bytes: number): string =>
   Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
 
-/** deno.json of a new project: the engine's own import map plus `@zuccadev-labs/zenith`. */
-async function projectDenoJson(): Promise<string> {
+/**
+ * Where a new project takes the engine from:
+ * - "jsr": the published package. The default when zen was installed from JSR.
+ * - "local": the monorepo's zenith-backend, to try engine changes before publishing. The default
+ *   when zen runs from a checkout that has it.
+ * ZENITH_ENGINE=jsr|local overrides the choice.
+ */
+export async function engineSource(): Promise<"jsr" | "local"> {
+  const forced = Deno.env.get("ZENITH_ENGINE");
+  if (forced === "jsr" || forced === "local") return forced;
+  if (forced) throw new Error(`ZENITH_ENGINE=${forced}: usa "jsr" o "local".`);
+  return CORE_ENTRY.protocol === "file:" && (await exists(fromFileUrl(CORE_ENTRY))) ? "local" : "jsr";
+}
+
+/** deno.json of a new project. From JSR the engine brings its own dependencies; locally, its import map comes along. */
+async function projectDenoJson(source: "jsr" | "local"): Promise<string> {
+  const base = { nodeModulesDir: "auto", unstable: ["kv"], tasks: { dev: "zen dev", compile: "zen compile" } };
+  if (source === "jsr") {
+    return JSON.stringify({ imports: { "@zuccadev-labs/zenith": ENGINE_JSR }, ...base }, null, 2) + "\n";
+  }
   const core = JSON.parse(await Deno.readTextFile(CORE_DENO_JSON));
   return JSON.stringify({
     imports: { ...core.imports, "@zuccadev-labs/zenith": CORE_ENTRY.href },
-    nodeModulesDir: "auto",
+    ...base,
     ...(core.minimumDependencyAge ? { minimumDependencyAge: core.minimumDependencyAge } : {}),
-    tasks: { dev: "zen dev", compile: "zen compile" },
   }, null, 2) + "\n";
 }
 
-async function runInit(args: string[]) {
+async function runInit(args: string[]): Promise<void> {
   const name = args[0];
+  const source = await engineSource();
   if (name !== undefined && !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(name)) {
     throw new Error(`Nombre de proyecto no válido: ${JSON.stringify(name)} (letras, números, _ y -).`);
   }
@@ -99,12 +125,15 @@ export default {
 Zen.Cloud.define("hello", () => ({ message: "Hola desde Zenith Cloud Code" }));
 `);
   await Deno.writeTextFile(join(dir, "plugins", ".gitkeep"), "");
-  await Deno.writeTextFile(join(dir, "deno.json"), await projectDenoJson());
-  // Start from the engine's lockfile: the exact versions and hashes the engine was tested with.
-  if (await exists(fromFileUrl(CORE_DENO_LOCK))) await Deno.copyFile(CORE_DENO_LOCK, join(dir, "deno.lock"));
+  await Deno.writeTextFile(join(dir, "deno.json"), await projectDenoJson(source));
+  // Locally, start from the engine's lockfile: the exact versions and hashes it was tested with.
+  // From JSR, the first `zen dev` writes the project's own deno.lock (commit it).
+  const lock = source === "local" && (await exists(fromFileUrl(CORE_DENO_LOCK)));
+  if (lock) await Deno.copyFile(CORE_DENO_LOCK, join(dir, "deno.lock"));
   await Deno.writeTextFile(join(dir, ".gitignore"), ".env\n.zenith/\nnode_modules/\n/zenith-app\n/zenith-app.exe\n");
 
-  console.log("✅ Creado: cloud/, plugins/, zen.config.ts, .env, deno.json, deno.lock, .gitignore");
+  console.log(`✅ Creado: cloud/, plugins/, zen.config.ts, .env, deno.json, ${lock ? "deno.lock, " : ""}.gitignore`);
+  console.log(`   Motor: ${source === "jsr" ? ENGINE_JSR : `${fromFileUrl(CORE_ENTRY)} (monorepo)`}`);
   console.log(`\n   ${name ? `cd ${name} && ` : ""}zen dev`);
 }
 
@@ -143,13 +172,13 @@ console.log(\`🌐 Zenith en http://localhost:\${port}\`);
   return entry;
 }
 
-async function requireProject(cwd: string) {
+async function requireProject(cwd: string): Promise<void> {
   for (const f of ["zen.config.ts", "deno.json"]) {
     if (!(await exists(join(cwd, f)))) throw new Error(`No hay ${f} en ${cwd}: ¿es un proyecto Zenith? (zen init)`);
   }
 }
 
-async function runDev() {
+async function runDev(): Promise<void> {
   const cwd = Deno.cwd();
   await requireProject(cwd);
   const entry = await writeEntry(cwd, false);
@@ -172,7 +201,7 @@ async function runDev() {
   if (!status.success && status.signal === null) Deno.exit(status.code);
 }
 
-async function runCompile(args: string[]) {
+async function runCompile(args: string[]): Promise<void> {
   const cwd = Deno.cwd();
   await requireProject(cwd);
   const flags = parseArgs(args, { string: ["output"] });
@@ -194,7 +223,7 @@ async function runCompile(args: string[]) {
 }
 
 /** `init`, `dev`, `compile`: used by the registry. */
-export async function runDevCommand(name: "init" | "dev" | "compile", args: string[]) {
+export async function runDevCommand(name: "init" | "dev" | "compile", args: string[]): Promise<void> {
   if (name === "init") return await runInit(args);
   if (name === "dev") return await runDev();
   return await runCompile(args);

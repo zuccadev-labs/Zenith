@@ -7,9 +7,10 @@
  *   zen generate sdk        → Re-genera los tipos TypeScript del SDK desde la spec
  *   zen generate schema     → Imprime el schema compuesto de todos los traits
  *
- * El generador arranca el motor en modo "dry" (sin puerto, sin DB real),
- * extrae el state compuesto de Barrits y produce la documentación completa.
- * No requiere que el servidor esté corriendo.
+ * La spec sale del motor (`@zuccadev-labs/zenith/openapi`): compone los traits que selecciona la
+ * configuración del proyecto (zen.config.ts: features, topology), sin puerto ni base de datos, y
+ * documenta las mismas rutas que montaría el router. No requiere que el servidor esté corriendo.
+ * Las cloud functions del proyecto aparecen en el /openapi.json del servidor en marcha.
  *
  * Artefactos generados por `zen generate docs`:
  *   ./docs/openapi.json          — OpenAPI 3.1 (Swagger UI / Redoc / Postman)
@@ -18,15 +19,13 @@
  *   ./docs/index.html            — Portal Redoc self-hosted (sin servidor externo)
  */
 import { ensureDir } from "@std/fs/ensure-dir";
-import { join, fromFileUrl } from "@std/path";
+import { join, toFileUrl } from "@std/path";
+import type { ProjectRoutesConfig } from "@zuccadev-labs/zenith/openapi";
 import { parseArgs } from "@std/cli/parse-args";
 import { spinner } from "./_utils.ts";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-const BACKEND_OPENAPI = fromFileUrl(
-  new URL("../../zenith-backend/src/core/openapi-generator.ts", import.meta.url)
-);
 
 /** Descripción de tags para que la doc sea rica desde el día 1 */
 const TAG_DESCRIPTIONS: Record<string, string> = {
@@ -91,59 +90,49 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
 
 // ── Generadores de artefactos ─────────────────────────────────────────────────
 
+/** A generated OpenAPI document (its shape is the engine's; this file only walks it). */
+// deno-lint-ignore no-explicit-any
+type OpenApiDoc = Record<string, any>;
+
+/** File of a tag's page; the index links with the same name. */
+const tagFile = (tag: string): string => tag.replace(/[\s/]/g, "_").replace(/[^a-zA-Z0-9_]/g, "") + ".md";
+
 /**
  * Genera la spec OpenAPI 3.1 iniciando el motor Zenith en modo "spec-only"
  * (sin servidor HTTP, sin DB — solo compone los traits y extrae las rutas).
  */
 async function generateOpenApiSpec(cfg: {
   serverURL: string; appId: string; title: string; version: string;
-}): Promise<object> {
-  // Importar el generador del core
-  const { generateOpenApiFromState } = await import(
-    "file://" + BACKEND_OPENAPI
-  );
-
-  // Construir un state mínimo que simula el engine compuesto
-  // extrayendo todas las rutas desde mod.ts en modo "inspect"
-  const modPath = fromFileUrl(
-    new URL("../../zenith-backend/src/mod.ts", import.meta.url)
-  );
-
-  // Usamos ZENITH_SPEC_ONLY=1 para que createZenithApp() retorne
-  // el state sin arrancar el servidor ni conectar DB
-  const env = { ...Deno.env.toObject(), ZENITH_SPEC_ONLY: "1" };
-  const proc = new Deno.Command(Deno.execPath(), {
-    args: ["eval", "--no-check", "-A", `
-      import { createZenithApp } from "file://${modPath.replace(/\\/g, "/")}";
-      const app = await createZenithApp({
-        appId: "zenith", masterKey: "secret",
-        databaseURI: "mongodb://localhost:27017/zenith_spec",
-        specOnly: true,
-      });
-      const state = (app as any)._composedState ?? {};
-      console.log(JSON.stringify(state));
-    `],
-    env,
-    stdout: "piped",
-    stderr: "null",
-  });
-
-  let composedState: Record<string, unknown> = {};
-  try {
-    const out    = await proc.output();
-    const stdout = new TextDecoder().decode(out.stdout).trim();
-    const jsonStart = stdout.lastIndexOf("{");
-    if (jsonStart >= 0) composedState = JSON.parse(stdout.slice(jsonStart));
-  } catch { /* fallback a spec estática */ }
-
-  return generateOpenApiFromState(composedState, {
+}): Promise<OpenApiDoc> {
+  const { generateProjectOpenApi } = await import("@zuccadev-labs/zenith/openapi");
+  return generateProjectOpenApi(await projectRoutesConfig(cfg.appId), {
     title:       cfg.title,
     version:     cfg.version,
-    description: `API completa de Zenith BaaS — el único backend que combina CRM + ERP + Real-time + AI en un solo binary. Compatible con Parse Server SDK. Autenticación via \`X-Parse-Application-Id\` + \`X-Parse-Session-Token\` o \`X-Parse-Master-Key\`.`,
+    description: `API de Zenith. Compatible con los SDK de Parse Server. Autenticación con \`X-Parse-Application-Id\` y \`X-Parse-Session-Token\`, una API key o \`X-Parse-Master-Key\` (solo desde localhost).`,
     serverURL:   cfg.serverURL,
     appId:       cfg.appId,
     additionalTagDescriptions: TAG_DESCRIPTIONS,
   });
+}
+
+/**
+ * features y topology de zen.config.ts, que deciden qué rutas existen. zen.config.ts lee .env;
+ * sin él (o fuera de un proyecto) se usan las features por defecto, y se avisa.
+ */
+async function projectRoutesConfig(appId: string): Promise<ProjectRoutesConfig> {
+  const path = join(Deno.cwd(), "zen.config.ts");
+  try {
+    await Deno.stat(path);
+  } catch {
+    console.warn("  ⚠️  Sin zen.config.ts en este directorio: spec con las features por defecto.");
+    return { appId };
+  }
+  try {
+    const cfg = (await import(toFileUrl(path).href)).default ?? {};
+    return { appId: cfg.appId ?? appId, features: cfg.features, topology: cfg.topology };
+  } catch (e) {
+    throw new Error(`No se pudo cargar zen.config.ts (¿falta .env? usa: deno run --env-file=.env …): ${(e as Error).message}`);
+  }
 }
 
 /**
@@ -172,21 +161,26 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
     `# Zenith API Reference`,
     ``,
     `> Generado automáticamente por \`zen generate docs\``,
-    `> Versión: ${spec.info?.version} | Base URL: ${spec.servers?.[0]?.url ?? "http://localhost:3000"}`,
+    `> Versión: ${spec.info?.version} | Base URL: ${spec.servers?.[0]?.url ?? "http://localhost:1337"}`,
+    `> Las mismas rutas que monta el router (zenith-backend/src/core/route-collection.ts).`,
     ``,
     `## Autenticación`,
     ``,
-    `Todas las rutas requieren los headers de Parse Server:`,
+    `Cada ruta declara quién puede llamarla (ADR-013); la sección \`security\` de cada operación lo dice:`,
+    ``,
+    `- **public**: sin credenciales (\`/health\`, \`/login\`, \`/openapi.json\`…).`,
+    `- **user**: sesión (\`X-Parse-Session-Token\` o \`Authorization: Bearer\`) o API key.`,
+    `- **master**: \`X-Parse-Master-Key\`, aceptada **solo desde localhost**. Es el valor por defecto.`,
     ``,
     "```http",
-    `X-Parse-Application-Id: <tu-app-id>`,
-    `X-Parse-Session-Token: <token-del-usuario>  # Para rutas de usuario`,
-    `X-Parse-Master-Key: <master-key>             # Para rutas de administración`,
+    `X-Parse-Application-Id: <tu-app-id>          # siempre`,
+    `X-Parse-Session-Token: <token-del-usuario>   # rutas user`,
+    `X-Parse-Master-Key: <master-key>              # rutas master, desde localhost`,
     "```",
     ``,
     `## Secciones`,
     ``,
-    ...[...tagMap.keys()].sort().map(tag => `- [${tag}](./${tag.replace(/\s+/g, "_")}.md) (${tagMap.get(tag)!.length} endpoints)`),
+    ...[...tagMap.keys()].sort().map(tag => `- [${tag}](./api/${tagFile(tag)}) (${tagMap.get(tag)!.length} endpoints)`),
     ``,
     `## Quick Start`,
     ``,
@@ -250,7 +244,7 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
       lines.push(``, `---`, ``);
     }
 
-    const filename = tag.replace(/[\s/]/g, "_").replace(/[^a-zA-Z0-9_]/g, "") + ".md";
+    const filename = tagFile(tag);
     files.push({ file: join(outDir, "api", filename), content: lines.join("\n") });
   }
 
@@ -386,7 +380,7 @@ export async function run(args: string[]): Promise<void> {
     boolean: ["json", "open"],
     default: {
       out:     "./docs",
-      url:     Deno.env.get("ZENITH_SERVER_URL") ?? "http://localhost:3000",
+      url:     Deno.env.get("ZENITH_SERVER_URL") ?? "http://localhost:1337",
       "app-id":Deno.env.get("ZENITH_APP_ID")    ?? "my_app",
       title:   "Zenith Universal Business API",
       version: "1.0.0",
@@ -411,13 +405,13 @@ export async function run(args: string[]): Promise<void> {
 
       // 1. OpenAPI spec
       const spin1 = spinner("Generando spec OpenAPI 3.1...");
-      let spec: any = { paths: {}, info: { title, version }, servers: [{ url: serverURL }] };
+      let spec: OpenApiDoc;
       try {
         spec = await generateOpenApiSpec(cfg);
         spin1.stop(true);
-      } catch (e: any) {
+      } catch (e) {
         spin1.stop(false);
-        console.log(`  ⚠️  Spec generada en modo fallback: ${e.message}`);
+        throw e;
       }
 
       const specPath = join(outDir, "openapi.json");
@@ -489,13 +483,13 @@ Próximos pasos:
 
     case "openapi": {
       const spin = spinner("Generando spec OpenAPI 3.1...");
-      let spec: any = {};
+      let spec: OpenApiDoc;
       try {
         spec = await generateOpenApiSpec(cfg);
         spin.stop(true);
-      } catch (e: any) {
+      } catch (e) {
         spin.stop(false);
-        console.log(`  ⚠️  Fallback: ${e.message}`);
+        throw e;
       }
       const out = outDir.endsWith(".json") ? outDir : join(outDir, "openapi.json");
       await ensureDir(out.split(/[\\/]/).slice(0, -1).join("/") || ".");
@@ -507,11 +501,7 @@ Próximos pasos:
     // ── zen generate schema ────────────────────────────────────────────────
 
     case "schema": {
-      const { generateOpenApiFromState } = await import("file://" + BACKEND_OPENAPI);
-      const spec = generateOpenApiFromState({}, {
-        title, version, serverURL, appId,
-        additionalTagDescriptions: TAG_DESCRIPTIONS,
-      });
+      const spec = await generateOpenApiSpec(cfg);
       if (parsed.json) {
         console.log(JSON.stringify(spec.components?.schemas ?? {}, null, 2));
       } else {
@@ -528,8 +518,7 @@ Próximos pasos:
     case "sdk": {
       console.log(`\n🔧 Re-generando tipos SDK TypeScript desde OpenAPI spec...`);
       const spin = spinner("Procesando spec...");
-      let spec: any = {};
-      try { spec = await generateOpenApiSpec(cfg); } catch { /* */ }
+      const spec = await generateOpenApiSpec(cfg);
       spin.stop(true);
 
       // Generar tipos básicos desde schemas de la spec
