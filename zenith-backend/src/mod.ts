@@ -483,6 +483,10 @@ export async function createZenithApp(config: ZenithConfig) {
       console.warn("[ZenithBoot] ⚠️ engineAuth not configured: user routes answer 503, all requests are anonymous.");
     }
 
+    // /classes for users: only schema-defined classes unless the app opts into client class creation.
+    const crud = (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["crud"];
+    crud?.configure?.({ allowClientClassCreation: config.allowClientClassCreation === true });
+
     const s3Uri = (config as unknown as Record<string, unknown>).mediaStorageURI as string || "http://localhost:8614";
     const s3Client = new S3Client({
       region: "us-east-1",

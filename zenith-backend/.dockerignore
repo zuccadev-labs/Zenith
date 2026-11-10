@@ -6,6 +6,5 @@ docs
 example
 bin
 *.log
-deno.lock
 zenith-cluster/target
 zenith-sfu/target

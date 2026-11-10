@@ -32,6 +32,18 @@ export interface RouteDefinition {
 
 const isMaster = (ctx: ZenithRequestContext) => ctx.masterKey === true || (ctx.apiKey?.scopes ?? []).includes("*");
 
+/**
+ * `ctx.master` and `ctx.user` — the shape the traits read (ACL, CLP, cloud hooks). Roles are the
+ * caller's Parse roles plus its directory groups (FreeIPA/LDAP via engine-auth), so an ACL entry
+ * `role:admins` matches members of the `admins` group.
+ */
+export function callerFields(ctx: ZenithRequestContext): { master: boolean; user?: { objectId: string; id: string; roles: string[] } } {
+  const userId = ctx.auth?.userId;
+  if (!userId) return { master: isMaster(ctx) };
+  const roles = [...new Set([...(ctx.auth?.roles ?? []), ...(ctx.auth?.groups ?? [])])].map(String);
+  return { master: isMaster(ctx), user: { objectId: userId, id: userId, roles } };
+}
+
 /** `null` if `ctx` may call a route with `access`, otherwise the refusal. */
 export function denied(access: RouteAccess, ctx: ZenithRequestContext): Response | null {
   if (access === "public" || isMaster(ctx)) return null;
@@ -109,7 +121,7 @@ export class ZenithRouter {
           const refusal = denied(route.access, ctx);
           if (refusal) return refusal;
           const params = (match.pathname.groups ?? {}) as Record<string, string>;
-          const enrichedCtx = { ...ctx, params };
+          const enrichedCtx = { ...ctx, params, ...callerFields(ctx) };
           return await route.handler(req, enrichedCtx);
         }
       }

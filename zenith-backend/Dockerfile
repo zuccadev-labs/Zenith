@@ -11,9 +11,10 @@ FROM denoland/deno:2.9.8 AS builder
 
 WORKDIR /app
 
-# Dependencies first, so source changes reuse this layer.
-COPY deno.json ./
-RUN deno install
+# Dependencies first, so source changes reuse this layer. --frozen: exactly what deno.lock says,
+# with its integrity hashes; a deno.json that no longer matches the lock fails the build.
+COPY deno.json deno.lock ./
+RUN deno install --frozen
 
 COPY src/ src/
 COPY apps.config.ts config-loader.ts zen.config.ts ./
