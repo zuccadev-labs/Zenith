@@ -1,5 +1,7 @@
 # Zenith — Customer Onboarding
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Audience:** Customer Success, Sales Engineers, Onboarding Managers.
 > **Time to first request:** < 30 minutes.
 

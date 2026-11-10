@@ -1,5 +1,7 @@
 # Chaos Engineering & Game Day Plan
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Methodology:** Principles of Chaos Engineering.
 > **Cadence:** monthly game day + ad-hoc experiments.
 > **Owner:** SRE lead.

@@ -1,5 +1,7 @@
 # 06 — Hardening de Seguridad, Microservicios y Auditoría Corporativa
 
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 > **Fase**: Implementación Enterprise  
 > **Autor**: Equipo Zenith — @zuccadev-labs  
 > **Fecha**: 2026-05-22  

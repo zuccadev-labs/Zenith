@@ -1,5 +1,7 @@
 # SRE Cheat Sheet — Zenith
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Print and pin to your wall.** Updated quarterly.
 
 ## Endpoints

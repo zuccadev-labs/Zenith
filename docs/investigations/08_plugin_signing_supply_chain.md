@@ -1,5 +1,7 @@
 # 08 — Plugin Manifest Signing: Defensa de Supply Chain con Ed25519 y Trust on First Use
 
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 > **Fase**: Sprint 2 — Phase 1.E (Enterprise Hardening)
 > **Autor**: Equipo Zenith — @zuccadev-labs
 > **Fecha**: 2026-06-06

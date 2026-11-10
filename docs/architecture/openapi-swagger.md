@@ -1,39 +1,55 @@
-# Zenith OpenAPI & Swagger Architecture
+# OpenAPI y Swagger en Zenith
 
-Zenith implements a fully dynamic, AST-driven OpenAPI generation engine. Unlike legacy systems that rely on static YAML files or brittle decorators that easily drift from the actual implementation, Zenith generates its OpenAPI specification (`openapi.json`) and Swagger UI directly from the running routing capabilities of the `barrits` traits.
+> Vigente a 2026-11-10. Sustituye a la versión anterior, que afirmaba que el servidor y el generador
+> compartían la misma fuente. No era cierto: el generador perdía entre el 26 % y el 38 % de las rutas.
 
-## 1. The Dynamic Generation Process
+## Una sola lista de rutas
 
-When the Zenith backend starts (or is compiled via `deno compile`), the core system calls `generateOpenApiSchema(manifest)`.
+`zenith-backend/src/core/route-collection.ts` decide qué rutas sirve el motor:
 
-This engine reads all `*_routes` arrays exposed by the composed `barrits` traits. Because the HTTP server (`serve.ts`) and the OpenAPI generator use the **exact same AST source of truth**, the documentation can never be out of sync with the actual API.
+- **Rutas de los traits:** cada trait expone las suyas bajo una capacidad cuya clave contiene
+  `routes`. Vale cualquier forma: `crud-routes`, `user_routes`, `routes`…
+- **Rutas fuera de los traits:** `GET /health` (`HEALTH_ROUTE`) y `/zen/api-keys`
+  (`apiKeyRouteSpecs()` en `security/api-keys/routes.ts`, que sale de la misma función que crea los handlers).
 
-## 2. Real-time Cloud Code Introspection
+Esa lista la usan tanto el router (`buildDynamicRouter`) como el generador
+(`generateOpenApiFromState`). La prueba `tests/unit/openapi-parity.test.ts` compara lo que monta el
+router con lo que documenta la spec. Lo hace con las features por defecto (223 rutas) y con todas
+(267). Falla si sobra o falta una ruta, o si la seguridad documentada no coincide con la exigida.
 
-A key enterprise feature of Zenith is how it handles Cloud Functions (`Zen.Cloud.define`).
+## Seguridad documentada = seguridad aplicada
 
-When a developer registers a new function in `cloud/main.ts`:
-```typescript
-Zen.Cloud.define("submitForm", async (request) => { ... });
-```
+Cada operación toma su `security` del `access` de la ruta, igual que la aplica el pipeline (ADR-013):
 
-The function `buildLiveOpenApiSpec` (located in `src/mod.ts`) reaches directly into the memory registry (`_cloudCodeRegistry.listFunctions()`). It dynamically calculates the input parameters, synthesizes a virtual route (`POST /functions/submitForm`), and injects it into the AST just before rendering the OpenAPI schema.
+| `access` | `security` en la spec |
+|---|---|
+| `public` | `[]` |
+| `user` | sesión (`sessionToken`, `jwtRs256`); API key (`apiKeyBearer`, `apiKeyHeader`) solo si la ruta declara `scope`, que aparece en la lista del esquema. Si es `per-operation`, lo explica la extensión `x-api-key-scope` |
+| `master` o sin declarar | `masterKey` (solo se acepta desde localhost) |
 
-**This means:**
-- Every `Zen.Cloud.define()` automatically appears in Swagger.
-- You do not need to restart the development server or run a separate code-generation step. The endpoint `/parse/swagger` is rebuilt on-the-fly.
+Una ruta puede sobrescribirla con `_openapi.security`.
 
-### ¿Cuándo ocurre esta compilación AST? (Build vs Dev)
-El enfoque de Barrits permite que la generación sea **independiente del entorno**:
-1. **Modo Desarrollo (`deno run`)**: Cada vez que el servidor arranca o se recarga por Hot Reloading, el AST se construye dinámicamente en memoria y se sirve.
-2. **Modo Producción / Binario (`deno task build`)**: Cuando usas el comando de construcción `zen build` o compilas tu app mediante Deno, todo el código de `cloud/main.ts` se analiza estáticamente y se empaqueta dentro del ejecutable final. Dado que OpenAPI no depende de lectura de archivos YAML externos, sino del propio código empaquetado, **el Swagger sigue funcionando 100% nativo dentro del binario**. El ejecutable expondrá `/parse/swagger` perfectamente sin requerir configuraciones de volúmenes adicionales.
+## Dónde se genera
 
-## 3. Endpoints
+| Qué | Cómo | Contenido |
+|---|---|---|
+| Servidor en marcha | `GET /openapi.json` y `GET /swagger` (públicas) | Las rutas montadas, más `POST /functions/<fn>` y `POST /jobs/<job>` por cada función y job registrados en `cloud/` |
+| Un proyecto, sin arrancarlo | `zen generate openapi` (o `docs`) | Compone los traits que eligen `features` y `topology` de `zen.config.ts`, sin base de datos. Termina con error si la spec sale vacía |
+| Desde código | `generateProjectOpenApi(config)` de `@zuccadev-labs/zenith/openapi` | Lo mismo que `zen generate openapi` |
+| El motor | `deno run -A --unstable-kv scripts/generate-openapi.ts [--all-features]` en `zenith-backend/` | Escribe `swagger.json` |
 
-Zenith exposes two crucial endpoints under the application mount path (e.g., `/parse`):
+Con `zen dev` las rutas cuelgan de la raíz (`/swagger`). En el arranque multi-app de
+`apps.config.ts` cuelgan del `mountPath` de cada app (por ejemplo `/parse/swagger`). Un binario hecho
+con `zen compile` sirve la misma spec, porque se genera en memoria a partir del código enlazado.
 
-- **`GET /openapi.json?appId=YOUR_APP_ID`**: Returns the raw OpenAPI v3.1 specification. Useful for importing into Postman, Insomnia, or generating frontend clients.
-- **`GET /swagger?appId=YOUR_APP_ID`**: Returns an interactive HTML dashboard using `swagger-ui-dist`, hydrated directly with the live OpenAPI specification.
+## barrits y OpenAPI
 
-> [!TIP]
-> **Compilation (Zen Build)**: When you build the Zenith backend into a binary using `deno task build`, the `cloud/main.ts` is statically analyzed and bundled. The OpenAPI engine continues to work flawlessly in the binary, providing zero-configuration documentation for your immutable production deployments.
+barrits trae su propio generador (`generateOpenApiSchema`, en `schema/openapi`), pero Zenith no lo usa:
+
+- la versión 0.3.0 publicada en JSR no exporta ese subpath;
+- solo admite un endpoint por trait, mientras que los traits de Zenith exponen listas de rutas con
+  metadatos `_openapi`.
+
+Zenith compone con barrits (`createTraitDescriptor` y `composeTraitDescriptors`) y genera la OpenAPI
+con su propio generador sobre esa composición. Las mejoras pendientes en barrits están en
+`zenith-backend/docs/pending.md`.

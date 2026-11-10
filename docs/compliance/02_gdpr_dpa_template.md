@@ -1,5 +1,7 @@
 # GDPR Data Processing Addendum (DPA) — Template
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Effective:** 2026-07-15 (planned)
 > **Owner:** Legal, DPO
 > **Required for:** all customers in the EU/EEA/UK.

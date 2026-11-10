@@ -1,5 +1,7 @@
 # Multi-Region Active-Active Architecture
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Status:** Design (Phase 4.0+).
 > **Owner:** Platform lead.
 > **Goal:** < 100 ms p95 latency for 95 % of customers, RPO < 1 s, RTO < 30 s.

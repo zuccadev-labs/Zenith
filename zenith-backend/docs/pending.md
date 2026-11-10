@@ -19,6 +19,15 @@ El carrito usa una sola moneda y debe coincidir con la de la regla del destino. 
 
 ## Núcleo
 
+### Corregido el 2026-11-10 (antes oculto por `--no-check`)
+Las pruebas se ejecutan con `--no-check`, así que la verificación de tipos de la publicación encontró 14
+errores. Varios eran fallos reales:
+- **`grpc.callService`** hacía `new` sobre el módulo de grpc-js, así que fallaba siempre, e ignoraba el nombre del
+  servicio. Ahora es una llamada unaria a `/<servicio>/<método>` con mensajes JSON.
+- **El SSE de notificaciones** enviaba texto a `Response`. Deno exige bytes; ahora pasa por `TextEncoderStream`.
+- **El cliente de Vault nunca se había subido a git.** La regla `**/secrets/` de `.gitignore` ignoraba
+  `src/security/secrets/`, así que un clon no arrancaba. Ahora hay una excepción para esa carpeta.
+
 ### Revisar los plugins que usan `defineSchema`
 `Zen.Cloud.defineSchema()` ya funciona: `Zen.DB.insert()` aplica valores por defecto y exige los campos requeridos. Antes no hacía nada, así que hay que revisar los inserts de CRM y ERP. Solo se valida al insertar, no al actualizar.
 
@@ -51,9 +60,92 @@ se quiere ofrecer, el adaptador tiene que pasar la subconsulta por las mismas co
 - **Las de workspace** (`/zen/apikeys`, colección `ZenithApiKey`) se crean, pero el pipeline no las valida.
   Hay que unificarlas o retirar las de workspace. `ZenithAPIKey` del SDK usa las de workspace.
 
-### El motor aún no está en JSR
-`zen init` apunta `@zuccadev-labs/zenith` al `src/mod.ts` del monorepo. Al publicar el motor en JSR, cambiar
-`CORE_ENTRY` en `zenith-cli/zen.ts` por `jsr:@zuccadev-labs/zenith`.
+### Publicación (preparada el 2026-11-10, sin publicar)
+Los paquetes ya pasan `deno publish --dry-run` y `npm pack`, con licencia MIT:
+- **Servidor:** `@zuccadev-labs/zenith` 0.1.0 (motor, con los subpaths `./openapi` y `./plugin-signing`) y
+  `@zuccadev-labs/zenith-cli` 0.2.0 (`zen`), en JSR; `@zuccadev-labs/create-zenith` 0.1.0, en npm.
+- **Cliente:** `@zuccadev-labs/zenith-client` 0.2.0, en npm. Antes se llamaba `@zuccadev-labs/zenith-sdk`; se
+  renombró para que el nombre diga de qué lado está. El ejemplo de Vite lo importaba como `@zuccadev-labs/zenith`,
+  el nombre del motor.
+
+Orden de publicación: primero el motor, luego el CLI (depende de él) y por último `create-zenith`. `zen init`
+escribe `jsr:@zuccadev-labs/zenith@^ENGINE_VERSION`; desde el monorepo enlaza el motor local (`ZENITH_ENGINE`
+fuerza cualquiera de los dos). El CLI usa el motor local por `links` en su `deno.json`. Hay que publicar con
+`--unstable-kv` en los comandos documentados, porque el motor abre Deno KV al componer.
+
+### Scopes de las API keys: resuelto el 2026-11-10
+Antes, `denied()` daba acceso `user` a cualquier API key válida, así que una `pk_` de solo lectura podía escribir.
+Ahora se comprueba en dos capas:
+- **Router:** una ruta `user` solo acepta API keys si declara `scope`. Sin `scope`, las rechaza (falla en cerrado).
+- **CRUD:** cada operación comprueba su scope (`data:read`, `data:create`, `data:write` o `data:delete`; para
+  `_User`, `users:read` o `users:write`). `/batch` comprueba cada suboperación, porque pasa por las mismas
+  funciones. Las rutas del CRUD declaran `scope: "per-operation"`.
+
+La OpenAPI documenta el scope en la `security` de cada operación. Una sesión con una key a la vez queda
+limitada por la key. Pruebas: `tests/integration/api-key-scopes.test.ts` (verificada por mutación) y
+`core-router`. No había keys emitidas en producción, así que el cambio no afectó a ningún cliente.
+
+Queda por decidir: una key con scope `*` cuenta como master y, a diferencia de la master key, vale desde
+cualquier IP. Encaja con el modelo de Stripe, pero conviene limitar quién puede crearlas (hoy, quien tenga la
+master key) o exigir una lista de IP permitidas.
+
+### Rutas `express` de cloudcode que nadie sirve
+`CloudCodeTrait.express.get/post/put/delete` guarda las rutas en un mapa que ningún componente lee, así que nunca se
+montan. Las rutas propias que sí se sirven son las de `Zen.API.defineRoute` (`core/cloud.ts`). Hay que unificar
+ambas o retirar `express`. Su envoltorio ya espera al handler; antes, un handler `async` respondía `{}`.
+
+### barrits y OpenAPI: el estándar existe, pero no basta para Zenith (análisis del 2026-11-10)
+**El estándar de barrits** (guía `docs/users/ES/packages/ts_js/10-deno-baas-core.md`, ejemplo
+`examples/example-deno-baas`) funciona así:
+1. Cada endpoint es un trait con JSDoc pegado a su `export`: `@barrits-trait` y
+   `@barrits-tags http:method=GET http:path=/api/x`, o la etiqueta `http-endpoint`.
+2. `barrits build` genera `.barrits/build-manifest.json`.
+3. `generateOpenApiSchema(manifest)` (`src/barrits/schema/openapi.ts`) produce la OpenAPI 3.1.
+
+**Por qué no da el swagger completo de Zenith:**
+- **Un trait, una operación.** Los traits de Zenith exponen listas de rutas: con las features por defecto,
+  43 traits exponen 217 rutas (223 con `/health`, `/zen/api-keys` y las de metadatos). Solo el CRUD tiene 7.
+- **Sin detalle.** No genera parámetros, `requestBody`, seguridad ni respuestas distintas de 200, y marca la API
+  como `x-experimental`. Las 217 rutas de los traits de Zenith ya traen todo eso en `_openapi`.
+- **Las rutas no están en el AST.** Se construyen dentro de `create()`, así que un análisis estático del código
+  no las ve. Solo existen tras la composición.
+- **Ni el ejemplo oficial usa el manifiesto real:** lo construye a mano («in a real BaaS, the manifest is
+  generated at build time») e importa de `src/`, no del paquete.
+- **El paquete no lo publica bien.** JSR 0.3.0 no exporta `./schema/openapi` ni `./ioc`. La guía los importa
+  como `@zuccadev-labs/barrits/schema` y el README como `/schema/openapi`, y ninguna de las dos rutas existe en
+  JSR. El ejemplo, además, tiene una errata: `@baritr-provides`.
+- **Zenith no se descubre.** Los 68 bloques `@barrits-trait` están encima de los `import`, no pegados al
+  `export`. `barrits.config.ts` usa `traitsDiscovery.conventions`, que no existe (la clave correcta es
+  `discoveryRoots`). Sin carpeta `barrits/`, la CLI sube hasta `labs-packages/barrits`.
+
+**Recomendación:** llevar a barrits lo que Zenith ya resolvió y probó, como extensión compatible del estándar
+(barrits 0.4.0):
+- un contrato de rutas por capacidad (`*routes` con `method`, `path`, `access`, `scope` y `_openapi`);
+- `generateOpenApiFromRoutes`, que es `core/route-collection.ts` más el generador de Zenith, con su prueba de
+  paridad;
+- seguir aceptando las etiquetas `http:method`/`http:path` para los traits de un solo endpoint;
+- exportar `./schema/openapi` e `./ioc` en `jsr.json` y unificar la documentación en esa ruta.
+
+Después, Zenith importa el generador de barrits y borra el suyo. Por separado, conviene pegar los JSDoc a los
+`export` y corregir `barrits.config.ts`, para que `barrits build` describa los traits de Zenith (IoC,
+inspección); esto no hace falta para la OpenAPI.
+
+### `zenith-backend/scripts/zen.ts`: un segundo `zen` antiguo
+Usa puerto 3000 y las opciones `--app-id`, `--port` y `--target-dir`, distintas del CLI real (`zenith-cli`). Lo usan
+las tareas `dev`, `compile` y `build` de `zenith-backend/deno.json` para el arranque multi-app. Hay más tareas
+rotas: `lab:up` y `lab:down` apuntan a `lab-infra/docker-compose.yml` (el real está en
+`lab-infra/docker/docker-compose.yml`) y `verify` llama a `coverage:check`, que no existe.
+
+### `package-lock.json` ignorado
+`.gitignore` excluye `**/package-lock.json`, así que el SDK de cliente y el ejemplo no tienen builds reproducibles.
+En el motor y en el CLI, `deno.lock` sí está versionado.
+
+### Código fuente de core-class-barrel ilegible
+`apps/core-class-barrel`, el proyecto Rust del que salió barrits, tiene 115 de sus 127 archivos fuente con
+contenido aleatorio: conservan el tamaño, tienen entropía 7,96 bits/byte y no llevan cabecera. Es el patrón de
+archivos cifrados de NTFS (EFS) leídos desde Linux. La copia en `Programacion-recuperado/` está igual. Solo se
+podrían recuperar desde el Windows que los cifró, con su certificado. barrits 0.3.0 es el sucesor y está completo
+en `labs-packages/barrits`.
 
 ### `zenith-cli/ai_harness.ts`
 No lo usa nada. Sus herramientas son simuladas; `process_payment` responde "Payment Dispatched" sin cobrar. No

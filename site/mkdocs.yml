@@ -1,11 +1,11 @@
 site_name: Zenith Documentation
-site_description: Universal Business Backend (BaaS) — API reference, runbooks, architecture.
-site_url: https://docs.zenith.io
+site_description: Zenith — motor BaaS para Deno (SDK de servidor) y SDK de cliente.
 repo_url: https://github.com/zuccadev-labs/Zenith
 repo_edit_url: edit/main/docs/
 
-docs_dir: docs
-site_dir: site
+# Paths are relative to this file (site/).
+docs_dir: ../docs
+site_dir: build
 
 theme:
   name: material
@@ -56,7 +56,7 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:mermaid2.fence_html_format
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -76,77 +76,94 @@ markdown_extensions:
 
 plugins:
   - search
-  - mkdocstrings:
-      default_handler: python
-      handlers:
-        python:
-          paths: [zenith-backend/src]
   - git-revision-date-localized:
       enable_creation_date: true
   - minify:
       minify_html: true
-  - social
 
+# Same order as docs/index.md. "Archivo" holds the documents marked as aspirational or out of date.
 nav:
-  - Home: index.md
-  - Getting started:
+  - Inicio: index.md
+  - Primeros pasos:
       - Quickstart: tutorials/01_quickstart.md
-      - User auth: tutorials/02_user_auth.md
-      - File upload: tutorials/03_files.md
-  - Migration:
-      - From Parse-Server: migration/01_from_parse_server.md
-  - Development:
-      - Overview: development/00_index.md
-      - Architecture: development/01_zenith_architecture.md
-      - Test coverage: development/02_test_coverage_audit.md
-      - API parity: development/03_api_parity_audit.md
-      - Performance: development/04_performance_benchmarks.md
-      - WebRTC SDK: development/webrtc-media-sdk.md
-      - OpenAPI: development/openapi-swagger.md
-  - Architecture:
-      - C4 model: architecture/01_c4_model.md
-  - Architecture decisions:
-      - ADR-001: architecture-decisions/ADR-001-folder-unification.md
-      - ADR-002: architecture-decisions/ADR-002-mtls-spki-pinning.md
-      - ADR-003: architecture-decisions/ADR-003-api-keys-stripe-style.md
-      - ADR-004: architecture-decisions/ADR-004-plugin-signing-ed25519.md
-      - ADR-005: architecture-decisions/ADR-005-openapi-ast-generation.md
-      - ADR-006: architecture-decisions/ADR-006-prometheus-loki.md
-      - ADR-007: architecture-decisions/ADR-007-production-readiness.md
-      - ADR-008: architecture-decisions/ADR-008-hashicorp-vault.md
-      - ADR-009: architecture-decisions/ADR-009-api-parity-closure.md
-      - ADR-010: architecture-decisions/ADR-010-backup-strategy.md
-      - ADR-011: architecture-decisions/ADR-011-security-hardening.md
-  - Customer:
-      - Onboarding: customer/01_onboarding.md
-      - TCO calculator: customer/02_tco.md
-  - Compliance:
-      - SLI / SLO: compliance/01_sli_slo.md
-  - Runbooks:
-      - Index: runbooks/00_index.md
-      - Production deployment: runbooks/01_production_deployment.md
-      - Incident response: runbooks/02_incident_response.md
-      - MongoDB failover: runbooks/03_mongodb_failover.md
-      - API outage: runbooks/05_api_outage.md
-      - API key compromise: runbooks/06_api_key_compromise.md
-      - Disaster recovery: runbooks/08_disaster_recovery.md
-      - Backup & restore: runbooks/09_backup_restore.md
-      - SRE cheat sheet: runbooks/99_sre_cheatsheet.md
-  - Security:
-      - Threat model: security/01_threat_model.md
-      - Pen-test scope: security/02_pentest_scope.md
-      - Controls checklist: security/03_controls_checklist.md
-      - Vulnerability disclosure: security/04_vulnerability_disclosure.md
+  - Referencia de la API: README.md
+  - Arquitectura:
+      - OpenAPI y Swagger: architecture/openapi-swagger.md
+      - ADR-012 engine-auth: architecture-decisions/ADR-012-engine-auth.md
+      - ADR-013 composición y acceso: architecture-decisions/ADR-013-composition-and-access.md
+      - ADR-014 clases para usuarios: architecture-decisions/ADR-014-classes-for-users.md
+      - ADR-002 mTLS: architecture-decisions/ADR-002-mtls.md
+      - ADR-003 API keys: architecture-decisions/ADR-003-api-keys.md
+      - ADR-004 firma de plugins: architecture-decisions/ADR-004-plugin-signing.md
+      - ADR-005 OpenAPI: architecture-decisions/ADR-005-openapi-ast-generation.md
+      - ADR-006 Prometheus y Loki: architecture-decisions/ADR-006-prometheus-remote-write-loki.md
+      - ADR-007 producción: architecture-decisions/ADR-007-production-readiness.md
+      - ADR-008 Vault: architecture-decisions/ADR-008-hashicorp-vault.md
+  - Archivo (no vigente):
+      - Tutoriales antiguos:
+          - Usuarios: tutorials/02_user_auth.md
+          - Archivos: tutorials/03_files.md
+      - Migración desde Parse Server: migration/01_from_parse_server.md
+      - Desarrollo:
+          - Índice: development/00_index.md
+          - Cobertura de tests: development/02_test_coverage_audit.md
+          - Paridad de API: development/03_api_parity_audit.md
+          - Rendimiento: development/04_performance_benchmarks.md
+          - WebRTC: development/webrtc-media-sdk.md
+      - Arquitectura objetivo:
+          - Decisiones (resumen): architecture-decisions.md
+          - C4: architecture/01_c4_model.md
+          - Versionado de API: architecture/02_api_versioning.md
+          - Marketplace de plugins: architecture/03_plugin_marketplace.md
+          - Multirregión: architecture/04_multi_region.md
+          - ADR-001: architecture-decisions/ADR-001-folder-unification.md
+          - ADR-009: architecture-decisions/ADR-009-api-parity-closure.md
+          - ADR-010: architecture-decisions/ADR-010-backup-strategy.md
+          - ADR-011: architecture-decisions/ADR-011-security-hardening.md
+      - Clientes:
+          - Onboarding: customer/01_onboarding.md
+          - TCO: customer/02_tco.md
+          - Límites: customer/03_rate_limits.md
+      - Cumplimiento:
+          - SLI / SLO: compliance/01_sli_slo.md
+          - DPA GDPR: compliance/02_gdpr_dpa_template.md
+      - Runbooks:
+          - Índice: runbooks/00_index.md
+          - Despliegue: runbooks/01_production_deployment.md
+          - Incidentes: runbooks/02_incident_response.md
+          - MongoDB failover: runbooks/03_mongodb_failover.md
+          - Caída de la API: runbooks/05_api_outage.md
+          - API key comprometida: runbooks/06_api_key_compromise.md
+          - Recuperación ante desastres: runbooks/08_disaster_recovery.md
+          - Backup y restauración: runbooks/09_backup_restore.md
+          - Página de estado: runbooks/12_status_page.md
+          - Chaos engineering: runbooks/13_chaos_engineering.md
+          - Chuleta SRE: runbooks/99_sre_cheatsheet.md
+      - Seguridad:
+          - Modelo de amenazas: security/01_threat_model.md
+          - Alcance del pentest: security/02_pentest_scope.md
+          - Controles: security/03_controls_checklist.md
+          - Divulgación: security/04_vulnerability_disclosure.md
+          - Imágenes de contenedor: security/05_container_image_policy.md
+          - Trust center: security/06_trust_center.md
+      - Investigaciones:
+          - Introducción: investigations/00_intro.md
+          - Parse Server: investigations/01_parse_server_architecture_analysis.md
+          - Integración con barrits: investigations/02_barrits_integration_design.md
+          - Arquitectura: investigations/03_zenith_architecture.md
+          - Esquema y blockchain: investigations/04_schema_and_blockchain_design.md
+          - Observabilidad y OpenAPI: investigations/05_observability_and_openapi.md
+          - Seguridad y microservicios: investigations/06_security_microservices_audit.md
+          - Modelos de negocio: investigations/07_business_models.md
+          - Firma de plugins: investigations/08_plugin_signing_supply_chain.md
+          - Generación OpenAPI por AST: investigations/09_openapi_ast_generation.md
+          - Observabilidad remote write: investigations/10_observability_remote_write.md
+          - Vault: investigations/11_hashicorp_vault_secrets.md
 
 extra:
   generator: false
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/zuccadev-labs/Zenith
-    - icon: fontawesome/brands/slack
-      link: https://zenith.slack.com
-  analytics:
-    provider: google
-    property: G-XXXXXXXXXX
 
-copyright: Copyright &copy; 2026 Zenith Labs
+copyright: Copyright &copy; 2026 Zuccadev Labs — MIT

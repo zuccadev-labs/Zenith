@@ -1,3 +1,5 @@
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 ## 🤖 El Nuevo Paradigma: Agentes y Computación Inteligente
 
 * AaaS (Agents as a Service): Plataformas que permiten desplegar agentes de Inteligencia Artificial autónomos para ejecutar flujos de trabajo complejos (ventas, soporte, análisis de datos) sin gestionar la infraestructura del modelo de lenguaje.

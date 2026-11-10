@@ -1,5 +1,7 @@
 # Zenith AWS Infrastructure (Terraform)
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../docs/index.md).
+
 Production-grade Terraform module for deploying Zenith on AWS.
 
 ## Architecture

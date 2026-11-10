@@ -1,5 +1,7 @@
 # Zenith — C4 Architecture Model
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Notation:** C4 model (Context, Containers, Components, Code)
 > **Format:** Mermaid (renders natively in GitHub, GitLab, Notion, Obsidian)
 

@@ -1,5 +1,7 @@
 # Container Image Security Policy
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Owner:** Security lead, Platform lead
 > **Effective:** 2026-06-06
 > **Applies to:** All Zenith container images shipped to production.

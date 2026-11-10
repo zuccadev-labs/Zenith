@@ -1,5 +1,7 @@
 # 03 — Arquitectura del Núcleo de Zenith (Core Architecture)
 
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+
 > **Fase**: Diseño Arquitectónico y SecOps (Fortune 500 Grade)
 > **Autor**: Equipo Zenith — @zuccadev-labs
 > **Fecha**: 2026-06-05

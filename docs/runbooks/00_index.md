@@ -1,5 +1,7 @@
 # Zenith Operational Runbooks
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Audience:** SRE, Platform Engineering, On-Call Engineers.
 > **Severity model:** SEV-1 (full outage, customer-impacting) · SEV-2 (degraded service) · SEV-3 (single-tenant issue or non-critical) · SEV-4 (informational).
 

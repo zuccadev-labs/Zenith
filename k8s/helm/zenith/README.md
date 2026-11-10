@@ -1,5 +1,7 @@
 # Zenith Helm Chart
 
+> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../../../docs/index.md).
+
 Production-grade Helm chart for deploying Zenith BaaS on Kubernetes.
 
 ## TL;DR

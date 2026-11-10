@@ -1,5 +1,7 @@
 # 06 — API Key Compromise
 
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+
 > **Owner:** Security lead
 > **Trigger:** any indication that an API key (pk/sk/rk) has leaked, been phished, or is in a public repo.
 
