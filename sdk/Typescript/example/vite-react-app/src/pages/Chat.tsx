@@ -67,8 +67,8 @@ import {
   useZenithQuery,
   useZenithUser,
   useZenithFile,
-} from "@zuccadev-labs/zenith/react";
-import { ZenithQuery, ZenithObject, LiveQueryClient } from "@zuccadev-labs/zenith";
+} from "@zuccadev-labs/zenith-client/react";
+import { ZenithQuery, ZenithObject, LiveQueryClient } from "@zuccadev-labs/zenith-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material'
-import { ZenithProvider } from '@zuccadev-labs/zenith/react'
+import { ZenithProvider } from '@zuccadev-labs/zenith-client/react'
 import { Web3Provider } from './providers/Web3Provider.tsx'
 
 // ─── Dev-only: suppress known browser-extension console noise ────────────────

@@ -19,7 +19,7 @@ import {
   Container, Typography, Box, Paper, Button, Grid, Avatar, Chip, CircularProgress
 } from '@mui/material';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Shield, Copy, CheckCircle } from 'lucide-react';
-import { useZenithUser, useZenithMedia } from '@zuccadev-labs/zenith/react';
+import { useZenithUser, useZenithMedia } from '@zuccadev-labs/zenith-client/react';
 import { useNavigate } from 'react-router-dom';
 
 // ─── VideoPlayer ─────────────────────────────────────────────────────────────

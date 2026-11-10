@@ -1,10 +1,25 @@
 {
-  "name": "@zuccadev-labs/zenith-sdk",
-  "version": "0.1.1",
-  "description": "Zenith Platform SDK for JavaScript and TypeScript",
+  "name": "@zuccadev-labs/zenith-client",
+  "version": "0.2.0",
+  "description": "Zenith client SDK for JavaScript and TypeScript: talks to a running Zenith server (browser, Node, Deno, React). For the server side see @zuccadev-labs/zenith and the zen CLI.",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/mod.d.ts",
+      "import": "./dist/react/mod.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc"
   },
@@ -16,5 +31,13 @@
   "peerDependencies": {
     "@types/react": "^19.3.0",
     "react": "^19.3.1"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "@types/react": {
+      "optional": true
+    }
   }
 }

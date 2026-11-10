@@ -8,7 +8,7 @@ import {
   AlertCircle, CheckCircle, Globe, Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useZenithUser } from '@zuccadev-labs/zenith/react';
+import { useZenithUser } from '@zuccadev-labs/zenith-client/react';
 
 // ─── SDK Health Check ─────────────────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ async function runSDKHealthCheck(): Promise<HealthItem[]> {
 
   // 1. Ping backend
   try {
-    const { Zenith } = await import('@zuccadev-labs/zenith');
+    const { Zenith } = await import('@zuccadev-labs/zenith-client');
     const cfg = Zenith.getConfig();
     const res = await fetch(`${cfg.serverURL}/health`, {
       headers: { 'Zen-Application-Id': cfg.appId }
@@ -39,7 +39,7 @@ async function runSDKHealthCheck(): Promise<HealthItem[]> {
 
   // 2. Object CRUD + Pointers
   try {
-    const { ZenithObject } = await import('@zuccadev-labs/zenith');
+    const { ZenithObject } = await import('@zuccadev-labs/zenith-client');
     const obj = new ZenithObject('_HealthCheck');
     obj.set('ping', 'pong');
     obj.set('timestamp', new Date().toISOString());
@@ -55,7 +55,7 @@ async function runSDKHealthCheck(): Promise<HealthItem[]> {
 
   // 3. ZenithQuery operators
   try {
-    const { ZenithQuery } = await import('@zuccadev-labs/zenith');
+    const { ZenithQuery } = await import('@zuccadev-labs/zenith-client');
     const q = new ZenithQuery('_HealthCheck')
       .greaterThan('score', 0)
       .limit(1);
@@ -67,7 +67,7 @@ async function runSDKHealthCheck(): Promise<HealthItem[]> {
 
   // 4. LiveQuery connection test
   try {
-    const { LiveQueryClient, ZenithQuery } = await import('@zuccadev-labs/zenith');
+    const { LiveQueryClient, ZenithQuery } = await import('@zuccadev-labs/zenith-client');
     await new Promise<void>((resolve, reject) => {
       const to = setTimeout(() => reject(new Error('Timeout')), 3000);
       const query = new ZenithQuery('_HealthCheck');
@@ -150,7 +150,7 @@ const features = [
 // ─── Pointer Demo ─────────────────────────────────────────────────────────────
 
 async function runPointerDemo(): Promise<string[]> {
-  const { ZenithObject, ZenithQuery } = await import('@zuccadev-labs/zenith');
+  const { ZenithObject, ZenithQuery } = await import('@zuccadev-labs/zenith-client');
   const logs: string[] = [];
 
   // Create an Author object

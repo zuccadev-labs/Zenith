@@ -46,7 +46,8 @@ export class ZenithUser extends ZenithObject {
    * Logs in with username and password. Returns the authenticated user.
    */
   public static async logIn(username: string, password: string): Promise<ZenithUser> {
-    const res = await RESTController.request("GET", "/login", { username, password });
+    // POST: the server answers 405 to GET /login, and credentials must not travel in a URL.
+    const res = await RESTController.request("POST", "/login", { username, password });
     const user = new ZenithUser(res);
     await user._saveCurrentUser();
     return user;
@@ -154,7 +155,17 @@ export class ZenithUser extends ZenithObject {
   }
 
   /**
-   * Verifies a user's email using the token from the verification email.
+   * Asks the server to send the verification email again (`POST /verificationEmailRequest`).
+   * Today the server answers 501: email verification belongs to engine-auth (zenith-backend/docs/pending.md).
+   */
+  public static async requestEmailVerification(email: string): Promise<void> {
+    await RESTController.request("POST", "/verificationEmailRequest", { email });
+  }
+
+  /**
+   * @deprecated The server has no `/verifyEmail` route: this call always fails with 404. The link
+   * in the verification email is handled by engine-auth, not by the client. Kept so existing code
+   * keeps compiling.
    */
   public static async verifyEmail(token: string): Promise<void> {
     await RESTController.request("POST", "/verifyEmail", { token });
