@@ -17,9 +17,9 @@
  *   ./docs/zenith.postman.json   — Colección Postman lista para importar
  *   ./docs/index.html            — Portal Redoc self-hosted (sin servidor externo)
  */
-import { ensureDir } from "https://deno.land/std@0.224.0/fs/ensure_dir.ts";
-import { join, fromFileUrl } from "https://deno.land/std@0.224.0/path/mod.ts";
-import { parseArgs } from "https://deno.land/std@0.224.0/cli/parse_args.ts";
+import { ensureDir } from "@std/fs/ensure-dir";
+import { join, fromFileUrl } from "@std/path";
+import { parseArgs } from "@std/cli/parse-args";
 import { spinner } from "./_utils.ts";
 
 // ── Constantes ────────────────────────────────────────────────────────────────

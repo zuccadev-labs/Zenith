@@ -8,7 +8,7 @@
  *   zen logs --service crm      → filtrar por servicio
  *   zen logs --tail 50          → últimas N líneas
  */
-import { parseArgs } from "https://deno.land/std@0.224.0/cli/parse_args.ts";
+import { parseArgs } from "@std/cli/parse-args";
 import { loadZenConfig } from "./_utils.ts";
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -31,17 +31,18 @@ function formatLog(entry: any): string {
 
 export async function run(args: string[]): Promise<void> {
   const parsed = parseArgs(args, {
-    string:  ["level","service"],
+    string:  ["level","service","tail"],
     boolean: ["follow","json"],
-    default: { tail: 100 },
-    number:  ["tail"],
   });
+  // @std/cli has no number options: --tail is read as text and checked here.
+  const tail = parsed.tail === undefined ? 100 : Number(parsed.tail);
+  if (!Number.isInteger(tail) || tail < 1 || tail > 10_000) throw new Error("--tail: un entero de 1 a 10000.");
 
   const cfg = await loadZenConfig();
   const q   = new URLSearchParams();
   if (parsed.level)   q.set("level",   parsed.level);
   if (parsed.service) q.set("service", parsed.service);
-  q.set("limit", String(parsed.tail ?? 100));
+  q.set("limit", String(tail));
 
   if (parsed.follow) {
     // ── Modo streaming SSE ─────────────────────────────────────────────────

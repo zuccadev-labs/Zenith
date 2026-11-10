@@ -1,17 +1,27 @@
 {
   "name": "@zuccadev-labs/zenith-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zenith CLI — Developer, Agent and Backend operations",
   "exports": "./mod.ts",
+  "minimumDependencyAge": {
+    "age": "1440",
+    "exclude": [
+      "jsr:@zuccadev-labs/barrits"
+    ]
+  },
   "tasks": {
-    "dev": "deno run -A mod.ts",
-    "compile": "deno compile -A --output ../bin/zenith.exe mod.ts",
-    "test": "deno test --allow-net --allow-read --allow-env"
+    "dev": "deno run -A zen.ts",
+    "compile": "deno compile -A --output ../bin/zen zen.ts",
+    "compile:zenith": "deno compile -A --output ../bin/zenith mod.ts",
+    "test": "deno test --allow-net --allow-read --allow-write --allow-env --allow-run --unstable-kv"
   },
   "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.19",
     "@std/cli": "jsr:@std/cli@^1.0.32",
     "@std/fs": "jsr:@std/fs@^1.0.24",
-    "@std/path": "jsr:@std/path@^1.1.6"
+    "@std/path": "jsr:@std/path@^1.1.6",
+    "@std/streams": "jsr:@std/streams@^1.2.0",
+    "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@^0.3.0"
   },
   "compilerOptions": {
     "strict": true,

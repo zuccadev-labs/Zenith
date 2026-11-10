@@ -26,8 +26,8 @@
  *   stdout:            "SPKI pin of server cert: sha256-..."
  */
 
-import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
-import { parseArgs } from "jsr:@std/cli/parse-args";
+import { join } from "@std/path";
+import { parseArgs } from "@std/cli/parse-args";
 
 async function runOpenssl(args: string[]): Promise<string> {
   const cmd = new Deno.Command("openssl", {
@@ -71,7 +71,7 @@ async function extractSpkiPin(certPath: string): Promise<string> {
   }
 }
 
-export async function runMtlsGenDev(): Promise<void> {
+export async function runMtlsGenDev(argv: string[] = Deno.args): Promise<void> {
   if (!(await opensslAvailable())) {
     console.error("❌ openssl not found on PATH.");
     console.error("");
@@ -87,7 +87,7 @@ export async function runMtlsGenDev(): Promise<void> {
     Deno.exit(1);
   }
 
-  const args = parseArgs(Deno.args, {
+  const args = parseArgs(argv, {
     string: ["out", "cn", "days"],
     default: { out: "./.zenith-tls", cn: "zenith-dev-node", days: "30" },
   });
@@ -198,3 +198,6 @@ subjectAltName = DNS:${cn}-client
 if (import.meta.main) {
   await runMtlsGenDev();
 }
+
+/** Registry entry point (args after "mtls-gen-dev"). */
+export const run = (args: string[]) => runMtlsGenDev(args);
