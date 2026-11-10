@@ -40,7 +40,8 @@ Zen.Cloud.beforeSave("Todo", (req) => { if (!req.object.title) throw new Error("
 Every route declares who may call it (ADR-013): `public`, `user` (session or API key) or `master`
 (master key, accepted only from localhost). Routes that declare nothing are `master`. An API key
 reaches a `user` route only within its scopes (`data:read`, `data:write`…), and a route that declares
-no scope does not accept API keys. The live
+no scope does not accept API keys. Any key may be locked to IPs or CIDR ranges (`allowedIps`); a key
+with scope `*` must be, must expire within 90 days and cannot manage keys (ADR-015). The live
 `/openapi.json` documents exactly the routes the router mounts, with this access as its `security`.
 
 ## License

@@ -17,7 +17,7 @@
 ---
 
 ## `POST /zen/api-keys`
-**Create an API key; the plaintext is returned once**
+**Create an API key; the plaintext is returned once. Scope * needs allowedIps and expiresIn of at most 90 days (ADR-015)**
 
 ### Respuestas
 - **201**: Created

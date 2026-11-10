@@ -146,12 +146,13 @@ Deno.test("api-keys: talks to /zen/api-keys on the server", async () => {
     if (path.endsWith("/revoke")) return { revoked: true };
     return { key: "sk_test_x", record: { id: "abc", prefix: "sk", env: "test", appId: "app1", scopes: ["*"] }, previous: "abc" };
   }, async (seen) => {
-    assertEquals(await main(["api-keys", "create", "--name", "ci", "--env", "test", "--scopes", "data:read, data:write"]), 0);
+    assertEquals(await main(["api-keys", "create", "--name", "ci", "--env", "test", "--scopes", "data:read, data:write", "--allowed-ips", "203.0.113.10, 2001:db8::/32"]), 0);
     assertEquals(await main(["api-keys", "list"]), 0);
     assertEquals(await main(["api-keys", "revoke", "--id", "abc", "--reason", "x"]), 0);
     assertEquals(await main(["api-keys", "rotate", "--id", "abc", "--grace", "2d"]), 0);
     assertEquals(seen.map((s) => `${s.method} ${s.path}`), ["POST /zen/api-keys", "GET /zen/api-keys", "POST /zen/api-keys/abc/revoke", "POST /zen/api-keys/abc/rotate"]);
     assertEquals((seen[0].body as { scopes: string[] }).scopes, ["data:read", "data:write"]);
+    assertEquals((seen[0].body as { allowedIps: string[] }).allowedIps, ["203.0.113.10", "2001:db8::/32"]);
     assertEquals((seen[3].body as { graceHours: number }).graceHours, 48);
     assertEquals(seen[0].headers.get("x-parse-application-id"), "app1");
     assertEquals(seen[0].headers.get("x-parse-master-key"), "k".repeat(64));

@@ -7,10 +7,13 @@
  *   shared by every instance), otherwise in memory. MongoDB connects on first use.
  * - `apiKeyRoutes(...)`: GET/POST /zen/api-keys, POST /zen/api-keys/:id/revoke and /rotate. A key of
  *   another app answers 404, as if it did not exist: the store can be shared by several apps.
+ *   Only the master key manages keys: an API key, even with scope `*`, is refused (403), so a stolen
+ *   key cannot mint or revive keys (ADR-015). Keys follow the access policy of policy.ts.
  */
 import type { ApiKeyManager, ApiKeyStore } from "./manager.ts";
 import { InMemoryStore, MongoDBStore } from "./store.ts";
 import { DEFAULT_SCOPES } from "./scopes.ts";
+import { ApiKeyPolicyError } from "./policy.ts";
 import type { ApiKeyEnv, ApiKeyPrefix, ApiKeyScope } from "./types.ts";
 import { ZenithError, ZenithErrorCode, ZenithErrors } from "../../core/errors.ts";
 
@@ -46,7 +49,18 @@ const ENVS: ApiKeyEnv[] = ["live", "test"];
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const bad = (msg: string) => new ZenithError(ZenithErrorCode.INVALID_JSON, msg, 400);
-const actorOf = (ctx: any) => (ctx?.apiKey?.id ? `apikey:${ctx.apiKey.id}` : "master");
+const actorOf = (_ctx: any) => "master";
+/** Key management is for the master key only (ADR-015). */
+const masterOnly = <H extends (req: Request, ctx: any) => Promise<Response>>(handler: H) =>
+  (async (req: Request, ctx: any) => {
+    if (ctx?.apiKey) throw new ZenithError(ZenithErrorCode.OPERATION_FORBIDDEN, "API keys cannot manage API keys: use the master key.", 403);
+    try {
+      return await handler(req, ctx);
+    } catch (e) {
+      if (e instanceof ApiKeyPolicyError) throw bad(e.message);
+      throw e;
+    }
+  }) as H;
 const bodyOf = async (req: Request) => {
   try { return (await req.json()) ?? {}; } catch (_e) { throw bad("Invalid JSON body."); }
 };
@@ -58,7 +72,7 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
     if (!rec || rec.appId !== appId) throw ZenithErrors.notFound("ApiKey", String(id));
     return rec;
   };
-  return [
+  const routes = [
     {
       method: "GET" as const,
       path: "/zen/api-keys",
@@ -70,7 +84,7 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
       method: "POST" as const,
       path: "/zen/api-keys",
       access: "master" as const,
-      _openapi: { tag: "API Keys", summary: "Create an API key; the plaintext is returned once" },
+      _openapi: { tag: "API Keys", summary: "Create an API key; the plaintext is returned once. Scope * needs allowedIps and expiresIn of at most 90 days (ADR-015)" },
       handler: async (req: Request, ctx: any) => {
         const b = await bodyOf(req);
         const prefix = (b.prefix ?? "sk") as ApiKeyPrefix;
@@ -83,10 +97,14 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
         if (b.requestsPerMinute !== undefined && !(Number.isInteger(b.requestsPerMinute) && b.requestsPerMinute > 0)) {
           throw bad("requestsPerMinute: a positive integer.");
         }
+        if (b.allowedIps !== undefined && (!Array.isArray(b.allowedIps) || b.allowedIps.some((e: unknown) => typeof e !== "string"))) {
+          throw bad("allowedIps: a list of IP addresses or CIDR ranges.");
+        }
         const created = await manager.create({
           appId, prefix, env, scopes, name: b.name.trim(), createdBy: actorOf(ctx),
           expiresIn: typeof b.expiresIn === "string" ? b.expiresIn : undefined,
           requestsPerMinute: b.requestsPerMinute,
+          allowedIps: b.allowedIps,
         });
         // The plaintext is shown once; only its hash is stored.
         return json({ key: created.plaintext, record: created.record }, 201);
@@ -119,6 +137,7 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
       },
     },
   ];
+  return routes.map((r) => ({ ...r, handler: masterOnly(r.handler) }));
 }
 
 /**

@@ -8,6 +8,10 @@
  *   zen api-keys list
  *   zen api-keys create --name "Servidor de producción" [--prefix sk|pk|rk] [--env live|test]
  *                       [--scopes "data:read,data:write"] [--expires 90d] [--rpm 1000]
+ *                       [--allowed-ips "203.0.113.10,198.51.100.0/24,2001:db8::/32"]
+ *
+ * Una clave con --scopes "*" equivale a la master key: el servidor exige --allowed-ips (sin
+ * 0.0.0.0/0) y --expires de 90 días como máximo (ADR-015).
  *   zen api-keys revoke --id <keyId> [--reason "filtrada"]
  *   zen api-keys rotate --id <keyId> [--grace 24h]
  *
@@ -22,6 +26,8 @@ zen api-keys — API keys de la app (en el servidor)
   list                         Lista las claves (nunca el secreto)
   create --name <n>            Crea una clave. Opciones: --prefix sk|pk|rk  --env live|test
                                --scopes "a,b"  --expires 90d  --rpm 1000
+                               --allowed-ips "IP o CIDR,…" (obligatorio con --scopes "*",
+                               que además exige --expires de 90d como máximo)
   revoke --id <id>             Revoca una clave ya. Opción: --reason "<motivo>"
   rotate --id <id>             Crea una nueva con los mismos permisos; la vieja vale --grace (24h)
 `;
@@ -36,7 +42,7 @@ const graceHours = (v: string | undefined): number => {
 
 export async function run(argv: string[]): Promise<void> {
   const args = parseArgs(argv, {
-    string: ["prefix", "env", "scopes", "name", "expires", "rpm", "id", "reason", "grace"],
+    string: ["prefix", "env", "scopes", "name", "expires", "rpm", "id", "reason", "grace", "allowed-ips"],
     boolean: ["help", "json"],
     alias: { help: "h" },
   });
@@ -51,7 +57,8 @@ export async function run(argv: string[]): Promise<void> {
       if (!results.length) return void console.log(`La app ${cfg.appId} no tiene API keys.`);
       for (const k of results) {
         const status = k.revokedAt ? "REVOCADA" : k.expiresAt && new Date(k.expiresAt) < new Date() ? "EXPIRADA" : "activa";
-        console.log(`${k.id}  ${k.prefix}_${k.env}  ${status.padEnd(8)}  ${k.name}  [${k.scopes.join(",")}]  último uso: ${k.lastUsedAt ?? "nunca"}`);
+        const ips = k.allowedIps?.length ? `  IP: ${k.allowedIps.join(",")}` : "";
+        console.log(`${k.id}  ${k.prefix}_${k.env}  ${status.padEnd(8)}  ${k.name}  [${k.scopes.join(",")}]${ips}  último uso: ${k.lastUsedAt ?? "nunca"}`);
       }
       return;
     }
@@ -65,9 +72,11 @@ export async function run(argv: string[]): Promise<void> {
         scopes: args.scopes ? args.scopes.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
         expiresIn: args.expires,
         requestsPerMinute: rpm,
+        allowedIps: args["allowed-ips"] ? args["allowed-ips"].split(",").map((s) => s.trim()).filter(Boolean) : undefined,
       });
       console.log(`✅ Clave ${res.record.id} (${res.record.prefix}_${res.record.env}) para ${res.record.appId}`);
       console.log(`   Permisos: ${res.record.scopes.join(", ")}  ·  Expira: ${res.record.expiresAt ?? "nunca"}`);
+      if (res.record.allowedIps?.length) console.log(`   Solo desde: ${res.record.allowedIps.join(", ")}`);
       console.log(`\n🔐 Guárdala ahora, no se vuelve a mostrar:\n   ${res.key}\n`);
       return;
     }

@@ -17,6 +17,7 @@
  * timing-safe por construcción).
  */
 
+import { checkKeyPolicy, ipAllowed, isUnrestricted } from "./policy.ts";
 import { hash as argon2Hash, verify as argon2Verify } from "@node-rs/argon2";
 import { DEFAULT_RATE_LIMITS } from "./scopes.ts";
 import type {
@@ -188,6 +189,9 @@ export class ApiKeyManager {
    * mostrárselo al operador y no loggearlo.
    */
   async create(opts: ApiKeyCreateOptions): Promise<ApiKeyCreateResult> {
+    const expiresAt = parseExpiresIn(opts.expiresIn) ?? undefined;
+    // Before any secret exists: a key that breaks the policy is never created.
+    const allowedIps = checkKeyPolicy({ prefix: opts.prefix, scopes: opts.scopes, allowedIps: opts.allowedIps, expiresAt });
     const id = generatePublicId();
     const secret = generateSecret();
     const plaintext = buildKey(opts.prefix, opts.env, id, secret);
@@ -203,7 +207,8 @@ export class ApiKeyManager {
       name: opts.name,
       createdAt: new Date().toISOString(),
       createdBy: opts.createdBy,
-      expiresAt: parseExpiresIn(opts.expiresIn) ?? undefined,
+      expiresAt,
+      ...(allowedIps.length ? { allowedIps } : {}),
       rateLimit: {
         requestsPerMinute: opts.requestsPerMinute ?? DEFAULT_RATE_LIMITS[opts.prefix],
       },
@@ -220,7 +225,7 @@ export class ApiKeyManager {
   /**
    * Verifica una key en texto claro. Retorna el registro o el motivo de rechazo.
    */
-  async verify(plaintext: string): Promise<ApiKeyVerification> {
+  async verify(plaintext: string, clientIp?: string): Promise<ApiKeyVerification> {
     const parsed = parseKey(plaintext);
     if (!parsed) return { valid: false, reason: "malformed" };
 
@@ -244,6 +249,13 @@ export class ApiKeyManager {
 
     if (record.rotationExpiresAt && new Date(record.rotationExpiresAt) <= new Date()) {
       return { valid: false, reason: "rotated_grace_over", keyId: parsed.id };
+    }
+
+    // Access policy (policy.ts): checked last, so a wrong secret never reveals the policy.
+    if (record.allowedIps?.length) {
+      if (!ipAllowed(clientIp, record.allowedIps)) return { valid: false, reason: "ip_not_allowed", keyId: parsed.id };
+    } else if (isUnrestricted(record.scopes)) {
+      return { valid: false, reason: "policy_missing", keyId: parsed.id };
     }
 
     // Update lastUsedAt (fire and forget — no bloqueamos la auth)
@@ -275,6 +287,9 @@ export class ApiKeyManager {
     if (!old) throw new Error(`[api-keys] Key ${oldId} not found for rotation`);
     if (old.revokedAt) throw new Error(`[api-keys] Key ${oldId} is already revoked`);
 
+    // The new key keeps the old one's policy and lifetime: rotating must never widen a key
+    // (before, a key that expired rotated into one that never did).
+    const lifetimeMs = old.expiresAt ? new Date(old.expiresAt).getTime() - new Date(old.createdAt).getTime() : undefined;
     const newKey = await this.create({
       appId: old.appId,
       prefix: old.prefix,
@@ -283,6 +298,8 @@ export class ApiKeyManager {
       name: `${old.name} (rotated)`,
       createdBy: opts.createdBy,
       requestsPerMinute: old.rateLimit.requestsPerMinute,
+      ...(lifetimeMs !== undefined ? { expiresIn: new Date(Date.now() + Math.max(lifetimeMs, 60_000)).toISOString() } : {}),
+      ...(old.allowedIps?.length ? { allowedIps: old.allowedIps } : {}),
       metadata: { ...old.metadata, rotatedFrom: oldId },
     });
 

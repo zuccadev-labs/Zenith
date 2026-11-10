@@ -28,7 +28,7 @@ From npm: `npm create @zuccadev-labs/zenith myapp`.
 | Plugins | `plugin keygen\|sign\|verify\|trust\|revoke\|list` | Ed25519 plugin signing |
 | | `plugins-lock [dir]` | `plugins.lock.json` (SHA-256 of each plugin) |
 | Integrations | `webhook`, `email`, `calendar`, `automation` | Their HTTP APIs |
-| Security | `api-keys list\|create\|revoke\|rotate` | The app's API keys (`/zen/api-keys`) |
+| Security | `api-keys list\|create\|revoke\|rotate` | The app's API keys (`/zen/api-keys`). `--allowed-ips` locks a key to IPs/CIDR; scope `*` requires it plus `--expires` ≤ 90d |
 | | `agent list\|get\|run\|chat` | Backend agents |
 | | `mtls-gen-dev` | Development CA and mTLS certificates |
 

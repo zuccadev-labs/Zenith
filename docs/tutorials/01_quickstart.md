@@ -82,7 +82,8 @@ curl -X POST http://localhost:1337/functions/hello -H "X-Parse-Application-Id: $
 | Credencial | Para | Cómo |
 |---|---|---|
 | Sesión de usuario | Apps de usuario final (navegador, móvil) | `ZenithUser.logIn`. Requiere engine-auth configurado (`engineAuth` en `zen.config.ts`, ADR-012); sin él, las rutas de usuario responden 503 |
-| API key `sk_` | Backends de confianza | `zen api-keys create --name ci --env test`. El texto de la key se muestra una sola vez |
+| API key `sk_` | Backends de confianza | `zen api-keys create --name ci --env test --allowed-ips 203.0.113.10`. Muestra la key una sola vez. `--allowed-ips` (IP o CIDR) es opcional, pero recomendable si tus servidores tienen IP fija |
+| API key `sk_` con `--scopes "*"` | Automatización con acceso total | Equivale a la master key, así que exige `--allowed-ips` y `--expires` de 90 días como máximo, y no puede gestionar keys (ADR-015) |
 | API key `pk_` | Lectura pública | Solo hace lo que permiten sus scopes (por defecto, `data:read`): el servidor rechaza con 403 cualquier escritura |
 | Master key | Administración, solo desde localhost | `.env`. Nunca en un cliente |
 
