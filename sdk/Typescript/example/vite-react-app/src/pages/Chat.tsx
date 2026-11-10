@@ -255,7 +255,7 @@ const MessageBubble = memo(function MessageBubble({
             </Typography>
           )}
           {fileUrl && (
-            <Box mt={text ? 0.75 : 0}>
+            <Box sx={{ mt: text ? 0.75 : 0 }}>
               {/\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(fileUrl) ? (
                 <img
                   src={fileUrl}
@@ -352,7 +352,7 @@ const MessageList = memo(function MessageList({
         }}
       >
         <MessageSquare size={48} />
-        <Typography variant="body1" fontWeight={600}>
+        <Typography sx={{ fontWeight: 600 }} variant="body1">
           No messages yet
         </Typography>
         <Typography variant="body2">Be the first to say something!</Typography>
@@ -1294,10 +1294,10 @@ export default function Chat() {
       if (!user) return;
       setSendError(null);
       try {
-        const zenFile = await upload(file.name, file);
+        const zenFile = await upload(file);
         const obj = new ZenithObject("Message");
         obj.set("text", "");
-        obj.set("fileUrl", zenFile.url());
+        obj.set("fileUrl", zenFile.url);
         obj.set("roomId", activeRoom.id);
         obj.set("sender", myUsername);
         obj.set("senderId", user.id);
@@ -1486,7 +1486,7 @@ export default function Chat() {
                 {activeRoom.label.charAt(0).toUpperCase()}
               </Avatar>
             )}
-            <Typography variant="subtitle1" fontWeight={700} sx={{ letterSpacing: "-0.01em", flex: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: "-0.01em", flex: 1 }}>
               {activeRoom.type === "channel" ? `# ${activeRoom.label}` : activeRoom.label}
             </Typography>
             {activeRoom.type === "dm" && (

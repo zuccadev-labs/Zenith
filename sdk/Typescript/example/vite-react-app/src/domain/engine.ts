@@ -1,6 +1,14 @@
 import { composeTraitDescriptors, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { Zenith } from "@zuccadev-labs/zenith";
 
+/** A form as the createForm/getForms cloud functions return it. */
+export interface Form {
+  objectId: string;
+  title: string;
+  description?: string;
+  [field: string]: unknown;
+}
+
 // ─── Frontend Barrits Traits ──────────────────────────────────────────────
 
 /**
@@ -18,7 +26,7 @@ const FormsTrait = createTraitDescriptor({
         const res = await Zenith.Cloud.run("createForm", { title, description });
         return res.objectId || res._id;
       },
-      async getForms(): Promise<any[]> {
+      async getForms(): Promise<Form[]> {
         return await Zenith.Cloud.run("getForms", {});
       },
       async updateForm(objectId: string, title: string, description: string): Promise<void> {
@@ -62,7 +70,7 @@ export const FrontendEngine = {
   ...composed.traits.formatting,
 } as {
   createForm(title: string, description: string): Promise<string>;
-  getForms(): Promise<any[]>;
+  getForms(): Promise<Form[]>;
   updateForm(objectId: string, title: string, description: string): Promise<void>;
   deleteForm(objectId: string): Promise<void>;
   formatAddress(address: string): string;

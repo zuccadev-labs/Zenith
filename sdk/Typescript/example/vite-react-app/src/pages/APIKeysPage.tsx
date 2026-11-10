@@ -99,7 +99,7 @@ export default function APIKeysPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Key size={28} color="#6366f1" />
-          <Typography variant="h4" fontWeight={800}>API Keys</Typography>
+          <Typography sx={{ fontWeight: 800 }} variant="h4">API Keys</Typography>
         </Box>
         <Button
           id="create-apikey-btn"
@@ -132,9 +132,9 @@ export default function APIKeysPage() {
           sx={{ mb: 3, '& .MuiAlert-message': { width: '100%' } }}
           onClose={() => setNewKeyValue(null)}
         >
-          <Typography fontWeight={700} gutterBottom>⚠️ Copy your key now — it won't be shown again.</Typography>
+          <Typography sx={{ fontWeight: 700 }} gutterBottom>⚠️ Copy your key now — it won't be shown again.</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, background: '#1e293b', borderRadius: 1, p: 1 }}>
-            <Typography fontFamily="monospace" fontSize="0.8rem" sx={{ flexGrow: 1, wordBreak: 'break-all' }}>
+            <Typography sx={{ fontFamily: "monospace", fontSize: "0.8rem", flexGrow: 1, wordBreak: 'break-all' }}>
               {newKeyValue}
             </Typography>
             <Tooltip title={copied ? "Copied!" : "Copy to clipboard"}>
@@ -176,9 +176,9 @@ export default function APIKeysPage() {
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Key size={14} color="#6366f1" />
-                    <Typography fontWeight={600}>{key.name}</Typography>
+                    <Typography sx={{ fontWeight: 600 }}>{key.name}</Typography>
                   </Box>
-                  <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                  <Typography sx={{ fontFamily: "monospace" }} variant="caption" color="text.secondary">
                     {key.keyId.substring(0, 16)}...
                   </Typography>
                 </TableCell>
@@ -242,7 +242,7 @@ export default function APIKeysPage() {
               }
               label={
                 <Box>
-                  <Typography variant="body2" fontWeight={600}>{scope.label}</Typography>
+                  <Typography sx={{ fontWeight: 600 }} variant="body2">{scope.label}</Typography>
                   <Typography variant="caption" color="text.secondary">{scope.desc}</Typography>
                 </Box>
               }

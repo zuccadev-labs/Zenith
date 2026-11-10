@@ -82,16 +82,16 @@ export default function TriggersDemo() {
           <Alert severity="success" icon={<ShieldAlert />} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <Typography variant="subtitle2">Interceptado y procesado por Zenith Cloud:</Typography>
             <Box sx={{ mt: 1, p: 2, background: 'rgba(0,0,0,0.2)', borderRadius: 1, width: '100%' }}>
-              <Typography variant="caption" display="block" color="text.secondary">Enviado:</Typography>
+              <Typography sx={{ display: "block" }} variant="caption" color="text.secondary">Enviado:</Typography>
               <Typography variant="body2" sx={{ mb: 1, fontFamily: 'monospace' }}>{result.contentSent}</Typography>
               
-              <Typography variant="caption" display="block" color="text.secondary">Guardado en DB:</Typography>
+              <Typography sx={{ display: "block" }} variant="caption" color="text.secondary">Guardado en DB:</Typography>
               <Typography variant="body2" sx={{ mb: 1, fontFamily: 'monospace', color: '#4ade80' }}>{result.contentStored}</Typography>
 
-              <Typography variant="caption" display="block" color="text.secondary">Owner inyectado:</Typography>
+              <Typography sx={{ display: "block" }} variant="caption" color="text.secondary">Owner inyectado:</Typography>
               <Typography variant="body2" sx={{ mb: 1 }}>{result.ownerId}</Typography>
 
-              <Typography variant="caption" display="block" color="text.secondary">View Count inicializado:</Typography>
+              <Typography sx={{ display: "block" }} variant="caption" color="text.secondary">View Count inicializado:</Typography>
               <Typography variant="body2">{result.viewCount}</Typography>
             </Box>
           </Alert>

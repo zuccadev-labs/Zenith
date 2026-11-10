@@ -39,22 +39,21 @@ export class ZenithFile {
     const config = Zenith.getConfig();
     const sessionToken = options?.sessionToken ?? Zenith.sessionToken;
 
-    const formData = new FormData();
-    formData.append("file", this._data, this._name);
-
+    // Parse protocol: the raw bytes to POST /files/:name (the server has no /storage/upload).
     const headers: Record<string, string> = {
       "Zen-Application-Id": config.appId,
       "X-Parse-Application-Id": config.appId,
+      "Content-Type": this._data.type || "application/octet-stream",
     };
     if (sessionToken) {
       headers["Authorization"] = `Bearer ${sessionToken}`;
       headers["Zen-Session-Token"] = sessionToken;
     }
 
-    const res = await fetch(`${config.serverURL}/storage/upload`, {
+    const res = await fetch(`${config.serverURL}/files/${encodeURIComponent(this._name)}`, {
       method: "POST",
       headers,
-      body: formData,
+      body: this._data,
     });
 
     if (!res.ok) {
@@ -128,8 +127,9 @@ export class ZenithAPIKey {
     scopes: string[] = ["*"],
     options?: { useMasterKey?: boolean }
   ): Promise<ZenithAPIKey> {
-    const res = await RESTController.request("POST", "/apikeys", { name, scopes }, options);
-    return new ZenithAPIKey(res);
+    const res = await RESTController.request("POST", "/zen/apikeys", { name, scopes }, options);
+    // The server returns the plaintext once, as `key`.
+    return new ZenithAPIKey({ ...res, value: res.key });
   }
 
   /**
@@ -137,7 +137,7 @@ export class ZenithAPIKey {
    * With `useMasterKey: true`, returns all keys across all users.
    */
   public static async list(options?: { useMasterKey?: boolean }): Promise<ZenithAPIKey[]> {
-    const res = await RESTController.request("GET", "/apikeys", undefined, options);
+    const res = await RESTController.request("GET", "/zen/apikeys", undefined, options);
     return (res.results ?? []).map((k: any) => new ZenithAPIKey(k));
   }
 
@@ -145,7 +145,7 @@ export class ZenithAPIKey {
    * Permanently revokes this API key.
    */
   public async revoke(options?: { useMasterKey?: boolean }): Promise<void> {
-    await RESTController.request("DELETE", `/apikeys/${this.keyId}`, undefined, options);
+    await RESTController.request("DELETE", `/zen/apikeys/${encodeURIComponent(this.keyId)}`, undefined, options);
   }
 
   public toJSON() {
