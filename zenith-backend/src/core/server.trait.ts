@@ -14,7 +14,7 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { buildDynamicRouter, createRequestHandler, extractContext, applyCORS, validateAppId, resolveAuthentication, applyRateLimit } from "./mod.ts";
 import type { ZenithConfig } from "./types.ts";
 import { ApiKeyManager } from "../security/api-keys/manager.ts";
-import { InMemoryStore } from "../security/api-keys/store.ts";
+import { apiKeyRoutes, apiKeyStoreFor } from "../security/api-keys/routes.ts";
 import { PerKeyRateLimiter } from "../security/api-keys/middleware.ts";
 import { bootstrapApiKey } from "../security/api-keys/bootstrap.ts";
 
@@ -27,9 +27,9 @@ export const ServerTrait = createTraitDescriptor({
   runtimes: ["deno"],
   create: (deps: Record<string, unknown>) => {
     let _publicKey = "";
-    // [H-2/H-3 mitigation] API key manager + rate limiter compartidos por app.
-    // En Fase 1.G, el InMemoryStore será reemplazado por MongoDBStore.
-    const apiKeyManager = new ApiKeyManager(new InMemoryStore());
+    // [H-2/H-3 mitigation] API key manager + rate limiter, one per app. The store depends on the
+    // app's database (MongoDB when available), so it is built with the first handler.
+    let apiKeys: { manager: ApiKeyManager; store: ReturnType<typeof apiKeyStoreFor> } | null = null;
     const perKeyRateLimiter = new PerKeyRateLimiter();
     return {
       initKeys: (_privateKey: string, publicKey: string) => {
@@ -43,6 +43,12 @@ export const ServerTrait = createTraitDescriptor({
 
         // 1. Construir el Router con dependencias inyectadas (Auto-descubrimiento)
         const router = buildDynamicRouter(deps);
+        if (!apiKeys) {
+          const store = apiKeyStoreFor(config as { databaseURI?: string }, (m) => obs?.warn?.(m));
+          apiKeys = { store, manager: new ApiKeyManager(store) };
+        }
+        const apiKeyManager = apiKeys.manager;
+        for (const r of apiKeyRoutes(config.appId, apiKeys.manager, apiKeys.store)) router.on(r.method, r.path, r.handler, "master");
 
         // 2. Bootstrap: si la app no tiene keys, crear una sk_live (solo dev)
         //    Esto se hace sincrónicamente antes de armar el pipeline para que
@@ -63,6 +69,7 @@ export const ServerTrait = createTraitDescriptor({
             apiKeyManager,
             rateLimiter: perKeyRateLimiter,
             audit: true,
+            appId: config.appId,
           }),
           applyCORS("*"),
           validateAppId(config.appId),

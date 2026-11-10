@@ -51,6 +51,11 @@ export interface ExtractContextOpts {
   rateLimiter?: PerKeyRateLimiter;
   /** Si true, emite audit log en cada request (default: true) */
   audit?: boolean;
+  /**
+   * The app this pipeline serves. A key issued for another app is rejected (`wrong_app`): the
+   * store can be shared by every app, and the Application-Id header is chosen by the caller.
+   */
+  appId?: string;
 }
 
 // ─── Pasos Estándar del Pipeline ──────────────────────────────────────────────
@@ -86,6 +91,7 @@ export function extractContext(
     apiKeyManager,
     rateLimiter,
     audit: doAudit = true,
+    appId: expectedAppId,
   } = opts;
   const rateLimiterInstance = rateLimiter ?? new PerKeyRateLimiter();
 
@@ -100,7 +106,9 @@ export function extractContext(
   // La IP real viene del socket TCP, inyectada por Deno.serve como __socketAddr.
   // NO confiamos en X-Forwarded-For a menos que la petición llegue de un proxy
   // cuya IP esté en trustedProxies (ej. Nginx, Cloudflare, AWS ALB).
-  const socketIp: string = (req as any).__socketAddr?.hostname ?? "0.0.0.0";
+  // Unknown address (a server that did not pass it) is "unknown", never local: before, it became
+  // 0.0.0.0, which counted as localhost, so the master key worked from anywhere.
+  const socketIp: string = (req as any).__socketAddr?.hostname ?? "unknown";
   let resolvedClientIp = socketIp;
 
   if (proxies.length > 0 && proxies.includes(socketIp)) {
@@ -112,7 +120,7 @@ export function extractContext(
     }
   }
 
-  const isLocalhost = resolvedClientIp === "127.0.0.1" || resolvedClientIp === "::1" || resolvedClientIp === "0.0.0.0";
+  const isLocalhost = resolvedClientIp === "127.0.0.1" || resolvedClientIp === "::1" || resolvedClientIp === "::ffff:127.0.0.1";
 
   let isMasterKeyValid = false;
   let apiKeyCtx: Awaited<ReturnType<typeof extractAndVerifyKey>> | null = null;
@@ -172,6 +180,9 @@ export function extractContext(
       rateLimiterInstance,
       { resolveClientIp: () => resolvedClientIp, audit: doAudit },
     );
+    if (expectedAppId && apiKeyCtx?.record && !apiKeyCtx.reason && apiKeyCtx.record.appId !== expectedAppId) {
+      apiKeyCtx = { ...apiKeyCtx, reason: "wrong_app" };
+    }
   }
 
   // ── Legacy Static MasterKey (Restringida a red interna / Localhost) ────────
