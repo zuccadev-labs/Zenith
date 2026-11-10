@@ -218,8 +218,23 @@ Deno.test("access - user and public routes", async () => {
     .dispatch();
   assertEquals((await d(new Request("http://x/u"), anon)).status, 401);
   assertEquals((await d(new Request("http://x/u"), user)).status, 200);
-  assertEquals((await d(new Request("http://x/u"), apiKey([]))).status, 200);
+  // A user route that declares no scope does not accept API keys (fail closed).
+  assertEquals((await d(new Request("http://x/u"), apiKey(["data:read"]))).status, 403);
   assertEquals((await d(new Request("http://x/p"), anon)).status, 200);
+});
+
+Deno.test("access - API keys need the route's scope", async () => {
+  const d = new ZenithRouter()
+    .on("GET", "/read", () => new Response("r"), "user", "data:read")
+    .on("POST", "/write", () => new Response("w"), "user", "data:write")
+    .on("POST", "/each", () => new Response("e"), "user", "per-operation")
+    .dispatch();
+  assertEquals((await d(new Request("http://x/read"), apiKey(["data:read"]))).status, 200);
+  assertEquals((await d(new Request("http://x/write", { method: "POST" }), apiKey(["data:read"]))).status, 403);
+  assertEquals((await d(new Request("http://x/write", { method: "POST" }), apiKey(["data:*"]))).status, 200);
+  assertEquals((await d(new Request("http://x/each", { method: "POST" }), apiKey([]))).status, 200, "the handler checks");
+  // Sessions are not limited by key scopes.
+  assertEquals((await d(new Request("http://x/write", { method: "POST" }), user)).status, 200);
 });
 
 Deno.test("access - trait routes default to master and may declare their access", async () => {

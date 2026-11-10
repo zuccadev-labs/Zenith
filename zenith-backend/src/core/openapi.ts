@@ -9,6 +9,8 @@
  */
 
 import { generateOpenApiFromState } from "./openapi-generator.ts";
+import { HEALTH_ROUTE } from "./route-collection.ts";
+import { apiKeyRouteSpecs } from "../security/api-keys/routes.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,6 +21,13 @@ export interface OpenApiOptions {
   serverURL?: string;
   appId?: string;
   additionalTagDescriptions?: Record<string, string>;
+  /** Routes outside the traits (`/health`, `/zen/api-keys`); by default, the engine's own. */
+  extraRoutes?: Array<{ method: string; path: string; [key: string]: unknown }>;
+}
+
+/** The routes the server mounts outside the traits: `/health` and `/zen/api-keys`. */
+export function coreRoutes(): Array<{ method: string; path: string; [key: string]: unknown }> {
+  return [HEALTH_ROUTE, ...apiKeyRouteSpecs()];
 }
 
 interface RouteEntry {
@@ -429,6 +438,7 @@ export function generateOpenApiSchema(
     version,
     serverURL,
     appId,
+    extraRoutes: options.extraRoutes ?? coreRoutes(),
     additionalTagDescriptions: {
       ...BUILTIN_ZENITH_TAGS,
       ...options.additionalTagDescriptions,

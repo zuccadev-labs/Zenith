@@ -48,7 +48,7 @@ export const ServerTrait = createTraitDescriptor({
           apiKeys = { store, manager: new ApiKeyManager(store) };
         }
         const apiKeyManager = apiKeys.manager;
-        for (const r of apiKeyRoutes(config.appId, apiKeys.manager, apiKeys.store)) router.on(r.method, r.path, r.handler, "master");
+        for (const r of apiKeyRoutes(config.appId, apiKeys.manager, apiKeys.store)) router.on(r.method, r.path, r.handler, r.access);
 
         // 2. Bootstrap: si la app no tiene keys, crear una sk_live (solo dev)
         //    Esto se hace sincrónicamente antes de armar el pipeline para que

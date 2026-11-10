@@ -141,18 +141,31 @@ Deno.test("openapi-generator: default responses per method", () => {
   assertExists(spec.paths["/x"].delete?.responses["204"]);
 });
 
-Deno.test("openapi-generator: default security scheme is included", () => {
+Deno.test("openapi-generator: security follows the route's access, like the router", () => {
   const state: ZenithState = {
-    t_routes: [{ method: "GET", path: "/x", handler: () => null }],
+    t_routes: [
+      { method: "GET", path: "/closed", handler: () => null },
+      { method: "GET", path: "/open", access: "public", handler: () => null },
+      { method: "GET", path: "/users-only", access: "user", handler: () => null },
+      { method: "GET", path: "/readable", access: "user", scope: "data:read", handler: () => null },
+    ],
   };
   const spec = generateOpenApiFromState(state);
-  const op = spec.paths["/x"].get;
-  assertExists(op.security);
-  // Debe incluir los 4 schemes built-in
-  const schemeNames = op.security!.flatMap((s) => Object.keys(s));
-  assertEquals(new Set(schemeNames), new Set([
-    "apiKeyBearer", "apiKeyHeader", "sessionToken", "jwtRs256",
-  ]));
+  // Unset access is "master", the router's default (ADR-013).
+  assertEquals(spec.paths["/closed"].get.security, [{ masterKey: [] }]);
+  assertEquals(spec.paths["/open"].get.security, []);
+  // A user route without a scope does not accept API keys: sessions only.
+  assertEquals(spec.paths["/users-only"].get.security, [{ sessionToken: [] }, { jwtRs256: [] }]);
+  // With a scope, API keys too, and the scope is documented.
+  assertEquals(spec.paths["/readable"].get.security, [
+    { apiKeyBearer: ["data:read"] }, { apiKeyHeader: ["data:read"] }, { sessionToken: [] }, { jwtRs256: [] },
+  ]);
+});
+
+Deno.test("openapi-generator: kebab-case route capabilities are documented too", () => {
+  const spec = generateOpenApiFromState({ "crud-routes": [{ method: "GET", path: "/classes/:className" }] });
+  assertExists(spec.paths["/classes/{className}"].get);
+  assertEquals(spec.paths["/classes/{className}"].get.tags, ["CRUD"]);
 });
 
 Deno.test("openapi-generator: skips invalid HTTP methods", () => {

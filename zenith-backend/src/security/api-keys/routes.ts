@@ -62,11 +62,15 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
     {
       method: "GET" as const,
       path: "/zen/api-keys",
+      access: "master" as const,
+      _openapi: { tag: "API Keys", summary: "List the app's API keys (hashes only)" },
       handler: async () => json({ results: await manager.listByApp(appId) }),
     },
     {
       method: "POST" as const,
       path: "/zen/api-keys",
+      access: "master" as const,
+      _openapi: { tag: "API Keys", summary: "Create an API key; the plaintext is returned once" },
       handler: async (req: Request, ctx: any) => {
         const b = await bodyOf(req);
         const prefix = (b.prefix ?? "sk") as ApiKeyPrefix;
@@ -91,6 +95,8 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
     {
       method: "POST" as const,
       path: "/zen/api-keys/:id/revoke",
+      access: "master" as const,
+      _openapi: { tag: "API Keys", summary: "Revoke an API key" },
       handler: async (req: Request, ctx: any) => {
         const rec = await owned(ctx.params?.id);
         const b = await bodyOf(req);
@@ -101,6 +107,8 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
     {
       method: "POST" as const,
       path: "/zen/api-keys/:id/rotate",
+      access: "master" as const,
+      _openapi: { tag: "API Keys", summary: "Rotate an API key with a grace period" },
       handler: async (req: Request, ctx: any) => {
         const rec = await owned(ctx.params?.id);
         const b = await bodyOf(req);
@@ -111,4 +119,12 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
       },
     },
   ];
+}
+
+/**
+ * The /zen/api-keys routes without handlers, for the OpenAPI spec. Same list as `apiKeyRoutes`, so
+ * the spec cannot document a route the server does not mount (the handlers are never called).
+ */
+export function apiKeyRouteSpecs(): Array<{ method: string; path: string; access: "master"; _openapi: Record<string, unknown> }> {
+  return apiKeyRoutes("", null as never, null as never).map(({ handler: _h, ...spec }) => spec);
 }
