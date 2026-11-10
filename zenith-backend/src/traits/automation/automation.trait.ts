@@ -26,7 +26,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import {
   jsonRes, errRes, NO_CONTENT, pathParams, queryParams,
@@ -243,7 +243,7 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
   });
 }
 
-export const AutomationTrait = createTraitDescriptor({
+export const AutomationTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithAutomation",
   provides: ["automation_routes", "automation"],
   consumes: ["db", "emailSync", "notifications"],

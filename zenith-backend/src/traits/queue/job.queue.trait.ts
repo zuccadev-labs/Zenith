@@ -9,7 +9,7 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 
 interface Job {
   jobId: string;
@@ -25,7 +25,7 @@ interface Job {
   idempotencyKey?: string;
 }
 
-export const JobQueueTrait = createTraitDescriptor({
+export const JobQueueTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithJobQueue",
   provides: ["queue-routes", "queue", "jobQueue"],
   consumes: ["db"],

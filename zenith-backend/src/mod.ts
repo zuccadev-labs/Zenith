@@ -375,7 +375,9 @@ export function selectTraits(config: ZenithConfig): unknown[] {
  * @param config - ZenithConfig with appId, masterKey, databaseURI, features, topology, etc.
  * @returns Object with `engine` (composed EngineAPI) and `handler` (HTTP request handler or null)
  */
-export async function createZenithApp(config: ZenithConfig) {
+export async function createZenithApp(
+  config: ZenithConfig,
+): Promise<{ engine: EngineAPI; handler: ((req: Request) => Promise<Response>) | null }> {
   console.log(`🚀 Bootstrapping Zenith Engine for App: ${config.appId}...`);
 
   try {
@@ -535,7 +537,7 @@ export async function createZenithApp(config: ZenithConfig) {
        if (engine.setE2EEMode) engine.setE2EEMode(config.features.e2ee_mode || "strict_sframe");
     }
 
-    const globalConfigCol = mongoClient.db(config.appId).collection("_GlobalConfig");
+    const globalConfigCol = mongoClient.db(config.appId).collection<{ _id: string; [k: string]: unknown }>("_GlobalConfig");
     let privateKeyStr: string;
     let publicKeyStr: string;
 
@@ -577,7 +579,7 @@ export async function createZenithApp(config: ZenithConfig) {
         console.log(`[ZenithBoot] 🔑 Llaves RSA generadas y guardadas en Vault.`);
       }
     } else {
-      const jwtKeys = await globalConfigCol.findOne({ _id: "jwt_keys" as unknown as string });
+      const jwtKeys = await globalConfigCol.findOne({ _id: "jwt_keys" });
       if (!jwtKeys) {
         console.log(`[ZenithBoot] 🔑 Generando nuevas llaves RSA para App: ${config.appId}...`);
         const { publicKey, privateKey } = generateKeyPairSync('rsa', {
@@ -739,8 +741,10 @@ export async function createZenithApp(config: ZenithConfig) {
 }
 
 if (import.meta.main) {
-  const { apps } = await import("../apps.config.ts");
-  const { loadAppDefinitions, RuntimeMode } = await import("../config-loader.ts");
+  // The monorepo's multi-app boot (Docker image, `deno task start`). These files are not part of the
+  // published package; projects boot through `zen dev` / `zen compile` instead.
+  const { apps } = await import(new URL("../apps.config.ts", import.meta.url).href);
+  const { loadAppDefinitions, RuntimeMode } = await import(new URL("../config-loader.ts", import.meta.url).href);
 
   if (RuntimeMode.isProduction) {
     console.log("[Zenith] 🔒 Production mode — fail-closed security enforced.");
@@ -846,7 +850,7 @@ if (import.meta.main) {
               headers: req.headers,
               body: req.body,
               duplex: "half",
-            });
+            } as RequestInit & { duplex: "half" });
             // The pipeline reads the client address from here (master key only from localhost,
             // rate limits per client). Without it every request looked local.
             (newReq as unknown as { __socketAddr: Deno.NetAddr }).__socketAddr = info.remoteAddr as Deno.NetAddr;

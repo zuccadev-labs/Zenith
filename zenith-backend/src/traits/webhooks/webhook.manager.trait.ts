@@ -17,7 +17,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
@@ -66,7 +66,7 @@ async function signPayload(payload: string, secret: string): Promise<string> {
   return `t=${Date.now()},v1=${hex}`;
 }
 
-export const WebhookManagerTrait = createTraitDescriptor({
+export const WebhookManagerTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithWebhookManager",
   provides: ["webhook_mgmt_routes", "webhookManager"],
   consumes: ["cloud", "db"],

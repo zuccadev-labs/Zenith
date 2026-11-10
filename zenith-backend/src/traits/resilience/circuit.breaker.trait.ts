@@ -10,9 +10,9 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 
-export const CircuitBreakerTrait = createTraitDescriptor({
+export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCircuitBreaker",
   provides: ["circuit-breaker", "circuitBreaker", "resilience"],
   consumes: [],

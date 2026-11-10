@@ -17,7 +17,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 
 // ─── Schemas ERP (fuente de verdad única) ─────────────────────────────────────
@@ -186,7 +186,7 @@ function recalculateTotals(lines: Array<{ price: number; qty: number; tax?: numb
 
 // ─── Trait Principal ──────────────────────────────────────────────────────────
 
-export const ERPTrait = createTraitDescriptor({
+export const ERPTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithERPTrait",
   provides: ["erp_routes", "erp"],
   consumes: ["acl", "cloud", "db", "telemetry"],

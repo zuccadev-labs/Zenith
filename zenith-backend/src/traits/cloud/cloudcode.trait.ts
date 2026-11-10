@@ -39,7 +39,8 @@ export const CloudCodeTrait = createTraitDescriptor({
   state: ["registeredFunctions", "beforeFindTriggers", "afterFindTriggers"],
   runtimes: ["deno"],
   summary: "Parse Server-compatible Cloud Code: define/register functions, before/after triggers on collections, custom REST routes with security policies (Parse Server master key replacement via API keys).",
-  create: (deps: Record<string, unknown>) => {
+  // deno-lint-ignore no-explicit-any
+  create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const acl = deps.traits["acl"];
     const schema = deps.traits["schema"];
@@ -53,6 +54,19 @@ export const CloudCodeTrait = createTraitDescriptor({
     const afterDeleteTriggers = new Map<string, CloudTriggerHandler[]>();
     const fileTriggers = new Map<string, FileTriggerSet>();
     const customRoutes = new Map<string, { method: string; path: string; handler: (req: Request, ctx: unknown) => Promise<Response>; security?: unknown }>();
+
+    type RouteHandler = (req: Request, ctx: unknown) => Promise<Response>;
+    type SimpleHandler = (args: { params: Record<string, unknown>; query: Record<string, string> }) => unknown;
+    /** A plain handler gets { params, query } (params = JSON body on POST/PUT); its result, awaited, is the JSON reply. */
+    const addRoute = (method: string, path: string, handler: unknown, security?: unknown) => {
+      if (typeof handler !== "function") throw new Error(`express.${method.toLowerCase()}(${path}): handler must be a function`);
+      const wrapped: RouteHandler = async (req: Request) => {
+        const query = Object.fromEntries(new URL(req.url).searchParams);
+        const params = method === "POST" || method === "PUT" ? await req.json().catch(() => ({})) : {};
+        return Response.json(await (handler as SimpleHandler)({ params, query }));
+      };
+      return customRoutes.set(`${method} ${path}`, { method, path, handler: wrapped, security });
+    };
 
     const traitApi = {
       define: (name: string, fn: CloudFunctionHandler) => {
@@ -120,38 +134,10 @@ export const CloudCodeTrait = createTraitDescriptor({
       afterDeleteFile: (fn: CloudTriggerHandler) => { fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), afterDelete: fn }); },
 
       express: {
-        get: (path: string, handler: unknown, security?: unknown) => customRoutes.set(`GET ${path}`, {
-          method: "GET",
-          path,
-          handler: typeof handler === "function" ? (_req: Request) => new Response(JSON.stringify((handler as (args: { params: Record<string, unknown>; query: Record<string, string> }) => unknown)({ params: {}, query: {} }))) : handler as (req: Request, ctx: unknown) => Promise<Response>,
-          security,
-        }),
-        post: (path: string, handler: unknown, security?: unknown) => customRoutes.set(`POST ${path}`, {
-          method: "POST",
-          path,
-          handler: typeof handler === "function" ? async (req: Request) => {
-            const body = await req.json().catch(() => ({}));
-            return new Response(JSON.stringify((handler as (args: { params: Record<string, unknown>; query: Record<string, string> }) => unknown)({ params: body, query: Object.fromEntries(new URL(req.url).searchParams) })));
-          } : handler as (req: Request, ctx: unknown) => Promise<Response>,
-          security,
-        }),
-        put: (path: string, handler: unknown, security?: unknown) => customRoutes.set(`PUT ${path}`, {
-          method: "PUT",
-          path,
-          handler: typeof handler === "function" ? async (req: Request) => {
-            const body = await req.json().catch(() => ({}));
-            return new Response(JSON.stringify((handler as (args: { params: Record<string, unknown>; query: Record<string, string> }) => unknown)({ params: body, query: Object.fromEntries(new URL(req.url).searchParams) })));
-          } : handler as (req: Request, ctx: unknown) => Promise<Response>,
-          security,
-        }),
-        delete: (path: string, handler: unknown, security?: unknown) => customRoutes.set(`DELETE ${path}`, {
-          method: "DELETE",
-          path,
-          handler: typeof handler === "function"
-            ? async (_req: Request) => new Response(JSON.stringify((handler as (args: { params: Record<string, unknown>; query: Record<string, string> }) => unknown)({ params: {}, query: {} })))
-            : handler as (req: Request, ctx: unknown) => Promise<Response>,
-          security,
-        }),
+        get: (path: string, handler: unknown, security?: unknown) => addRoute("GET", path, handler, security),
+        post: (path: string, handler: unknown, security?: unknown) => addRoute("POST", path, handler, security),
+        put: (path: string, handler: unknown, security?: unknown) => addRoute("PUT", path, handler, security),
+        delete: (path: string, handler: unknown, security?: unknown) => addRoute("DELETE", path, handler, security),
       },
 
       listFunctions: () => {

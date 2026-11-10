@@ -19,7 +19,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
@@ -68,7 +68,7 @@ const COLLAB_SCHEMAS = {
   },
 } as const;
 
-export const CollaborationTrait = createTraitDescriptor({
+export const CollaborationTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCollaboration",
   provides: ["collaboration_routes", "collaboration"],
   consumes: ["cloud", "db", "fileStore", "storage"],

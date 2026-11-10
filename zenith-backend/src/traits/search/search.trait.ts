@@ -14,7 +14,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { jsonRes, errRes, pathParams, parseFilterParam, applyFilter, sortResults, now } from "../../core/trait-utils.ts";
 
 /** Configuración de qué campos se indexan por clase */
@@ -29,7 +29,7 @@ const SEARCH_INDEX: Record<string, string[]> = {
   Employee:   ["name", "email", "role", "department"],
 };
 
-export const SearchTrait = createTraitDescriptor({
+export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithSearch",
   provides: ["search_routes", "search"],
   consumes: ["db"],

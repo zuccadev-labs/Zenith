@@ -17,7 +17,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, now } from "../../core/trait-utils.ts";
 
@@ -74,7 +74,7 @@ const SYSTEM_CLASSES = new Set([
   "Product","Order","Invoice","Employee","Warehouse","InventoryEntry",
 ]);
 
-export const MetadataTrait = createTraitDescriptor({
+export const MetadataTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithMetadata",
   provides: ["metadata_routes", "metadata"],
   consumes: ["db", "schema"],

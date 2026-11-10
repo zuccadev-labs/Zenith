@@ -2,7 +2,16 @@
   "name": "@zuccadev-labs/zenith",
   "version": "0.1.0",
   "description": "Zenith - The Deterministic BaaS for the AI Era",
-  "exports": "./src/mod.ts",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/mod.ts",
+    "./openapi": "./src/openapi.ts",
+    "./plugin-signing": "./src/security/plugin-signing/mod.ts"
+  },
+  "publish": {
+    "include": ["src/", "LICENSE", "README.md", "deno.json"],
+    "exclude": ["src/**/*.test.ts"]
+  },
   "minimumDependencyAge": {
     "age": "1440",
     "exclude": ["jsr:@zuccadev-labs/barrits", "jsr:@zuccadev-labs/zutool-ffi"]

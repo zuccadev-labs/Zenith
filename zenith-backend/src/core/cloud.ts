@@ -196,7 +196,42 @@ for (const cat of ["beforeSave", "afterSave", "beforeDelete", "afterDelete", "be
  * });
  * ```
  */
-export const ZenCloud = {
+/** `Zen.Cloud`: cloud functions, jobs and triggers (Parse `Parse.Cloud` parity). */
+export interface ZenCloudAPI {
+  /** Declares a class schema (see cloud-schema.ts). */
+  defineSchema: typeof defineSchema;
+  getSchema: typeof getSchema;
+  define(name: string, handler: CloudFunctionHandler, validator?: CloudValidator): void;
+  run(name: string, params?: Record<string, unknown>, options?: { user?: { objectId: string; username?: string }; master?: boolean; installationId?: string }): Promise<unknown>;
+  job(name: string, handler: CloudJobHandler): void;
+  beforeSave(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterSave(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeDelete(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterDelete(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeFind(className: string, handler: CloudBeforeFindHandler, validator?: CloudValidator): void;
+  afterFind(className: string, handler: CloudAfterFindHandler, validator?: CloudValidator): void;
+  beforeLogin(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterLogin(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeLogout(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterLogout(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforePasswordResetRequest(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeConnect(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeSubscribe(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterLiveQueryEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  onLiveQueryEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforePublish(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeWatch(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  onStreamEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeSaveFile(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterSaveFile(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeDeleteFile(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  afterDeleteFile(handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  // deno-lint-ignore no-explicit-any
+  httpRequest(options: { url: string; method?: string; headers?: Record<string, string>; body?: any }): Promise<any>;
+  sendEmail(data: { to: string; subject: string; text?: string; html?: string; from?: string }): Promise<void>;
+}
+
+export const ZenCloud: ZenCloudAPI = {
   /**
    * Define una Cloud Function.
    * Equivalente a `Parse.Cloud.define()`.
@@ -490,7 +525,28 @@ export const _cloudCodeRegistry = {
  * Wrapper estático para que las funciones Cloud Code puedan interactuar con la Base de Datos.
  * Resuelve automáticamente el adaptador correcto basado en el AsyncLocalStorage (appId).
  */
-export const ZenDB = {
+/** `Zen.DB`: data access with ACL enforcement; `targetAppId` reaches another app on this server. */
+export interface ZenDBAPI {
+  // deno-lint-ignore no-explicit-any
+  getAdapter(): any;
+  _getUserRoles(userId: string): Promise<string[]>;
+  // deno-lint-ignore no-explicit-any
+  _enforceAclQuery(query: Record<string, any>, options?: { useMasterKey?: boolean; userRoles?: string[] }): Record<string, any>;
+  _enforceAclWrite(className: string, id: string, options?: { useMasterKey?: boolean }): Promise<void>;
+  // deno-lint-ignore no-explicit-any
+  find(className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any[]>;
+  // deno-lint-ignore no-explicit-any
+  findOne(className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  // deno-lint-ignore no-explicit-any
+  insert(className: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  // deno-lint-ignore no-explicit-any
+  update(className: string, id: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  // deno-lint-ignore no-explicit-any
+  updateIf(className: string, id: string, conditions: Record<string, unknown>, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  delete(className: string, id: string, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<void>;
+}
+
+export const ZenDB: ZenDBAPI = {
   /**
    * Obtiene el adaptador de base de datos para el appId activo.
    * Resuelve automáticamente según el contexto multi-tenant (AsyncLocalStorage).
@@ -499,7 +555,8 @@ export const ZenDB = {
    * @returns DatabaseAdapter — adaptador de base de datos (MongoDB, ScyllaDB, etc.)
    * @throws Error si no hay apps registradas en el registry
    */
-  getAdapter: () => {
+  // deno-lint-ignore no-explicit-any
+  getAdapter: (): any => {
     const ctx = zenithContext.getStore();
     if (!ctx || !ctx.appId) {
       const firstApp = Array.from(ZenAppRegistry.values())[0];
@@ -675,7 +732,7 @@ export const ZenDB = {
    * @returns Documento actualizado, o null si las condiciones no se cumplieron
    * @throws Error si el adapter activo no puede garantizar la atomicidad
    */
-  updateIf: async (className: string, id: string, conditions: Record<string, unknown>, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }) => {
+  updateIf: async (className: string, id: string, conditions: Record<string, unknown>, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
     const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
     if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
     if (!adapter.updateIf) throw new Error(`Zen.DB Error: the active database adapter does not support atomic updateIf.`);
@@ -870,19 +927,19 @@ const _writeToFile = (level: string, msg: string, metadata?: any) => {
  * Compatible con stdout (Kubernetes) y FileSystem (On-Premise).
  */
 export const ZenLogger = {
-  info: (msg: string, metadata?: any) => {
+  info: (msg: string, metadata?: any): void => {
     console.log(`[Zenith][INFO] ${msg}`, metadata || "");
     _writeToFile("INFO", msg, metadata);
   },
-  error: (msg: string, metadata?: any) => {
+  error: (msg: string, metadata?: any): void => {
     console.error(`[Zenith][ERROR] ${msg}`, metadata || "");
     _writeToFile("ERROR", msg, metadata);
   },
-  warn: (msg: string, metadata?: any) => {
+  warn: (msg: string, metadata?: any): void => {
     console.warn(`[Zenith][WARN] ${msg}`, metadata || "");
     _writeToFile("WARN", msg, metadata);
   },
-  debug: (msg: string, metadata?: any) => {
+  debug: (msg: string, metadata?: any): void => {
     console.debug(`[Zenith][DEBUG] ${msg}`, metadata || "");
     _writeToFile("DEBUG", msg, metadata);
   },
@@ -910,7 +967,7 @@ export class ZenGeoPoint {
     if (this.longitude > 180.0 || this.longitude < -180.0) throw new Error("Longitude must be within range [-180.0, 180.0]");
   }
 
-  toJSON() {
+  toJSON(): { __type: "GeoPoint"; latitude: number; longitude: number } {
     return { __type: "GeoPoint", latitude: this.latitude, longitude: this.longitude };
   }
 
@@ -947,11 +1004,11 @@ export interface CustomRouteConfig {
 const _customRoutes: CustomRouteConfig[] = [];
 
 export const ZenAPI = {
-  defineRoute: (config: CustomRouteConfig) => {
+  defineRoute: (config: CustomRouteConfig): void => {
     _customRoutes.push(config);
     ZenLogger.info(`[Zen.API] Registered Custom Secure Route: ${config.method} ${config.path}`);
   },
-  getRoutes: () => _customRoutes
+  getRoutes: (): CustomRouteConfig[] => _customRoutes
 };
 
 // ─── Plugins Export Namespace ───────────────────────────────────────────────────
@@ -969,13 +1026,20 @@ export const ZenPlugins: ZenithPluginsRegistry = {};
  * Interfaz de ejecución de comandos de Shell. Grado Militar y robusto.
  * Permite integraciones de terceros ejecutando binarios en el host de manera segura.
  */
-export const ZenShell = {
+/** `Zen.Shell`: runs allowlisted host binaries. */
+export interface ZenShellAPI {
+  _allowedCommands: string[];
+  setAllowedCommands(commands: string[]): void;
+  exec(command: string, args?: string[], options?: { cwd?: string; env?: Record<string, string> }): Promise<{ stdout: string; stderr: string; code: number }>;
+}
+
+export const ZenShell: ZenShellAPI = {
   _allowedCommands: [] as string[],
   
   /**
    * Configura la lista blanca de binarios permitidos (Military-Grade SecOps).
    */
-  setAllowedCommands(commands: string[]) {
+  setAllowedCommands(commands: string[]): void {
     this._allowedCommands = commands;
   },
 
@@ -985,7 +1049,7 @@ export const ZenShell = {
    * @param args Argumentos del comando
    * @param options Opciones adicionales como CWD o Env Vars
    */
-  exec: async (command: string, args: string[] = [], options?: { cwd?: string; env?: Record<string, string> }) => {
+  exec: async (command: string, args: string[] = [], options?: { cwd?: string; env?: Record<string, string> }): Promise<{ stdout: string; stderr: string; code: number }> => {
     // 1. Military-Grade Allowlist Check
     if (ZenShell._allowedCommands.length > 0 && !ZenShell._allowedCommands.includes(command)) {
       ZenLogger.error(`[Zen.Shell] 🛡️ SecOps Blocked: Attempted to execute unauthorized command '${command}'`);
@@ -1039,6 +1103,21 @@ export const ZenShell = {
  * Global engine reference set by createZenithApp after boot.
  * Allows cloud code files to access engine services dynamically.
  */
+/** `Zen.App(appId)`: the data of another app on this server (cross-tenant, with ACL). */
+export interface ZenAppHandle {
+  DB: {
+    // deno-lint-ignore no-explicit-any
+    find(className: string, query: Record<string, any>): Promise<any[]>;
+    // deno-lint-ignore no-explicit-any
+    findOne(className: string, query: Record<string, any>): Promise<any>;
+    // deno-lint-ignore no-explicit-any
+    insert(className: string, document: Record<string, any>): Promise<any>;
+    // deno-lint-ignore no-explicit-any
+    update(className: string, id: string, document: Record<string, any>): Promise<any>;
+    delete(className: string, id: string): Promise<void>;
+  };
+}
+
 export const ZENITH_ENGINE: { current: Record<string, unknown> | null } = { current: null };
 
 export const Zen = {
@@ -1051,7 +1130,7 @@ export const Zen = {
   API: ZenAPI,
   Plugins: ZenPlugins,
   Shell: ZenShell,
-  App: (appId: string) => ({
+  App: (appId: string): ZenAppHandle => ({
       DB: {
           find: (c: string, q: any) => ZenDB.find(c, q, { targetAppId: appId }),
           findOne: (c: string, q: any) => ZenDB.findOne(c, q, { targetAppId: appId }),

@@ -21,7 +21,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, pathParams, ptr, now } from "../../core/trait-utils.ts";
 
@@ -58,7 +58,7 @@ export interface ADKSession {
 const AGENT_REGISTRY = new Map<string, ADKAgentDef>();
 const TOOL_REGISTRY  = new Map<string, ADKTool>();
 
-export const ADKAgentsTrait = createTraitDescriptor({
+export const ADKAgentsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithADKAgents",
   provides: ["adk_routes", "adkAgents"],
   consumes: ["db"],
