@@ -9,7 +9,7 @@
  *
  * A command module exports `run(args: string[])`, with `args` after the command name.
  */
-import { composeTraitDescriptors, createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, composeTraitDescriptors, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export interface ZenCommand {
   name: string;
@@ -27,7 +27,7 @@ function command(
   summary: string,
   load: () => Promise<Module>,
   aliases: string[] = [],
-) {
+): AnyTraitDescriptor {
   const capability = `command:${name}`;
   return createTraitDescriptor({
     name: `ZenCommand_${name.replace(/[^A-Za-z0-9]/g, "_")}`,
@@ -48,9 +48,7 @@ function command(
 const dev = (name: "init" | "dev" | "compile") => (): Promise<Module> =>
   Promise.resolve({ run: async (args: string[]) => await (await import("../zen.ts")).runDevCommand(name, args) });
 
-// The descriptor type is barrits' generic one, inferred; no-slow-types only matters for JSR publishing.
-// deno-lint-ignore no-slow-types
-export const COMMANDS = [
+export const COMMANDS: readonly AnyTraitDescriptor[] = [
   command("init", "Desarrollo", "Crea un proyecto Zenith: cloud/, plugins/, zen.config.ts, .env, deno.json", dev("init")),
   command("dev", "Desarrollo", "Levanta el proyecto con recarga en caliente (lee zen.config.ts, cloud/ y plugins/)", dev("dev")),
   command("compile", "Desarrollo", "Empaqueta el proyecto en un binario único (AOT)", dev("compile")),

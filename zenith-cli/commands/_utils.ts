@@ -24,13 +24,14 @@ export async function loadZenConfig(): Promise<ZenCLIConfig> {
     const raw = await Deno.readTextFile(envPath);
     for (const line of raw.split("\n")) {
       const [k, ...v] = line.split("=");
-      if (k?.trim() && !k.startsWith("#")) {
+      // The environment wins over .env: an explicit ZENITH_SERVER_URL=… zen … must not be overridden.
+      if (k?.trim() && !k.startsWith("#") && Deno.env.get(k.trim()) === undefined) {
         Deno.env.set(k.trim(), v.join("=").trim());
       }
     }
   } catch { /* .env opcional */ }
 
-  const port      = Deno.env.get("ZENITH_PORT")       ?? "3000";
+  const port      = Deno.env.get("ZENITH_PORT")       ?? "1337"; // zen init's default
   const serverURL = Deno.env.get("ZENITH_SERVER_URL")  ?? `http://localhost:${port}`;
   const appId     = Deno.env.get("ZENITH_APP_ID")      ?? "my_app";
   const masterKey = Deno.env.get("ZENITH_MASTER_KEY");
