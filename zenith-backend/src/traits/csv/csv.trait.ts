@@ -16,7 +16,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, pathParams, queryParams, parseFilterParam, applyFilter, now } from "../../core/trait-utils.ts";
 
@@ -83,7 +83,7 @@ function toCSV(rows: Record<string, any>[], fields: string[]): string {
   return `${header}\n${body}`;
 }
 
-export const CSVTrait = createTraitDescriptor({
+export const CSVTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCSV",
   provides: ["csv_routes", "csvManager"],
   consumes: ["db"],

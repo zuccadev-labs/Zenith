@@ -10,9 +10,9 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 
-export const CacheTrait = createTraitDescriptor({
+export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCache",
   provides: ["cache-routes", "cache", "cacheManager"],
   consumes: [],

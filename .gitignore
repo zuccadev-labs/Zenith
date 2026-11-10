@@ -94,6 +94,8 @@ ehthumbs.db
 **/.env.*
 !**/.env.example
 **/secrets/
+# Source code, not secrets: the engine's Vault client (it was never committed because of the rule above).
+!/zenith-backend/src/security/secrets/
 **/*.pem
 **/*.key
 **/*.crt
@@ -153,3 +155,6 @@ lighthouse-report/
 
 # Captura de referencia de la estructura de proyecto (solo local, no se sube)
 /WhatsApp Image 2026-05-25 at 3.41.07 PM.jpeg
+
+# MkDocs output
+/site/build/

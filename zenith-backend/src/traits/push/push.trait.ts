@@ -9,9 +9,9 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 
-export const PushTrait = createTraitDescriptor({
+export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithPush",
   provides: ["push-routes", "push", "pushManager"],
   consumes: ["db"],

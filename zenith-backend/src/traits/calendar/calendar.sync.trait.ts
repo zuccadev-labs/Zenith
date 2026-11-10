@@ -25,7 +25,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import {
   jsonRes, errRes, NO_CONTENT, pathParams, queryParams,
@@ -98,7 +98,7 @@ const CALENDAR_SCHEMA = {
   CalendarSlot:    { channelId: "String", startAt: "Date", endAt: "Date", duration: "Number", isBooked: "Boolean", title: "String" },
 };
 
-export const CalendarSyncTrait = createTraitDescriptor({
+export const CalendarSyncTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCalendarSync",
   provides: ["calendar_routes", "calendarSync"],
   consumes: ["cloud", "db"],
@@ -232,7 +232,7 @@ export const CalendarSyncTrait = createTraitDescriptor({
         } else {
           await db.create("CalendarEvent", { ...payload, createdAt: now() });
           created++;
-          if (events) events.emit("Calendar.eventCreated", { channelId, ...payload });
+          if (events) events.emit("Calendar.eventCreated", payload);
         }
       }
 
@@ -298,7 +298,7 @@ export const CalendarSyncTrait = createTraitDescriptor({
         if (channel) {
           const adapter = CALENDAR_ADAPTERS.get(channel.provider);
           if (adapter) {
-            const res = await adapter.createEvent(channel, data).catch(() => ({ externalId }));
+            const res = await adapter.createEvent(channel, data).catch((): { externalId: string; meetingUrl?: string } => ({ externalId }));
             externalId = res.externalId ?? externalId;
             meetingUrl = res.meetingUrl;
           }

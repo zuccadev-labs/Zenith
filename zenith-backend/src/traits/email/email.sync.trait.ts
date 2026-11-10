@@ -26,7 +26,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
@@ -94,7 +94,7 @@ const EMAIL_SCHEMA = {
   EmailMessage:   { threadId: "String", channelId: "String", from: "String", to: "Array", subject: "String", bodyText: "String", messageId: "String", direction: "String", sentAt: "Date", isRead: "Boolean" },
 };
 
-export const EmailSyncTrait = createTraitDescriptor({
+export const EmailSyncTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithEmailSync",
   provides: ["email_routes", "emailSync"],
   consumes: ["cloud", "db"],

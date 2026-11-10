@@ -13,7 +13,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { jsonRes, errRes, pathParams, parsePage, now } from "../../core/trait-utils.ts";
 
 /** Mapa de tipo → ícono sugerido para el frontend */
@@ -26,7 +26,7 @@ const TIMELINE_ICON: Record<string, string> = {
   System:     "info",
 };
 
-export const TimelineTrait = createTraitDescriptor({
+export const TimelineTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithTimeline",
   provides: ["timeline_routes", "timeline"],
   consumes: ["db"],

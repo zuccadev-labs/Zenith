@@ -14,7 +14,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, ptr, now } from "../../core/trait-utils.ts";
 
@@ -52,7 +52,7 @@ const WORKSPACE_SCHEMAS = {
   },
 } as const;
 
-export const WorkspaceTrait = createTraitDescriptor({
+export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithWorkspace",
   provides: ["workspace_routes", "workspace"],
   consumes: ["cloud", "db"],

@@ -15,7 +15,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
@@ -92,7 +92,7 @@ function readingTime(bodyText?: string): number {
   return Math.max(1, Math.round((bodyText ?? "").split(/\s+/).length / 200));
 }
 
-export const BlogForumTrait = createTraitDescriptor({
+export const BlogForumTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithBlogForum",
   provides: ["blogforum_routes", "blog", "forum"],
   consumes: ["cloud", "db"],

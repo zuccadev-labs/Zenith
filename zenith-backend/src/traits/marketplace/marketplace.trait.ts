@@ -19,7 +19,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, now } from "../../core/trait-utils.ts";
 
@@ -58,7 +58,7 @@ const INSTALLED = new Map<string, InstalledPlugin>();
 /** Adaptador: handlers registrados por plugins en runtime */
 const PLUGIN_ADAPTERS = new Map<string, { manifest: PluginManifest; adapter: any }>();
 
-export const PluginMarketplaceTrait = createTraitDescriptor({
+export const PluginMarketplaceTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithPluginMarketplace",
   provides: ["marketplace_routes", "pluginRegistry"],
   consumes: ["db"],

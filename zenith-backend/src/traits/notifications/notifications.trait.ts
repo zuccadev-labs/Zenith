@@ -15,7 +15,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
@@ -46,7 +46,7 @@ function pushSSE(userId: string, payload: unknown): void {
   }
 }
 
-export const NotificationsTrait = createTraitDescriptor({
+export const NotificationsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithNotifications",
   provides: ["notifications_routes", "notifications"],
   consumes: ["cloud", "db"],
@@ -160,7 +160,7 @@ export const NotificationsTrait = createTraitDescriptor({
             SSE_CLIENTS.set(userId, list.filter(c => c !== controller));
           },
         });
-        return new Response(stream, {
+        return new Response(stream.pipeThrough(new TextEncoderStream()), {
           headers: {
             "content-type": "text/event-stream",
             "cache-control": "no-cache",

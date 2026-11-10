@@ -11,6 +11,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { Buffer } from "node:buffer";
 
 export const gRPCTrait = createTraitDescriptor({
   name: "ZenithgRPC",
@@ -20,7 +21,8 @@ export const gRPCTrait = createTraitDescriptor({
   state: ["grpcServer", "mtlsConfig"],
   runtimes: ["deno"],
   summary: "gRPC server with mTLS, SPKI pinning (per ADR-002), reflection support, and protocol-buffer codecs for cluster-internal RPC and external clients.",
-  create: (deps: Record<string, unknown>) => {
+  // deno-lint-ignore no-explicit-any
+  create: (deps: Record<string, any>) => {
     const mtls = deps.traits["mtls"];
     const telemetry = deps.traits["telemetry"];
 
@@ -36,7 +38,7 @@ export const gRPCTrait = createTraitDescriptor({
         const server = new grpcModule.Server();
 
         for (const [name, svc] of Object.entries(services)) {
-          const typedSvc = svc as { definition: unknown; implementation: unknown };
+          const typedSvc = svc as { definition: import("@grpc/grpc-js").ServiceDefinition; implementation: import("@grpc/grpc-js").UntypedServiceImplementation };
           server.addService(typedSvc.definition, typedSvc.implementation);
         }
 
@@ -76,19 +78,31 @@ export const gRPCTrait = createTraitDescriptor({
         }
       },
 
-      callService: async (address: string, _serviceName: string, methodName: string, request: unknown) => {
+      /**
+       * Unary call to `/<serviceName>/<methodName>` with a generic grpc-js client. Messages travel as
+       * JSON, so the server side must register the method with JSON (de)serializers, not protobuf.
+       */
+      callService: async (address: string, serviceName: string, methodName: string, request: unknown) => {
         const grpcModule = await import("@grpc/grpc-js");
         const creds = mtls
           ? mtls.createClientCredentials(address)
           : isDevMode
             ? grpcModule.credentials.createInsecure()
             : grpcModule.credentials.createSsl();
-        const client = new (grpcModule as unknown as { makeGenericClientConstructor: (ctor: unknown, name: string) => new (address: string, creds: unknown) => Record<string, (req: unknown, cb: (err: Error | null, res: unknown) => void) => void> })({}, `/${methodName}`)(address, creds);
-        return new Promise((resolve, reject) => {
-          client[methodName](request, (err: Error | null, response: unknown) => {
-            if (err) reject(err); else resolve(response);
+        const client = new grpcModule.Client(address, creds);
+        try {
+          return await new Promise((resolve, reject) => {
+            client.makeUnaryRequest(
+              `/${serviceName}/${methodName}`,
+              (value: unknown) => Buffer.from(JSON.stringify(value)),
+              (bytes: Buffer) => JSON.parse(bytes.toString("utf8")),
+              request,
+              (err: Error | null, response?: unknown) => (err ? reject(err) : resolve(response)),
+            );
           });
-        });
+        } finally {
+          client.close();
+        }
       },
     };
 

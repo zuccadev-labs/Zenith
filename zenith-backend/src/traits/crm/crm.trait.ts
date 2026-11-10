@@ -19,7 +19,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 
 // ─── Schemas CRM (fuente de verdad única, registrados al crear el Trait) ───────
@@ -165,7 +165,7 @@ function errorResponse(err: any): Response {
 
 // ─── Trait Principal ──────────────────────────────────────────────────────────
 
-export const CRMTrait = createTraitDescriptor({
+export const CRMTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCRMTrait",
   provides: ["crm_routes", "crm"],
   consumes: ["acl", "cloud", "db", "telemetry"],

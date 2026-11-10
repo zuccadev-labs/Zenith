@@ -13,7 +13,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, ptr, now } from "../../core/trait-utils.ts";
 
@@ -54,7 +54,7 @@ const VIEWS_SCHEMAS = {
   },
 } as const;
 
-export const ViewsTrait = createTraitDescriptor({
+export const ViewsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithViews",
   provides: ["views_routes", "views"],
   consumes: ["cloud", "db"],
