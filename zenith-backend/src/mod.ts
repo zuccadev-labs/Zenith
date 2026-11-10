@@ -102,6 +102,8 @@ import { _cloudCodeRegistry, ZENITH_ENGINE } from "./core/cloud.ts";
 export { createSurrealAdapter, SurrealClient } from "./adapters/database/surreal.adapter.ts";
 export { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
 export { createOllamaEmbedProvider, createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
+// The namespace cloud code uses: `import { Zen } from "@zuccadev-labs/zenith"` (cloud/main.ts).
+export { Zen } from "./core/cloud.ts";
 export { installERPPlugin } from "./plugins/erp.plugin.ts";
 export { installCRMPlugin } from "./plugins/crm.plugin.ts";
 export { installEcommercePlugin } from "./plugins/ecommerce.plugin.ts";
@@ -845,6 +847,9 @@ if (import.meta.main) {
               body: req.body,
               duplex: "half",
             });
+            // The pipeline reads the client address from here (master key only from localhost,
+            // rate limits per client). Without it every request looked local.
+            (newReq as unknown as { __socketAddr: Deno.NetAddr }).__socketAddr = info.remoteAddr as Deno.NetAddr;
             return await appEntry.httpHandler(newReq);
           } else {
              return new Response(JSON.stringify({ code: 212, error: "Invalid or missing Application ID for this mount path." }), { 

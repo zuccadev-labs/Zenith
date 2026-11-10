@@ -99,6 +99,9 @@ Deno.test({ name: "boot: createZenithApp on MongoDB with engine-auth — deny by
     // The master key, from the local network only.
     assertEquals((await call("GET", "/classes/Anything", { master: true, ip: "127.0.0.1" })).status, 200);
     assertEquals((await call("GET", "/classes/Anything", { master: true })).status, 401, "master key from outside is ignored");
+    // A request whose client address is unknown is not local (it used to count as 0.0.0.0 = local).
+    const blind = await handler!(new Request("http://zenith.test/classes/Anything", { headers: { "X-Parse-Application-Id": appId, "X-Parse-Master-Key": master } }));
+    assertEquals(blind.status, 401, "master key without a known client address");
 
     // Brute force on /login is limited per client address, which a header cannot change.
     let limited = 0;

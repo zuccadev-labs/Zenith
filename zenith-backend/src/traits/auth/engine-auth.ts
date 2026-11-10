@@ -584,7 +584,8 @@ const tokenOf = (req: Request, ctx: Ctx) =>
 
 /** Parse Server-compatible routes, all backed by `facade()` (resolved per request: it is configured after composition). */
 export function userRoutes(facade: () => EngineAuthFacade) {
-  const ip = (ctx: Ctx) => ctx.clientIp ?? "0.0.0.0";
+  // Only a real address is forwarded to engine-auth (the pipeline says "unknown" when it has none).
+  const ip = (ctx: Ctx) => (ctx.clientIp && /^[0-9A-Fa-f:.]+$/.test(ctx.clientIp) ? ctx.clientIp : "0.0.0.0");
   return [
     {
       access: "public" as const,
