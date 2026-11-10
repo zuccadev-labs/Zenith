@@ -8236,7 +8236,7 @@
           "response": []
         },
         {
-          "name": "Create an API key; the plaintext is returned once",
+          "name": "Create an API key; the plaintext is returned once. Scope * needs allowedIps and expiresIn of at most 90 days (ADR-015)",
           "request": {
             "method": "POST",
             "header": [

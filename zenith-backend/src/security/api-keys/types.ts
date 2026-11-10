@@ -65,6 +65,11 @@ export interface ApiKeyRecord {
   rotatedFrom?: string;
   /** Cuándo deja de ser válida la key rotada (grace period) */
   rotationExpiresAt?: string;
+  /**
+   * Access policy: IPv4/IPv6 addresses or CIDR ranges the key may be used from (policy.ts, ADR-015).
+   * Absent or empty = any address, except for unrestricted keys (scope `*`), which require it.
+   */
+  allowedIps?: string[];
   /** Rate limit por key (además del global) */
   rateLimit: {
     /** requests por minuto; null = sin límite específico */
@@ -87,7 +92,9 @@ export type ApiKeyInvalidReason =
   | "wrong_secret"        // id existe pero el secret no coincide
   | "revoked"             // key revocada
   | "expired"             // expirada
-  | "rotated_grace_over"; // periodo de gracia de rotación terminado
+  | "rotated_grace_over"  // periodo de gracia de rotación terminado
+  | "ip_not_allowed"      // la IP del cliente está fuera de la política de la key
+  | "policy_missing";     // key con scope * sin lista de IP (dato antiguo): se rechaza
 
 /**
  * Resultado de generar una key nueva. El `plaintext` solo se devuelve UNA VEZ.
@@ -115,5 +122,7 @@ export interface ApiKeyCreateOptions {
   expiresIn?: string;
   /** Rate limit requests/min. Default: sk=1000, pk=∞, rk=60 */
   requestsPerMinute?: number;
+  /** Access policy (policy.ts). Required, with an expiry, for scope `*`. */
+  allowedIps?: string[];
   metadata?: Record<string, unknown>;
 }

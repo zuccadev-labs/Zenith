@@ -100,6 +100,8 @@ export async function bootstrapApiKey(
     name: `${opts.appName ?? opts.appId} - bootstrap (created on first boot)`,
     createdBy: "system:bootstrap",
     expiresIn: "24h",  // corta por seguridad — el operador debe rotarla
+    // Printed to stdout, so it may end up in logs: usable only from this machine, like the master key.
+    allowedIps: ["127.0.0.1", "::1"],
     metadata: {
       bootstrap: true,
       createdAt: new Date().toISOString(),

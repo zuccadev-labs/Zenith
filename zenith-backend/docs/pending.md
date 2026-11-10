@@ -85,9 +85,14 @@ La OpenAPI documenta el scope en la `security` de cada operación. Una sesión c
 limitada por la key. Pruebas: `tests/integration/api-key-scopes.test.ts` (verificada por mutación) y
 `core-router`. No había keys emitidas en producción, así que el cambio no afectó a ningún cliente.
 
-Queda por decidir: una key con scope `*` cuenta como master y, a diferencia de la master key, vale desde
-cualquier IP. Encaja con el modelo de Stripe, pero conviene limitar quién puede crearlas (hoy, quien tenga la
-master key) o exigir una lista de IP permitidas.
+Las keys con scope `*` tienen su propia política (ADR-015):
+- solo `sk_`;
+- `allowedIps` obligatoria;
+- caducan en 90 días como máximo;
+- no pueden gestionar keys.
+
+Cualquier key puede llevar `allowedIps`. Pendiente, como en Stripe: políticas por ASN o país, aprobación de
+acciones sensibles para keys de agentes y avisos activos de los intentos bloqueados.
 
 ### Rutas `express` de cloudcode que nadie sirve
 `CloudCodeTrait.express.get/post/put/delete` guarda las rutas en un mapa que ningún componente lee, así que nunca se

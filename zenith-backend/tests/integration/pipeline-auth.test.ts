@@ -117,7 +117,7 @@ Deno.test("integration - API key válida via X-API-Key (Parse-Server compat)", a
   assertExists(ctx.apiKey);
 });
 
-Deno.test("integration - API key con scope * autentica como super admin", async () => {
+Deno.test("integration - API key con scope * autentica como super admin, solo desde su lista de IP (ADR-015)", async () => {
   const rig = await newRig();
   const { plaintext } = await rig.manager.create({
     appId: "app1",
@@ -126,6 +126,8 @@ Deno.test("integration - API key con scope * autentica como super admin", async 
     scopes: ["*"],
     name: "Super admin",
     createdBy: "test",
+    allowedIps: ["127.0.0.1"],
+    expiresIn: "30d",
   });
 
   const step = extractContext({
@@ -139,6 +141,10 @@ Deno.test("integration - API key con scope * autentica como super admin", async 
   const ctx = await step(req, PIPELINE_BASE_CTX);
   assertExists(ctx.apiKey);
   assertEquals(ctx.apiKey.scopes, ["*"]);
+
+  const outside = await step(makeRequest({ headers: { "authorization": `Bearer ${plaintext}` }, socketIp: "203.0.113.9" }), PIPELINE_BASE_CTX);
+  assertEquals(outside.apiKey, undefined, "outside its allowlist the key is not a credential");
+  assertEquals(outside.apiKeyRejected, "ip_not_allowed");
 });
 
 // ─── Tests: API key inválida → master key fallback ─────────────────────────

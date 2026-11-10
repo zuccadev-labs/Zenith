@@ -121,7 +121,7 @@ export async function extractAndVerifyKey(
   }
 
   const clientIp = opts.resolveClientIp?.(headers);
-  const result = await manager.verify(plaintext);
+  const result = await manager.verify(plaintext, clientIp);
 
   if (!result.valid) {
     if (opts.audit !== false) {
