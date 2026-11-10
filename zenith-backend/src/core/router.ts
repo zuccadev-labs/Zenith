@@ -23,7 +23,7 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD";
  */
 import type { RouteAccess, RouteScope } from "./route-collection.ts";
 import { missingKeyScope } from "../security/api-keys/scopes.ts";
-import { collectTraitRoutes, HEALTH_ROUTE } from "./route-collection.ts";
+import { collectTraitRoutes, HEALTH_ROUTE, hasTraitHealthRoute } from "./route-collection.ts";
 export type { RouteAccess, RouteScope };
 
 export interface RouteDefinition {
@@ -174,12 +174,13 @@ export const healthHandler: RouteHandler = async (_req, _ctx) => {
 export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
   const router = new ZenithRouter();
   
-  // Endpoint de salud base
-  router.on("GET", HEALTH_ROUTE.path, healthHandler, "public");
-
   // Rutas de los traits: la misma lista que documenta OpenAPI (route-collection.ts).
+  const traitRoutes = collectTraitRoutes(deps.traits || deps);
+  // The minimal /health only when no trait serves one (the observability trait's has checks);
+  // before, both were mounted and the router always answered with the minimal one.
+  if (!hasTraitHealthRoute(traitRoutes)) router.on("GET", HEALTH_ROUTE.path, healthHandler, "public");
   const mounted = new Map<string, number>();
-  for (const { provider, route } of collectTraitRoutes(deps.traits || deps)) {
+  for (const { provider, route } of traitRoutes) {
     if (typeof route.handler !== "function") continue;
     router.on(route.method as HttpMethod | "*", route.path, route.handler as RouteHandler, route.access ?? "master", route.scope);
     mounted.set(provider, (mounted.get(provider) ?? 0) + 1);

@@ -9,7 +9,7 @@
  */
 
 import { generateOpenApiFromState } from "./openapi-generator.ts";
-import { HEALTH_ROUTE } from "./route-collection.ts";
+import { collectTraitRoutes, HEALTH_ROUTE, hasTraitHealthRoute } from "./route-collection.ts";
 import { apiKeyRouteSpecs } from "../security/api-keys/routes.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -25,9 +25,12 @@ export interface OpenApiOptions {
   extraRoutes?: Array<{ method: string; path: string; [key: string]: unknown }>;
 }
 
-/** The routes the server mounts outside the traits: `/health` and `/zen/api-keys`. */
-export function coreRoutes(): Array<{ method: string; path: string; [key: string]: unknown }> {
-  return [HEALTH_ROUTE, ...apiKeyRouteSpecs()];
+/**
+ * The routes the server mounts outside the traits: `/zen/api-keys`, and the minimal `/health`
+ * when no trait serves one (as `buildDynamicRouter` decides).
+ */
+export function coreRoutes(engine: Record<string, unknown> = {}): Array<{ method: string; path: string; [key: string]: unknown }> {
+  return [...(hasTraitHealthRoute(collectTraitRoutes(engine)) ? [] : [HEALTH_ROUTE]), ...apiKeyRouteSpecs()];
 }
 
 interface RouteEntry {
@@ -438,7 +441,7 @@ export function generateOpenApiSchema(
     version,
     serverURL,
     appId,
-    extraRoutes: options.extraRoutes ?? coreRoutes(),
+    extraRoutes: options.extraRoutes ?? coreRoutes(engine),
     additionalTagDescriptions: {
       ...BUILTIN_ZENITH_TAGS,
       ...options.additionalTagDescriptions,

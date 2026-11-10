@@ -33,6 +33,9 @@ function check(features: Record<string, boolean>) {
   for (const r of apiKeyRouteSpecs()) router.on(r.method as "GET", r.path, () => Promise.resolve(new Response()), r.access);
   // "*" matches every method; OpenAPI cannot say that, so it is not documented.
   const mounted = router.list().filter((r) => r.method !== "*");
+  // No route mounted twice: the router answers with the first one, so the second is dead code.
+  const keys = mounted.map((r) => `${r.method} ${r.path}`);
+  assertEquals(keys.filter((k, i) => keys.indexOf(k) !== i), [], "routes mounted twice");
 
   const spec = generateOpenApiSchema(engine) as { paths: Record<string, Record<string, { security?: unknown[] }>> };
   const documented = new Set(
