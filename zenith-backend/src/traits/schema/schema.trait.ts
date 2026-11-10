@@ -20,6 +20,9 @@ export const SchemaManagementTrait = createTraitDescriptor({
   summary: "Parse Server-compatible schema management: add/update/delete columns, set CLP (class-level permissions), validate objects against schema, system class protection.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
+    // Definitions live in _SCHEMA; every instance re-reads them at most every 30 s.
+    const SCHEMA_TTL_MS = 30_000;
+    const loaded = new Map<string, { at: number; schema: any }>();
     const traitApi: any = {
       schemas: new Map<string, any>(),
       systemClasses: ["_User", "_Role", "_Session", "_Installation", "_Product", "_Audience", "_AudienceMembership", "_AdUnit", "_group", "_IdempotencyRequest", "_JobStatus"],
@@ -42,6 +45,7 @@ export const SchemaManagementTrait = createTraitDescriptor({
         };
         traitApi.schemas.set(className, schemaRecord);
         await db.upsert("_SCHEMA", { className }, schemaRecord);
+        loaded.delete(className);
         return schemaRecord;
       },
 
@@ -51,6 +55,7 @@ export const SchemaManagementTrait = createTraitDescriptor({
         schema.fields[fieldName] = { type: fieldType, ...options };
         schema.updatedAt = new Date().toISOString();
         await db.upsert("_SCHEMA", { className }, schema);
+        loaded.delete(className);
         return schema;
       },
 
@@ -60,6 +65,7 @@ export const SchemaManagementTrait = createTraitDescriptor({
         delete schema.fields[fieldName];
         schema.updatedAt = new Date().toISOString();
         await db.upsert("_SCHEMA", { className }, schema);
+        loaded.delete(className);
         return schema;
       },
 
@@ -69,6 +75,7 @@ export const SchemaManagementTrait = createTraitDescriptor({
         schema.clp = { ...schema.clp, ...clp };
         schema.updatedAt = new Date().toISOString();
         await db.upsert("_SCHEMA", { className }, schema);
+        loaded.delete(className);
         return schema;
       },
 
@@ -87,18 +94,32 @@ export const SchemaManagementTrait = createTraitDescriptor({
 
       getSchema: (className: string) => traitApi.schemas.get(className),
 
+      /** The definition of `className` (this instance's, else the one in _SCHEMA), or `null`. */
+      resolve: async (className: string) => {
+        const hit = loaded.get(className);
+        if (hit && Date.now() - hit.at < SCHEMA_TTL_MS) return hit.schema;
+        const stored = await db.findOne("_SCHEMA", { className });
+        const schema = stored ?? traitApi.schemas.get(className) ?? null;
+        if (stored) traitApi.schemas.set(className, stored);
+        loaded.set(className, { at: Date.now(), schema });
+        return schema;
+      },
+
       listSchemas: () => Array.from(traitApi.schemas.values()),
 
-      checkCLP: (className: string, operation: string, userId: string | null, master: boolean) => {
+      /** Parse CLP check. `roles`: the caller's role names (without the `role:` prefix). */
+      checkCLP: (className: string, operation: string, userId: string | null, master: boolean, roles: string[] = []) => {
         if (master) return true;
         const schema = traitApi.schemas.get(className);
         if (!schema) return true;
         const clpForOp = schema.clp?.[operation];
         if (!clpForOp) return true;
         if (clpForOp["*"] === true) return true;
-        if (userId && clpForOp[userId] === true) return true;
-        if (clpForOp["role:admin"] === true && userId) return true;
-        return false;
+        if (!userId) return false;
+        if (clpForOp.requiresAuthentication === true) return true;
+        if (clpForOp[userId] === true) return true;
+        // Before: any signed-in user passed a rule naming "role:admin".
+        return roles.some((r) => clpForOp[`role:${r}`] === true);
       },
     };
 

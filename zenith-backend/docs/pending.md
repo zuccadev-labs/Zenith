@@ -28,21 +28,27 @@ Cada uno tiene su propio registro de clases. Conviene unificarlos para que las c
 ## Autenticación (engine-auth, ADR-012)
 
 ### Abrir las rutas de negocio a usuarios (ADR-013)
-Desde que se deniega por defecto, solo son públicas la salud, la documentación y las rutas Parse de usuarios. Todo
-lo demás exige la master key. Para abrir cada trait con `access: "user"` hay que revisar:
-- que el handler compruebe los permisos de cada objeto;
-- que lea la identidad de `ctx.auth` y `ctx.masterKey`. El CRUD genérico usa `ctx.user` y `ctx.master`, que el
-  pipeline no rellena;
-- que la lista de una clase filtre por ACL. Hoy `listClass` devuelve todo.
+Desde que se deniega por defecto, solo son públicas la salud, la documentación y las rutas Parse de usuarios.
+**El CRUD `/classes` y `/batch` ya están abiertos a usuarios** (ADR-014). Todo lo demás sigue exigiendo la master
+key hasta revisarlo trait por trait:
+- **Ya resuelto en el router:** `ctx.user` y `ctx.master` llegan a todos los handlers (antes nadie los rellenaba).
+- **Pendiente en cada handler:**
+  - que compruebe los permisos de cada objeto;
+  - que no lea datos internos sin ACL.
 
-Prioridad para los clientes Parse: el CRUD de `/classes`, las funciones Cloud (`/functions/*`) y LiveQuery.
+Siguientes, por prioridad para los clientes Parse: las funciones Cloud (`/functions/*`) y LiveQuery. LiveQuery
+debe filtrar cada evento por ACL, como ya hace el CRUD.
 
 No deben abrirse nunca a usuarios: `/shell/*`, `/runner/*`, `/secrets/*`, `/edge/deploy`, `/ratelimit/*`,
 `/schemas` y `/migrations`.
 
-### `_Session` solo con master key
-Cuando el CRUD genérico funcione, `/classes/_Session` debe quedar reservado a la master key. Contiene refresh
-tokens sellados, que son inútiles sin `sessionKey`, pero no deben salir del servidor.
+### El adaptador de Mongo y `$inQuery`
+`$inQuery` ejecuta su subconsulta sin ACL ni CLP sobre cualquier colección. El CRUD lo rechaza a los usuarios. Si
+se quiere ofrecer, el adaptador tiene que pasar la subconsulta por las mismas comprobaciones.
+
+### `updatedAt` no se actualiza
+El adaptador de Mongo descarta `updatedAt` en `update`, así que conserva el valor de la creación. Parse lo
+actualiza en cada escritura.
 
 ### Funciones que esperan a engine-auth
 - recuperación de contraseña y verificación de correo: hoy responden 501;
@@ -52,15 +58,13 @@ tokens sellados, que son inútiles sin `sessionKey`, pero no deben salir del ser
 Las sesiones necesitan `updateIf` para el lease del refresh. Sobre Scylla, configurar `engineAuth` hace fallar el
 arranque con un error claro.
 
-### `deno.lock` fuera del repositorio
-`.gitignore` excluye `deno.lock`, así que cada instalación puede resolver versiones distintas dentro de los rangos
-`^`. Para una aplicación, lo habitual es versionar el lockfile.
-
 ### Antigüedad mínima de las dependencias
 `deno.json` mantiene la protección de Deno (no instala versiones con menos de 24 h) para todo lo de terceros y
-exime solo nuestros paquetes, `@zuccadev-labs/barrits` y `@zuccadev-labs/zutool-ffi`. `@anthropic-ai/sdk@1.7.0`
-salió el 2026-11-09 a las 18:56 UTC: hasta el 2026-11-10 a las 18:57 UTC, `deno install` y `docker build` fallan
-con "blocked by the minimum dependency age policy". Después funcionan solos.
+exime solo nuestros paquetes, `@zuccadev-labs/barrits` y `@zuccadev-labs/zutool-ffi`.
+
+`deno.lock` está versionado desde el 2026-11-10. La imagen Docker instala con `deno install --frozen`, así que se
+construye con las versiones exactas del lock y sus hashes, sin volver a resolverlas. La protección de 24 h solo se
+aplica al añadir o actualizar una dependencia.
 
 ## Dependencias (2026-11-09)
 

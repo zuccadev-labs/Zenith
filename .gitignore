@@ -71,7 +71,7 @@ ehthumbs.db
 # ============================================================
 # Deno
 # ============================================================
-**/deno.lock
+# deno.lock se versiona: fija versiones exactas y hashes (builds reproducibles, --frozen en CI y Docker).
 **/_build/
 # Deno KV local database
 **/kv.sqlite
