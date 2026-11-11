@@ -1,0 +1,82 @@
+# Registro de imágenes propio (Zot)
+
+> Vigente a 2026-11-11. Probado en local con Zot 2.1.23 y la imagen real de Zenith: push, firma, provenance SLSA y
+> SBOM CycloneDX con cosign, y verificación. Pendiente de desplegar en el servidor (ver «Desplegar»).
+
+## Por qué
+
+GHCR da 500 MB a los repos privados del plan gratuito, y las atestaciones de GitHub exigen Enterprise.
+[Zot](https://zotregistry.dev) es un registro OCI 1.1 de código abierto (Apache-2.0). Guarda las firmas y
+atestaciones de cosign como *referrers* de la imagen, sin etiquetas aparte, y es un binario único con poca memoria.
+La imagen de Zenith comprimida ocupa unos 97 MB.
+
+## Cómo está montado
+
+- **Configuración:** `infra/registry/zot-config.json`.
+- **Acceso:** autenticación htpasswd con bcrypt.
+  - `ci` puede leer y escribir (lo usa el CI);
+  - `reader` solo lee (despliegues y personas);
+  - el acceso anónimo está cerrado (401).
+- **Retención:** las últimas 20 etiquetas por repositorio. Se borran las imágenes sin etiqueta, pero nunca las firmas
+  ni las atestaciones de una imagen que se conserva. Hay scrub diario de integridad.
+- **Contenedor:**
+  - `--user 65532`, `--read-only`, `--cap-drop ALL`, `no-new-privileges`;
+  - 384 MB de memoria;
+  - solo en `127.0.0.1`, detrás de Caddy, que pone el TLS.
+
+## Desplegar
+
+1. Crea el registro DNS A del dominio hacia el servidor, por ejemplo `registry.vemar.app`.
+2. Ejecuta desde la raíz del repo:
+
+```bash
+infra/registry/deploy.sh root@209.38.1.195 registry.vemar.app
+```
+
+El script es aditivo:
+
+- **en el servidor:**
+  - `/etc/zot` y `/var/lib/zot`;
+  - el contenedor `zenith-zot`;
+  - un bloque en el Caddyfile, con copia de seguridad previa y `caddy validate`;
+- **en GitHub:** la variable `ZENITH_REGISTRY` y los secretos `ZENITH_REGISTRY_USER` y `ZENITH_REGISTRY_PASSWORD`.
+
+Las contraseñas se generan en tu máquina y al servidor solo llegan los hashes. Al final muestra una vez la contraseña
+de `reader`.
+
+Con la clave de cosign configurada (`supply-chain.md`), cada CI de `main` hace esto:
+
+1. publica `zenith/zenith-backend:<sha>`;
+2. lo firma;
+3. le adjunta la provenance SLSA y el SBOM;
+4. lo verifica;
+5. deja la referencia por digest en el artefacto `zenith-backend.image-ref`.
+
+## Usarlo en Kubernetes
+
+```yaml
+# values-prod.yaml
+image:
+  registry: registry.vemar.app
+  repository: zenith/zenith-backend
+  tag: "<sha>"
+  digest: "sha256:…"   # el de zenith-backend.image-ref: fija exactamente la imagen firmada
+imagePullSecrets:
+  - name: zenith-registry   # kubectl create secret docker-registry zenith-registry --docker-server=… --docker-username=reader --docker-password=…
+```
+
+## Rollback
+
+En el servidor:
+
+1. restaura la copia `Caddyfile.bak-zenith-registry-*`, ejecuta `caddy validate` y `systemctl reload caddy`;
+2. `docker rm -f zenith-zot`;
+3. `rm -r /etc/zot /var/lib/zot`.
+
+En GitHub, borra la variable y los secretos:
+
+```bash
+gh variable delete ZENITH_REGISTRY
+gh secret delete ZENITH_REGISTRY_USER
+gh secret delete ZENITH_REGISTRY_PASSWORD
+```

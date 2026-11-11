@@ -287,13 +287,26 @@ MongoDB):
 (el reseteo de contraseña aún responde 501). Se registran, pero ningún trait los lee. Ahora registrarlos avisa una
 vez en el log en vez de fallar en silencio.
 
+### El chart probado en Kubernetes real (2026-11-11)
+Desplegado en kind con Calico: el pod llega a Ready, pasa `helm test` y la NetworkPolicy se aplica de verdad en
+entrada y salida. Fallos encontrados y corregidos (detalle en `docs/testing.md`):
+- puerto fijo en la app;
+- `/health` inaccesible para las sondas;
+- sin volúmenes escribibles y UID incorrecto;
+- NetworkPolicy sin salida a bases de datos externas;
+- `helm test` siempre fallido.
+
+**Pendiente:** desplegar `values-prod.yaml` completo, con ingress-nginx, Vault y cert-manager, en un clúster de
+prueba.
+
 ## Futuro (requiere plan de pago o infraestructura)
 Detalle en `docs/architecture/supply-chain.md`:
-- **CodeQL:** su licencia no permite usarlo en repos privados sin GitHub Advanced Security. Lo cubre Semgrep.
+- **CodeQL:** su licencia no permite usarlo en repos privados sin GitHub Advanced Security. Lo cubren Semgrep,
+  Trivy, Checkov, hadolint, zizmor, actionlint, OSV-Scanner y `deno audit` (todos libres, en el CI).
 - **Protección de `main` y rulesets:** no existen para repos privados en el plan gratuito de organizaciones.
-- **CI en cada push y PR:** hoy solo arranca a mano (`gh workflow run ci.yml`). Lo revisa un administrador de la
-  organización en Settings → Actions.
-- **Firma de la imagen en un registro y atestaciones de procedencia:** hace falta un registro (GHCR da 500 MB a los
-  privados gratuitos y la imagen pesa unos 490 MB) y GitHub Enterprise para las atestaciones de repos privados.
-  Mientras tanto se firman el SBOM y el ID de la imagen con cosign y clave propia.
+- **CI en cada push y PR:** hoy solo arranca a mano. `tools/ship.sh` hace push, lanza el CI de ese commit y espera
+  el veredicto. La causa la puede ver un administrador de la organización en Settings → Actions.
+- **Atestaciones nativas de GitHub:** exigen Enterprise en repos privados. Cubiertas sin pagar (2026-11-11) con
+  provenance SLSA v1 firmada con cosign, y la imagen se publica, firma y atesta en un registro Zot propio
+  (`docs/architecture/registry.md`; falta desplegarlo en el servidor con `infra/registry/deploy.sh`).
 

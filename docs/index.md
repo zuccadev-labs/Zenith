@@ -35,6 +35,7 @@ Los otros lenguajes de `sdk/` (Android, Apple, Dart, Flutter, .NET, PHP y Swift)
 | [webhooks-and-hooks.md](architecture/webhooks-and-hooks.md) | Webhooks salientes (verificación en el receptor) y Cloud Code Hooks de Parse |
 | [supply-chain.md](architecture/supply-chain.md) | Secretos, SAST, Trivy, SBOM y firma con cosign; lo que queda para un plan de pago |
 | [metrics.md](architecture/metrics.md) | Listener de métricas, catálogo y etiquetas, alertas canónicas y dashboard; cómo se probó |
+| [registry.md](architecture/registry.md) | Registro de imágenes propio (Zot): firmas y atestaciones cosign, despliegue y rollback |
 | [zenith-backend/docs/pending.md](../zenith-backend/docs/pending.md) | **Lo que falta o falla, con prioridad** |
 | [zenith-backend/docs/errors.md](../zenith-backend/docs/errors.md) | Códigos de error |
 | [lab-infra/docs/recrear-desde-cero.md](../lab-infra/docs/recrear-desde-cero.md) | Recrear el laboratorio |
