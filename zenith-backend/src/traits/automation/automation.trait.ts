@@ -28,6 +28,7 @@
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
+import { safeFetch } from "../../security/outbound-http.ts";
 import {
   jsonRes, errRes, NO_CONTENT, pathParams, queryParams,
   parsePage, sortResults, ptr, now,
@@ -174,14 +175,22 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
     return { queued: true };
   });
 
+  // Same outbound client as the webhooks module: https only, no private or metadata destinations,
+  // no redirects, 15 s timeout (security/outbound-http.ts). Signed webhooks with retries: subscribe an
+  // endpoint in /zen/webhooks instead.
   ACTION_REGISTRY.set("send_webhook", async ({ url, payload, method }: any, ctx) => {
     const body = JSON.stringify({ ...payload, triggerEvent: ctx.triggerEvent, timestamp: now() });
-    await fetch(url, {
-      method: method ?? "POST",
-      headers: { "content-type": "application/json" },
-      body,
-    }).catch(() => {});
-    return { sent: true };
+    try {
+      const res = await safeFetch(String(url), {
+        method: method === "PUT" || method === "PATCH" ? method : "POST",
+        headers: { "content-type": "application/json" },
+        body,
+      });
+      await res.body?.cancel();
+      return { sent: res.ok, status: res.status };
+    } catch (e) {
+      return { sent: false, error: (e as Error).message };
+    }
   });
 
   ACTION_REGISTRY.set("run_agent", async ({ agentId, inputTemplate }: any, ctx) => {

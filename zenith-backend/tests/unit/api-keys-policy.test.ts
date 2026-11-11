@@ -60,7 +60,9 @@ Deno.test("policy: the manager enforces it on create, verify and rotate", async 
   assertEquals(noIp.valid ? "valid" : noIp.reason, "ip_not_allowed", "an unknown client address is refused");
 
   // A wrong secret is reported as such, without revealing the policy.
-  const wrong = await manager.verify(full.plaintext.slice(0, -2) + "zz", "203.0.113.9");
+  // Always a different last character: appending "zz" was the real key when the secret ended in "zz" (1 in 3844).
+  const last = full.plaintext.slice(-1);
+  const wrong = await manager.verify(full.plaintext.slice(0, -1) + (last === "a" ? "b" : "a"), "203.0.113.9");
   assertEquals(wrong.valid ? "valid" : wrong.reason, "wrong_secret");
 
   // A scoped key with an allowlist is held to it too; without one it works from anywhere.

@@ -17,6 +17,7 @@ import type { FeatureEntry } from "../core/feature-catalog.ts";
 import type { ZenithConfig } from "../core/types.ts";
 import { ServerTrait } from "../core/server.trait.ts";
 import { DbTrait } from "./db/db.trait.ts";
+import { EventBusTrait } from "./events/event-bus.trait.ts";
 import { DatabaseMongoTrait } from "../adapters/database/mongo.adapter.ts";
 import { DatabaseScyllaTrait } from "../adapters/database/scylla.adapter.ts";
 import { StorageRustfsTrait } from "../adapters/storage/rustfs.adapter.ts";
@@ -38,7 +39,6 @@ import { MigrationTrait } from "./migration/migration.trait.ts";
 import { AITrait } from "./ai/ai.trait.ts";
 import { RunnerTrait } from "./runner/runner.trait.ts";
 import { ShellApiTrait } from "./runner/shell.trait.ts";
-import { WebhookTrait } from "./cloud/webhook.trait.ts";
 import { gRPCTrait } from "./cluster/grpc.trait.ts";
 import { ZeroMQTrait } from "./cluster/zeromq.trait.ts";
 import { BillingTrait } from "./billing/billing.trait.ts";
@@ -75,6 +75,7 @@ import { PluginMarketplaceTrait } from "./marketplace/marketplace.trait.ts";
 import { NotificationsTrait } from "./notifications/notifications.trait.ts";
 import { FavoritesTagsTrait } from "./favtags/favtags.trait.ts";
 import { WebhookManagerTrait } from "./webhooks/webhook.manager.trait.ts";
+import { CloudHooksTrait } from "./cloud/hooks.trait.ts";
 import { CSVTrait } from "./csv/csv.trait.ts";
 import { EmailSyncTrait } from "./email/email.sync.trait.ts";
 import { CalendarSyncTrait } from "./calendar/calendar.sync.trait.ts";
@@ -91,6 +92,7 @@ const databaseAdapter = (config: ZenithConfig) => {
 export const FEATURE_CATALOG: readonly FeatureEntry[] = [
   // ── Núcleo ──────────────────────────────────────────────────────────────────
   { id: "db", group: "core", required: true, summary: "Capa de datos común (find/create/update/delete)", traits: [DbTrait] },
+  { id: "eventBus", group: "core", required: true, summary: "Bus de eventos de dominio en proceso (on/emit)", traits: [EventBusTrait] },
   { id: "objectStorage", group: "core", required: true, summary: "Almacenamiento de objetos S3 (RustFS)", traits: [StorageRustfsTrait] },
   { id: "crypto", group: "security", required: true, summary: "Argon2id, HMAC y AES-GCM", traits: [CryptoTrait] },
   { id: "schema", group: "core", required: true, summary: "Esquemas de clases (Parse /schemas)", traits: [SchemaManagementTrait] },
@@ -110,7 +112,7 @@ export const FEATURE_CATALOG: readonly FeatureEntry[] = [
   { id: "search.opensearch", feature: "ecommerce", group: "data", default: false, summary: "Búsqueda de catálogo (OpenSearch)", traits: [OpenSearchTrait] },
   { id: "segmentation", feature: "gdpr", group: "security", default: false, summary: "Segmentación, derecho al olvido y portabilidad", traits: [SegmentationTrait] },
   { id: "edge", group: "platform", default: false, summary: "Ejecución WebAssembly en el borde", traits: [EdgeTrait] },
-  { id: "eventStreaming", feature: "events", group: "integrations", default: false, summary: "Event sourcing con Kafka", traits: [EventStreamingTrait] },
+  { id: "eventStreaming", feature: "events", group: "integrations", default: false, summary: "Registro de eventos (_Event) y reproducción", traits: [EventStreamingTrait] },
   { id: "web3", group: "integrations", default: false, summary: "Login con wallet e IPFS", traits: [Web3Trait, IPFSStorageTrait] },
   { id: "federation", group: "platform", default: false, summary: "Replicación multirregión (CRDT)", traits: [FederationTrait] },
 
@@ -120,7 +122,6 @@ export const FEATURE_CATALOG: readonly FeatureEntry[] = [
   { id: "graphql", group: "transport", default: true, when: on("graphql"), summary: "API GraphQL", traits: [GraphQLTrait] },
   { id: "ai", group: "ai", default: false, when: on("ai"), summary: "Capa de IA (LLM y tokens)", traits: [AITrait] },
   { id: "runner", group: "platform", default: true, when: on("runner"), summary: "Runner y API de shell", traits: [RunnerTrait, ShellApiTrait] },
-  { id: "webhooks.legacy", group: "integrations", default: true, when: on("http"), summary: "Webhooks del proceso (en retirada: ver webhooks)", traits: [WebhookTrait] },
   { id: "grpc", group: "transport", default: true, when: on("grpc"), summary: "Transporte gRPC entre nodos", traits: [gRPCTrait] },
   { id: "zeromq", group: "transport", default: true, when: on("zeromq"), summary: "Transporte ZeroMQ entre nodos", traits: [ZeroMQTrait] },
   { id: "e2eeMedia", feature: "e2ee_media", group: "security", default: false, summary: "Claves E2EE y señalización SFrame", traits: [E2EEKeysTrait, SFrameSignalingTrait] },
@@ -155,7 +156,8 @@ export const FEATURE_CATALOG: readonly FeatureEntry[] = [
   { id: "marketplace", group: "platform", default: true, summary: "Marketplace de plugins", traits: [PluginMarketplaceTrait] },
   { id: "notifications", group: "collaboration", default: true, summary: "Notificaciones in-app (SSE)", traits: [NotificationsTrait] },
   { id: "favoritesTags", group: "collaboration", default: true, summary: "Favoritos y etiquetas", traits: [FavoritesTagsTrait] },
-  { id: "webhooks", group: "integrations", default: true, summary: "Webhooks salientes por evento", traits: [WebhookManagerTrait] },
+  { id: "webhooks", group: "integrations", default: true, summary: "Webhooks salientes (Standard Webhooks) con outbox, reintentos y rotación", traits: [WebhookManagerTrait] },
+  { id: "cloudHooks", group: "integrations", default: true, summary: "Cloud Code Hooks de Parse Server (/hooks): funciones y triggers servidos por URLs externas", traits: [CloudHooksTrait] },
   { id: "csv", group: "data", default: true, summary: "Importación y exportación CSV", traits: [CSVTrait] },
   { id: "emailSync", group: "integrations", default: true, summary: "Sincronización de correo (IMAP/SMTP)", traits: [EmailSyncTrait] },
   { id: "calendarSync", group: "integrations", default: true, summary: "Sincronización de calendario", traits: [CalendarSyncTrait] },

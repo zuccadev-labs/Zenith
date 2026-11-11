@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { FeatureEntry } from "../../src/core/feature-catalog.ts";
-import { FEATURE_STATE_CLASS, RuntimeFeatures, runtimeFeaturesTrait } from "../../src/core/runtime-features.ts";
+import { FEATURE_STATE_CLASS, type RuntimeFeatures, runtimeFeaturesTrait } from "../../src/core/runtime-features.ts";
 import { composeZenith } from "../../src/core/compose.ts";
 import { buildDynamicRouter } from "../../src/core/router.ts";
 

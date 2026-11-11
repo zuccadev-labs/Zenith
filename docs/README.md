@@ -40,6 +40,7 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [Forum](./api/Forum.md) (7 endpoints)
 - [GRAPHQL](./api/GRAPHQL.md) (2 endpoints)
 - [HR](./api/HR.md) (2 endpoints)
+- [Hooks](./api/Hooks.md) (8 endpoints)
 - [Inventory](./api/Inventory.md) (1 endpoints)
 - [Mediastream](./api/Mediastream.md) (3 endpoints)
 - [Meta](./api/Meta.md) (2 endpoints)
@@ -59,8 +60,7 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [User](./api/User.md) (2 endpoints)
 - [User Management](./api/User_Management.md) (5 endpoints)
 - [Views](./api/Views.md) (5 endpoints)
-- [Webhook](./api/Webhook.md) (4 endpoints)
-- [Webhooks](./api/Webhooks.md) (9 endpoints)
+- [Webhooks](./api/Webhooks.md) (13 endpoints)
 - [Workspace](./api/Workspace.md) (6 endpoints)
 
 ## Quick Start

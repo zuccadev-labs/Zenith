@@ -864,90 +864,10 @@
       ]
     },
     {
-      "name": "Webhook",
+      "name": "Hooks",
       "item": [
         {
-          "name": "Manually trigger a webhook delivery (test)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/hooks/trigger",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "hooks",
-                "trigger"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Register a new webhook endpoint",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/webhooks/endpoints",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "webhooks",
-                "endpoints"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List active webhook endpoints",
+          "name": "List function hooks (Parse Server)",
           "request": {
             "method": "GET",
             "header": [
@@ -965,20 +885,20 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/webhooks/endpoints",
+              "raw": "{{baseUrl}}/hooks/functions",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "webhooks",
-                "endpoints"
+                "hooks",
+                "functions"
               ]
             }
           },
           "response": []
         },
         {
-          "name": "Rotate webhook signing key",
+          "name": "Create a function hook: { functionName, url }",
           "request": {
             "method": "POST",
             "header": [
@@ -1005,13 +925,232 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/webhooks/rotate-key",
+              "raw": "{{baseUrl}}/hooks/functions",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "webhooks",
-                "rotate-key"
+                "hooks",
+                "functions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get a function hook",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/hooks/functions/{functionName}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hooks",
+                "functions",
+                "{functionName}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update its url, or delete it with { __op: \"Delete\" }",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/hooks/functions/{functionName}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hooks",
+                "functions",
+                "{functionName}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List trigger hooks (Parse Server)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/hooks/triggers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hooks",
+                "triggers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create a trigger hook: { className, triggerName, url }",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/hooks/triggers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hooks",
+                "triggers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get a trigger hook",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/hooks/triggers/{className}/{triggerName}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hooks",
+                "triggers",
+                "{className}",
+                "{triggerName}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update its url, or delete it with { __op: \"Delete\" }",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/hooks/triggers/{className}/{triggerName}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "hooks",
+                "triggers",
+                "{className}",
+                "{triggerName}"
               ]
             }
           },
@@ -7704,7 +7843,7 @@
       "name": "Webhooks",
       "item": [
         {
-          "name": "Listar webhooks del usuario",
+          "name": "List webhook endpoints (secrets are never returned)",
           "request": {
             "method": "GET",
             "header": [
@@ -7735,7 +7874,7 @@
           "response": []
         },
         {
-          "name": "Crear webhook (secret solo visible al crear)",
+          "name": "Create an endpoint. The signing secret is returned once",
           "request": {
             "method": "POST",
             "header": [
@@ -7775,7 +7914,7 @@
           "response": []
         },
         {
-          "name": "Obtener webhook por ID",
+          "name": "Get an endpoint",
           "request": {
             "method": "GET",
             "header": [
@@ -7807,7 +7946,7 @@
           "response": []
         },
         {
-          "name": "Actualizar webhook",
+          "name": "Update name, url, events, description or headers",
           "request": {
             "method": "PUT",
             "header": [
@@ -7848,7 +7987,7 @@
           "response": []
         },
         {
-          "name": "Eliminar webhook",
+          "name": "Delete an endpoint",
           "request": {
             "method": "DELETE",
             "header": [
@@ -7880,7 +8019,7 @@
           "response": []
         },
         {
-          "name": "Historial de entregas (últimas 50)",
+          "name": "Latest messages of an endpoint (?status=pending|succeeded|failed)",
           "request": {
             "method": "GET",
             "header": [
@@ -7898,7 +8037,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/deliveries",
+              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/messages",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -7906,14 +8045,93 @@
                 "zen",
                 "webhooks",
                 "{objectId}",
-                "deliveries"
+                "messages"
               ]
             }
           },
           "response": []
         },
         {
-          "name": "Pausar webhook",
+          "name": "Delivery attempts of a message",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/messages/{messageId}/attempts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "webhooks",
+                "{objectId}",
+                "messages",
+                "{messageId}",
+                "attempts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deliver a message again (same webhook-id)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/messages/{messageId}/redeliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "webhooks",
+                "{objectId}",
+                "messages",
+                "{messageId}",
+                "redeliver"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pause deliveries (messages wait until resume)",
           "request": {
             "method": "POST",
             "header": [
@@ -7955,7 +8173,49 @@
           "response": []
         },
         {
-          "name": "Reactivar webhook",
+          "name": "Requeue the failed messages created since a date ({ since })",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/recover",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "webhooks",
+                "{objectId}",
+                "recover"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resume, or re-enable a disabled endpoint",
           "request": {
             "method": "POST",
             "header": [
@@ -7997,7 +8257,49 @@
           "response": []
         },
         {
-          "name": "Enviar entrega de prueba",
+          "name": "New secret, returned once. The previous one keeps signing for graceHours (default 24)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/rotate-secret",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "webhooks",
+                "{objectId}",
+                "rotate-secret"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send a webhook.test message",
           "request": {
             "method": "POST",
             "header": [

@@ -5,6 +5,7 @@
 > **Relacionado:** `zenith-backend/src/core/crypto.ts`, `src/security/webhook-signature.ts`,
 > `src/security/api-keys/`, `src/traits/workspace/workspace.trait.ts`, `sdk/Typescript/src/objects/ZenithFile.ts`,
 > [ADR-015](ADR-015-api-key-access-policy.md)
+> **Sustituida en parte por:** [ADR-017](ADR-017-webhooks-hooks-event-bus.md): la firma de webhooks sigue Standard Webhooks, no el esquema de Stripe
 
 ## Contexto
 

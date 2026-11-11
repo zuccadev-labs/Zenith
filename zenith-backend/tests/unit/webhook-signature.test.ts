@@ -1,56 +1,56 @@
-import { assert, assertEquals, assertMatch } from "@std/assert";
-import { hmacSha256Hex } from "../../src/core/crypto.ts";
-import { parseWebhookSignature, signWebhook, verifyWebhook } from "../../src/security/webhook-signature.ts";
-import { WebhookTrait } from "../../src/traits/cloud/webhook.trait.ts";
+import { assert, assertEquals, assertMatch, assertThrows } from "@std/assert";
+// The official Standard Webhooks library: what any receiver uses to verify Zenith's webhooks.
+import { Webhook } from "standardwebhooks";
+import { generateWebhookSecret, signWebhook, verifyWebhook, webhookHeaders, webhookKeyBytes } from "../../src/security/webhook-signature.ts";
 
-const BODY = JSON.stringify({ event: "order.paid", data: { id: 1 } });
-const NOW = 1_800_000_000_000;
+const BODY = JSON.stringify({ type: "Contact.created", timestamp: "2026-11-11T00:00:00.000Z", data: { objectId: "a1" } });
+const NOW = Date.now();
 
-Deno.test("webhook-signature: t in seconds and v1 = HMAC-SHA256(secret, `${t}.${body}`)", async () => {
-  const header = await signWebhook("whsec_a", BODY, NOW);
-  assertMatch(header, /^t=1800000000,v1=[0-9a-f]{64}$/);
-  const v1 = header.split("v1=")[1];
-  assertEquals(v1, await hmacSha256Hex("whsec_a", `1800000000.${BODY}`), "a receiver can verify it with any HMAC library");
+Deno.test("webhook-signature: secrets are whsec_ + base64 of 32 random bytes", () => {
+  const s = generateWebhookSecret();
+  assertMatch(s, /^whsec_[A-Za-z0-9+/]+=*$/);
+  assertEquals(webhookKeyBytes(s).length, 32);
+  assert(s !== generateWebhookSecret());
+  assertThrows(() => webhookKeyBytes("whsec_c2hvcnQ="), Error, "24 to 64");
 });
 
-Deno.test("webhook-signature: a signature it produced verifies; tampering does not", async () => {
-  const header = await signWebhook("whsec_a", BODY, NOW);
-  assert(await verifyWebhook(header, BODY, ["whsec_a"], { nowMs: NOW }));
-  assert(!(await verifyWebhook(header, BODY + " ", ["whsec_a"], { nowMs: NOW })), "other body");
-  assert(!(await verifyWebhook(header, BODY, ["whsec_b"], { nowMs: NOW })), "other secret");
-  assert(!(await verifyWebhook(header.replace("t=1800000000", "t=1800000001"), BODY, ["whsec_a"], { nowMs: NOW })), "other t");
+Deno.test("webhook-signature: Zenith's signature verifies with the official standardwebhooks library", async () => {
+  const secret = generateWebhookSecret();
+  const headers = await webhookHeaders([secret], "msg_abc123", BODY, NOW);
+  assertMatch(headers["webhook-signature"], /^v1,[A-Za-z0-9+/]+=*$/);
+  const verified = new Webhook(secret).verify(BODY, headers);
+  assertEquals(verified, JSON.parse(BODY));
 });
 
-Deno.test("webhook-signature: replay outside the tolerance is rejected", async () => {
-  const header = await signWebhook("whsec_a", BODY, NOW);
-  assert(await verifyWebhook(header, BODY, ["whsec_a"], { nowMs: NOW + 299_000 }));
-  assert(!(await verifyWebhook(header, BODY, ["whsec_a"], { nowMs: NOW + 301_000 })));
-  assert(!(await verifyWebhook(header, BODY, ["whsec_a"], { nowMs: NOW - 301_000 })));
+Deno.test("webhook-signature: Zenith verifies what the official library signs", async () => {
+  const secret = generateWebhookSecret();
+  const ts = new Date(Math.floor(NOW / 1000) * 1000);
+  const sig = new Webhook(secret).sign("msg_xyz", ts, BODY);
+  assertEquals(sig, await signWebhook(secret, "msg_xyz", Math.floor(NOW / 1000), BODY));
+  const headers = { "webhook-id": "msg_xyz", "webhook-timestamp": String(Math.floor(NOW / 1000)), "webhook-signature": sig };
+  assert(await verifyWebhook(headers, BODY, [secret], { nowMs: NOW }));
 });
 
-Deno.test("webhook-signature: rotation verifies with the new and the previous secret", async () => {
-  const old = await signWebhook("whsec_old", BODY, NOW);
-  assert(await verifyWebhook(old, BODY, ["whsec_new", "whsec_old"], { nowMs: NOW }));
-  const v1New = (await signWebhook("whsec_new", BODY, NOW)).split("v1=")[1];
-  assert(await verifyWebhook(`${old},v1=${v1New}`, BODY, ["whsec_new"], { nowMs: NOW }), "several v1");
+Deno.test("webhook-signature: rotation sends one signature per secret; either verifies", async () => {
+  const oldS = generateWebhookSecret(), newS = generateWebhookSecret();
+  const headers = await webhookHeaders([newS, oldS], "msg_rot", BODY, NOW);
+  assertEquals(headers["webhook-signature"].split(" ").length, 2);
+  new Webhook(oldS).verify(BODY, headers);
+  new Webhook(newS).verify(BODY, headers);
 });
 
-Deno.test("webhook-signature: fails closed on malformed input", async () => {
-  for (const h of [null, "", "garbage", "t=abc,v1=00", "t=1800000000", "v1=" + "a".repeat(64)]) {
-    assert(!(await verifyWebhook(h, BODY, ["whsec_a"], { nowMs: NOW })), String(h));
+Deno.test("webhook-signature: tampering, other secret, replay and malformed input fail closed", async () => {
+  const secret = generateWebhookSecret();
+  const h = await webhookHeaders([secret], "msg_t", BODY, NOW);
+  assert(await verifyWebhook(h, BODY, [secret], { nowMs: NOW }));
+  assert(!(await verifyWebhook(h, BODY + " ", [secret], { nowMs: NOW })), "body");
+  assert(!(await verifyWebhook(h, BODY, [generateWebhookSecret()], { nowMs: NOW })), "secret");
+  assert(!(await verifyWebhook({ ...h, "webhook-id": "msg_u" }, BODY, [secret], { nowMs: NOW })), "id is signed");
+  assert(!(await verifyWebhook(h, BODY, [secret], { nowMs: NOW + 301_000 })), "replay after 5 min");
+  assert(await verifyWebhook(h, BODY, [secret], { nowMs: NOW + 299_000 }));
+  for (const bad of [{}, { ...h, "webhook-timestamp": "x" }, { ...h, "webhook-signature": "v2,abc" }]) {
+    assert(!(await verifyWebhook(bad, BODY, [secret], { nowMs: NOW })));
   }
-  assert(!(await verifyWebhook(await signWebhook("s", BODY, NOW), BODY, [], { nowMs: NOW })), "no secrets");
-  assertEquals(parseWebhookSignature("t=5, v1=" + "b".repeat(64))?.t, 5);
-});
-
-Deno.test("webhook trait: sign() then verify() round-trips (it never did before) and survives rotateKey()", async () => {
-  const store: Record<string, unknown[]> = {};
-  const db = { create: async (c: string, o: unknown) => ((store[c] ??= []).push(o), o), find: async () => [] };
-  const trait = (WebhookTrait as any).create({ traits: { db } });
-  const api = trait.webhook ?? trait.webhookApi ?? Object.values(trait).find((v: any) => v?.sign && v?.verify);
-  const header = await api.sign("primary", BODY);
-  assert(await api.verify(header, BODY));
-  await api.rotateKey();
-  assert(await api.verify(header, BODY), "signed with the previous key during the rotation");
-  assert(await api.verify(await api.sign("primary", BODY), BODY));
+  assert(!(await verifyWebhook(h, BODY, [], { nowMs: NOW })), "no secrets");
+  await signWebhook(secret, "a.b", 1, BODY).then(() => assert(false), (e) => assertMatch(e.message, /must not contain/));
 });

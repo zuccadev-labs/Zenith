@@ -3,7 +3,7 @@
 > Gestión de webhooks HMAC-SHA256: CRUD, pause/resume, test delivery, historial de entregas.
 
 ## `GET /zen/webhooks`
-**Listar webhooks del usuario**
+**List webhook endpoints (secrets are never returned)**
 
 ### Respuestas
 - **200**: OK
@@ -17,7 +17,7 @@
 ---
 
 ## `POST /zen/webhooks`
-**Crear webhook (secret solo visible al crear)**
+**Create an endpoint. The signing secret is returned once**
 
 ### Respuestas
 - **201**: Created
@@ -31,7 +31,7 @@
 ---
 
 ## `GET /zen/webhooks/{objectId}`
-**Obtener webhook por ID**
+**Get an endpoint**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |
@@ -50,7 +50,7 @@
 ---
 
 ## `PUT /zen/webhooks/{objectId}`
-**Actualizar webhook**
+**Update name, url, events, description or headers**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |
@@ -69,7 +69,7 @@
 ---
 
 ## `DELETE /zen/webhooks/{objectId}`
-**Eliminar webhook**
+**Delete an endpoint**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |
@@ -87,8 +87,8 @@
 
 ---
 
-## `GET /zen/webhooks/{objectId}/deliveries`
-**Historial de entregas (últimas 50)**
+## `GET /zen/webhooks/{objectId}/messages`
+**Latest messages of an endpoint (?status=pending|succeeded|failed)**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |
@@ -106,8 +106,67 @@
 
 ---
 
+## `GET /zen/webhooks/{objectId}/messages/{messageId}/attempts`
+**Delivery attempts of a message**
+
+### Parámetros
+| Nombre | In | Tipo | Requerido | Descripción |
+|--------|----|------|-----------|-------------|
+| `objectId` | path | string | ✅ |  |
+| `messageId` | path | string | ✅ |  |
+
+### Respuestas
+- **200**: OK
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---
+
+## `POST /zen/webhooks/{objectId}/messages/{messageId}/redeliver`
+**Deliver a message again (same webhook-id)**
+
+### Parámetros
+| Nombre | In | Tipo | Requerido | Descripción |
+|--------|----|------|-----------|-------------|
+| `objectId` | path | string | ✅ |  |
+| `messageId` | path | string | ✅ |  |
+
+### Respuestas
+- **201**: Created
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---
+
 ## `POST /zen/webhooks/{objectId}/pause`
-**Pausar webhook**
+**Pause deliveries (messages wait until resume)**
+
+### Parámetros
+| Nombre | In | Tipo | Requerido | Descripción |
+|--------|----|------|-----------|-------------|
+| `objectId` | path | string | ✅ |  |
+
+### Respuestas
+- **201**: Created
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---
+
+## `POST /zen/webhooks/{objectId}/recover`
+**Requeue the failed messages created since a date ({ since })**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |
@@ -126,7 +185,26 @@
 ---
 
 ## `POST /zen/webhooks/{objectId}/resume`
-**Reactivar webhook**
+**Resume, or re-enable a disabled endpoint**
+
+### Parámetros
+| Nombre | In | Tipo | Requerido | Descripción |
+|--------|----|------|-----------|-------------|
+| `objectId` | path | string | ✅ |  |
+
+### Respuestas
+- **201**: Created
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---
+
+## `POST /zen/webhooks/{objectId}/rotate-secret`
+**New secret, returned once. The previous one keeps signing for graceHours (default 24)**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |
@@ -145,7 +223,7 @@
 ---
 
 ## `POST /zen/webhooks/{objectId}/test`
-**Enviar entrega de prueba**
+**Send a webhook.test message**
 
 ### Parámetros
 | Nombre | In | Tipo | Requerido | Descripción |

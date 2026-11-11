@@ -6,7 +6,7 @@
 ## Empieza aquí
 
 - **[Quickstart](tutorials/01_quickstart.md):** un servidor con `zen` y una app con el SDK de cliente.
-- **[Referencia de la API HTTP](README.md):** generada con `zen generate docs`. Tiene las mismas rutas que monta el router (222 con las features por defecto); también está en `openapi.json`, en la colección de Postman `zenith.postman.json` y en `index.html` (Redoc).
+- **[Referencia de la API HTTP](README.md):** generada con `zen generate docs`. Tiene las mismas rutas que monta el router (230 con las features por defecto); también está en `openapi.json`, en la colección de Postman `zenith.postman.json` y en `index.html` (Redoc).
 
 ## Servidor y cliente
 
@@ -28,9 +28,11 @@ Los otros lenguajes de `sdk/` (Android, Apple, Dart, Flutter, .NET, PHP y Swift)
 | [ADR-014](architecture-decisions/ADR-014-classes-for-users.md) | `/classes` para usuarios: CLP y ACL |
 | [ADR-015](architecture-decisions/ADR-015-api-key-access-policy.md) | API keys: scopes aplicados, política de IP, keys `*` acotadas |
 | [ADR-016](architecture-decisions/ADR-016-shared-crypto-and-single-api-keys.md) | Primitivas criptográficas compartidas, firma de webhooks y un solo sistema de API keys |
+| [ADR-017](architecture-decisions/ADR-017-webhooks-hooks-event-bus.md) | Webhooks con Standard Webhooks, Cloud Code Hooks de Parse y bus de eventos en el núcleo |
 | [ADR-002](architecture-decisions/ADR-002-mtls.md) a [ADR-008](architecture-decisions/ADR-008-hashicorp-vault.md) | mTLS, API keys, firma de plugins, OpenAPI, observabilidad, producción y Vault. En lo técnico coinciden, con matices (ADR-007 sin verificar a fondo) |
 | [openapi-swagger.md](architecture/openapi-swagger.md) | Cómo se genera la OpenAPI |
 | [features-and-engines.md](architecture/features-and-engines.md) | Catálogo de piezas, activarlas al arrancar o en caliente, y cómo se acoplan los motores |
+| [webhooks-and-hooks.md](architecture/webhooks-and-hooks.md) | Webhooks salientes (verificación en el receptor) y Cloud Code Hooks de Parse |
 | [zenith-backend/docs/pending.md](../zenith-backend/docs/pending.md) | **Lo que falta o falla, con prioridad** |
 | [zenith-backend/docs/errors.md](../zenith-backend/docs/errors.md) | Códigos de error |
 | [lab-infra/docs/recrear-desde-cero.md](../lab-infra/docs/recrear-desde-cero.md) | Recrear el laboratorio |

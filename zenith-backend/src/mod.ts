@@ -16,6 +16,7 @@ import { composeZenith } from "./core/compose.ts";
 import { selectFeatures, traitsOf } from "./core/feature-catalog.ts";
 import { FEATURE_CATALOG } from "./traits/catalog.ts";
 import { runtimeFeaturesTrait } from "./core/runtime-features.ts";
+import { startBackground } from "./core/lifecycle.ts";
 import { generateOpenApiSchema } from "./core/openapi.ts";
 import { loadMergedTrustStore, parseManifest, verifyPlugin } from "./security/plugin-signing/mod.ts";
 import { ZenLogger } from "./core/cloud.ts";
@@ -282,6 +283,9 @@ export async function createZenithApp(
        console.log(`[Zenith] Loading E2EE Media Module (Mode: ${config.features.e2ee_mode || "strict_sframe"})`);
        if (engine.setE2EEMode) engine.setE2EEMode(config.features.e2ee_mode || "strict_sframe");
     }
+
+    // Background work (webhook deliveries…) starts once, with the data adapters connected.
+    startBackground(engine as unknown as Record<string, unknown>);
 
     const globalConfigCol = mongoClient.db(config.appId).collection<{ _id: string; [k: string]: unknown }>("_GlobalConfig");
     let privateKeyStr: string;

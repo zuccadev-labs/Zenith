@@ -21,6 +21,10 @@
  * configured trusted proxy (core/pipeline.ts), so a client cannot choose it.
  */
 import type { ApiKeyPrefix, ApiKeyScope } from "./types.ts";
+import { parseCidr } from "../../core/net.ts";
+
+// Shared with the rest of the engine (core/net.ts); still exported from here for existing callers.
+export { ipAllowed, parseCidr } from "../../core/net.ts";
 
 /** Longest life of an unrestricted key. Rotation (`zen api-keys rotate`) issues the next one. */
 export const UNRESTRICTED_MAX_LIFETIME_DAYS = 90;
@@ -28,80 +32,6 @@ export const UNRESTRICTED_MAX_LIFETIME_DAYS = 90;
 /** Whether `scopes` make a key equivalent to the master key. */
 export function isUnrestricted(scopes: readonly string[]): boolean {
   return scopes.includes("*");
-}
-
-type Parsed = { v: 4 | 6; bits: bigint };
-
-function parseIPv4(s: string): bigint | null {
-  const parts = s.split(".");
-  if (parts.length !== 4) return null;
-  let n = 0n;
-  for (const p of parts) {
-    if (!/^\d{1,3}$/.test(p) || Number(p) > 255 || (p.length > 1 && p.startsWith("0"))) return null;
-    n = (n << 8n) | BigInt(Number(p));
-  }
-  return n;
-}
-
-function parseIPv6(input: string): bigint | null {
-  let s = input;
-  if (!/^[0-9a-fA-F:.]+$/.test(s) || s.split("::").length > 2) return null;
-  // An embedded IPv4 tail (::ffff:192.0.2.1) is the last two groups.
-  const tail: number[] = [];
-  if (s.includes(".")) {
-    const cut = s.lastIndexOf(":");
-    const v4 = parseIPv4(s.slice(cut + 1));
-    if (v4 === null) return null;
-    tail.push(Number(v4 >> 16n), Number(v4 & 0xffffn));
-    s = s.slice(0, cut + 1);
-    if (!s.endsWith("::")) s = s.slice(0, -1);
-  }
-  const compressed = s.includes("::");
-  const [head, rest = ""] = compressed ? s.split("::") : [s];
-  const groups = (x: string) => (x === "" ? [] : x.split(":"));
-  const h = groups(head), r = groups(rest);
-  if ([...h, ...r].some((g) => !/^[0-9a-fA-F]{1,4}$/.test(g))) return null;
-  const known = h.length + r.length + tail.length;
-  if (compressed ? known > 7 : known !== 8) return null;
-  const all = [...h.map((g) => parseInt(g, 16)), ...Array<number>(8 - known).fill(0), ...r.map((g) => parseInt(g, 16)), ...tail];
-  return all.reduce((n, g) => (n << 16n) | BigInt(g), 0n);
-}
-
-/** An address as a number; IPv4-mapped IPv6 (::ffff:a.b.c.d) counts as IPv4. */
-function parseIp(s: string): Parsed | null {
-  const v4 = parseIPv4(s);
-  if (v4 !== null) return { v: 4, bits: v4 };
-  const v6 = parseIPv6(s);
-  if (v6 === null) return null;
-  if (v6 >> 32n === 0xffffn) return { v: 4, bits: v6 & 0xffffffffn };
-  return { v: 6, bits: v6 };
-}
-
-/** `203.0.113.7`, `198.51.100.0/24`, `2001:db8::/32`… → network and prefix length; null if invalid. */
-export function parseCidr(entry: string): { v: 4 | 6; network: bigint; prefix: number } | null {
-  const [addr, len, extra] = entry.trim().split("/");
-  if (extra !== undefined) return null;
-  const ip = parseIp(addr);
-  if (!ip) return null;
-  const width = ip.v === 4 ? 32 : 128;
-  const prefix = len === undefined ? width : /^\d{1,3}$/.test(len) ? Number(len) : NaN;
-  if (!Number.isInteger(prefix) || prefix < 0 || prefix > width) return null;
-  const mask = prefix === 0 ? 0n : ((1n << BigInt(prefix)) - 1n) << BigInt(width - prefix);
-  return { v: ip.v, network: ip.bits & mask, prefix };
-}
-
-/** Whether `ip` falls in any entry of `allowlist`. An unparseable `ip` never matches. */
-export function ipAllowed(ip: string | undefined, allowlist: readonly string[]): boolean {
-  const parsed = ip ? parseIp(ip) : null;
-  if (!parsed) return false;
-  for (const entry of allowlist) {
-    const net = parseCidr(entry);
-    if (!net || net.v !== parsed.v) continue;
-    const width = net.v === 4 ? 32 : 128;
-    const mask = net.prefix === 0 ? 0n : ((1n << BigInt(net.prefix)) - 1n) << BigInt(width - net.prefix);
-    if ((parsed.bits & mask) === net.network) return true;
-  }
-  return false;
 }
 
 /** Thrown when a key would break the policy; its message is safe to return to the operator. */

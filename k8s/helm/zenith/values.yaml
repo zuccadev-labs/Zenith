@@ -133,7 +133,9 @@ env:
 #     --from-literal=SURREAL_PASS=<pass> \
 #     --from-literal=QDRANT_API_KEY=<key> \
 #     --from-literal=FILE_SIGNING_KEY=$(openssl rand -hex 32) \
-#     --from-literal=AUDIT_SIGNING_KEY=$(openssl rand -hex 32)
+#     --from-literal=AUDIT_SIGNING_KEY=$(openssl rand -hex 32) \
+#     --from-literal=WEBHOOK_SECRETS_KEY=$(openssl rand -hex 32)
+# WEBHOOK_SECRETS_KEY cifra los secretos de los webhooks en la base (ADR-017): igual en todas las réplicas.
 # FILE_SIGNING_KEY y AUDIT_SIGNING_KEY (HMAC, ADR-016) deben ser iguales en todas las réplicas: sin ellas
 # cada réplica usa una clave aleatoria propia y no reconoce lo que firman las demás.
 envFrom:

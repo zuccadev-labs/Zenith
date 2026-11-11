@@ -8,22 +8,31 @@
  *   zen webhook pause  <objectId>
  *   zen webhook resume <objectId>
  *   zen webhook test   <objectId>
- *   zen webhook deliveries <objectId>
+ *   zen webhook rotate-secret <objectId> [--grace-hours 24]
+ *   zen webhook messages <objectId> [--status pending|succeeded|failed]   (alias: deliveries)
+ *   zen webhook attempts <objectId> <messageId>
+ *   zen webhook redeliver <objectId> <messageId>
+ *   zen webhook recover <objectId> --since 2026-11-10T00:00:00Z
+ *
+ * Las entregas siguen Standard Webhooks: el receptor las verifica con la biblioteca oficial
+ * (`standardwebhooks`) y el secreto del endpoint.
  */
 import { parseArgs } from "@std/cli/parse-args";
 import { loadZenConfig, zenApiCall, printTable, printJson } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {
-  const parsed  = parseArgs(args, { string: ["url","name","events"], boolean: ["json"] });
+  const parsed  = parseArgs(args, { string: ["url","name","events","status","since","grace-hours","description"], boolean: ["json"] });
   const sub     = String(parsed._[0] ?? "");
   const id      = String(parsed._[1] ?? "");
+  const messageId = String(parsed._[2] ?? "");
+  const need = (v: string, what: string) => { if (!v) { console.error(`❌ Proporciona ${what}`); Deno.exit(1); } };
   const cfg     = await loadZenConfig();
 
   switch (sub) {
     case "list": {
       const res = await zenApiCall(cfg, "GET", "/zen/webhooks");
       if (parsed.json) { printJson(res); break; }
-      printTable(res.results, ["objectId","name","url","status","events","failureCount","lastTriggeredAt"]);
+      printTable(res.results, ["objectId","name","url","status","events","secretCount","exhaustedCount","lastError"]);
       break;
     }
     case "create": {
@@ -33,6 +42,7 @@ export async function run(args: string[]): Promise<void> {
         name:   parsed.name ?? "CLI Webhook",
         url:    parsed.url,
         events: parsed.events.split(",").map((e: string) => e.trim()),
+        ...(parsed.description ? { description: parsed.description } : {}),
       };
       const res = await zenApiCall(cfg, "POST", "/zen/webhooks", data);
       console.log("✅ Webhook creado:", res.objectId);
@@ -61,13 +71,43 @@ export async function run(args: string[]): Promise<void> {
     case "test": {
       if (!id) { console.error("❌ Proporciona el objectId"); Deno.exit(1); }
       const res = await zenApiCall(cfg, "POST", `/zen/webhooks/${id}/test`);
-      console.log(res.success ? `✅ Test enviado: ${res.message}` : `❌ Falló: ${res.message}`);
+      console.log(`✅ Mensaje de prueba encolado: ${res.messageId} (zen webhook messages ${id})`);
       break;
     }
+    case "rotate-secret": {
+      need(id, "el objectId");
+      const grace = parsed["grace-hours"] === undefined ? {} : { graceHours: Number(parsed["grace-hours"]) };
+      const res = await zenApiCall(cfg, "POST", `/zen/webhooks/${id}/rotate-secret`, grace);
+      console.log(`⚠️  Nuevo secret (solo visible ahora): ${res.secret}`);
+      if (res.previousValidUntil) console.log(`   El anterior sigue firmando hasta ${res.previousValidUntil}.`);
+      break;
+    }
+    case "messages":
     case "deliveries": {
-      if (!id) { console.error("❌ Proporciona el objectId"); Deno.exit(1); }
-      const res = await zenApiCall(cfg, "GET", `/zen/webhooks/${id}/deliveries`);
-      printTable(res.results, ["objectId","event","statusCode","success","attempt","durationMs","deliveredAt"]);
+      need(id, "el objectId");
+      const q = parsed.status ? `?status=${encodeURIComponent(parsed.status)}` : "";
+      const res = await zenApiCall(cfg, "GET", `/zen/webhooks/${id}/messages${q}`);
+      if (parsed.json) { printJson(res); break; }
+      printTable(res.results, ["messageId","type","status","attempts","lastStatusCode","nextAttemptAt","deliveredAt"]);
+      break;
+    }
+    case "attempts": {
+      need(id, "el objectId"); need(messageId, "el messageId");
+      const res = await zenApiCall(cfg, "GET", `/zen/webhooks/${id}/messages/${messageId}/attempts`);
+      if (parsed.json) { printJson(res); break; }
+      printTable(res.results, ["attempt","statusCode","durationMs","error","at"]);
+      break;
+    }
+    case "redeliver": {
+      need(id, "el objectId"); need(messageId, "el messageId");
+      await zenApiCall(cfg, "POST", `/zen/webhooks/${id}/messages/${messageId}/redeliver`);
+      console.log(`✅ ${messageId} encolado de nuevo (mismo webhook-id).`);
+      break;
+    }
+    case "recover": {
+      need(id, "el objectId"); need(parsed.since ?? "", "--since <fecha ISO>");
+      const res = await zenApiCall(cfg, "POST", `/zen/webhooks/${id}/recover`, { since: parsed.since });
+      console.log(`✅ ${res.requeued} mensajes fallidos encolados de nuevo.`);
       break;
     }
     default:
@@ -81,7 +121,11 @@ Uso:
   zen webhook pause   <objectId>
   zen webhook resume  <objectId>
   zen webhook test    <objectId>
-  zen webhook deliveries <objectId>
+  zen webhook rotate-secret <objectId> [--grace-hours 24]
+  zen webhook messages  <objectId> [--status pending|succeeded|failed]
+  zen webhook attempts  <objectId> <messageId>
+  zen webhook redeliver <objectId> <messageId>
+  zen webhook recover   <objectId> --since <fecha ISO>
 
 Flags:
   --json    Salida en JSON crudo
