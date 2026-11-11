@@ -13,6 +13,7 @@
  * @barrits-runtime deno
  */
 import { composeZenith } from "./core/compose.ts";
+import { serveMetrics } from "./observability/metrics-server.ts";
 import { selectFeatures, traitsOf } from "./core/feature-catalog.ts";
 import { FEATURE_CATALOG } from "./traits/catalog.ts";
 import { runtimeFeaturesTrait } from "./core/runtime-features.ts";
@@ -593,8 +594,16 @@ if (import.meta.main) {
     }>
   >();
 
+  const metricsSources: Array<{ labels: Record<string, string>; text: () => string }> = [];
   for (const appDef of apps) {
     const { engine, handler } = await createZenithApp(appDef.config);
+    const registry = engine["metric-registry"] as { toPrometheus?: () => string } | undefined;
+    if (registry?.toPrometheus) {
+      metricsSources.push({
+        labels: { app: appDef.config.appId },
+        text: () => registry.toPrometheus!(),
+      });
+    }
     if (handler) {
       if (!mountedApps.has(appDef.mountPath)) {
         mountedApps.set(appDef.mountPath, new Map());
@@ -622,6 +631,16 @@ if (import.meta.main) {
     if (engine.runPendingMigrations) {
       await engine.runPendingMigrations([initialSchemaMigration]);
     }
+  }
+
+  // Prometheus scrape listener (observability/metrics-server.ts): its own port, metrics only, every app.
+  const metricsPort = Number(Deno.env.get("ZENITH_METRICS_PORT") ?? 0);
+  if (metricsPort > 0 && metricsSources.length > 0) {
+    serveMetrics({
+      port: metricsPort,
+      hostname: Deno.env.get("ZENITH_METRICS_HOST") ?? undefined,
+      sources: () => metricsSources,
+    });
   }
 
   if (mountedApps.size > 0) {

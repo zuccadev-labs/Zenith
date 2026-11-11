@@ -103,7 +103,11 @@ export interface ObservabilityService {
   /** Inicializa el pipeline de observabilidad (OTel, Prometheus) */
   observability_init: () => void;
   /** Middleware HTTP que registra métricas por request */
-  middleware: (req: Request, next: () => Promise<Response>) => Promise<Response>;
+  middleware: (
+    req: Request,
+    next: () => Promise<Response>,
+    routeOf?: (method: string, pathname: string) => string | undefined,
+  ) => Promise<Response>;
   /** Health check endpoint /_health */
   health: () => Promise<Record<string, unknown>>;
   /** Readiness check endpoint /_ready */

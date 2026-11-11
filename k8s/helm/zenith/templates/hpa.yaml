@@ -30,9 +30,9 @@ spec:
           type: Utilization
           averageUtilization: {{ . }}
     {{- end }}
+    {{- /* Each entry is a whole autoscaling/v2 MetricSpec (type plus its pods/object/external block). */}}
     {{- range .Values.autoscaling.extraMetrics }}
-    - type: {{ .type }}
-      {{- toYaml .target | nindent 6 }}
+    - {{- toYaml . | nindent 6 }}
     {{- end }}
   behavior:
     scaleDown:

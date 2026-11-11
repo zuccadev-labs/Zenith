@@ -149,6 +149,41 @@ export class ZenithRouter {
     return this.on("DELETE", path, handler);
   }
 
+  /** The pathname the routes see: Parse's aliases (/roles, /users, /installations) become their classes. */
+  private static aliased(method: string, pathname: string): string {
+    if (pathname.startsWith("/roles")) return pathname.replace("/roles", "/classes/_Role");
+    if (pathname.startsWith("/users")) {
+      // POST /users is the signup and /users/me is its own route.
+      if ((pathname === "/users" && method === "POST") || pathname === "/users/me") return pathname;
+      return pathname.replace("/users", "/classes/_User");
+    }
+    if (pathname.startsWith("/installations")) {
+      return pathname.replace("/installations", "/classes/_Installation");
+    }
+    return pathname;
+  }
+
+  /** The first enabled route for this method and pathname, with its match. */
+  private resolve(method: string, pathname: string) {
+    const path = ZenithRouter.aliased(method, pathname);
+    for (const route of this.routes) {
+      if (route.method !== "*" && route.method !== method) continue;
+      const match = route.pattern.exec({ pathname: path });
+      // A feature turned off at runtime: its routes do not exist until it is turned on again.
+      if (match && route.feature && !this.isEnabled(route.feature)) continue;
+      if (match) return { route, match };
+    }
+    return undefined;
+  }
+
+  /**
+   * The template of the route that serves this request (`/classes/:className/:objectId`), or undefined if none
+   * does. Metrics label requests with it: one series per route, not per object or per path a scanner tries.
+   */
+  routeOf(method: string, pathname: string): string | undefined {
+    return this.resolve(method, pathname)?.route.pattern.pathname;
+  }
+
   /**
    * Retorna un RouteHandler unificado compatible con el pipeline.
    * Se registrarán primero las rutas más específicas.
@@ -156,36 +191,15 @@ export class ZenithRouter {
   dispatch(): RouteHandler {
     return async (req: Request, ctx: ZenithRequestContext): Promise<Response> => {
       const url = new URL(req.url);
-      let pathname = url.pathname;
-
-      // Alias nativos para SaaS y Paridad
-      if (pathname.startsWith("/roles")) {
-        pathname = pathname.replace("/roles", "/classes/_Role");
-      } else if (pathname.startsWith("/users")) {
-        if (pathname === "/users" && req.method === "POST") {
-          // Handle signup directly
-        } else if (pathname === "/users/me") {
-          // /users/me handled separately
-        } else {
-          pathname = pathname.replace("/users", "/classes/_User");
-        }
-      } else if (pathname.startsWith("/installations")) {
-        pathname = pathname.replace("/installations", "/classes/_Installation");
-      }
-
-      for (const route of this.routes) {
-        if (route.method !== "*" && route.method !== req.method) continue;
-        const match = route.pattern.exec({ pathname });
-        // A feature turned off at runtime: its routes do not exist until it is turned on again.
-        if (match && route.feature && !this.isEnabled(route.feature)) continue;
-        if (match) {
-          // Inyectar params en el contexto
-          const refusal = denied(route.access, ctx, route.scope);
-          if (refusal) return refusal;
-          const params = (match.pathname.groups ?? {}) as Record<string, string>;
-          const enrichedCtx = { ...ctx, params, ...callerFields(ctx) };
-          return await route.handler(req, enrichedCtx);
-        }
+      const found = this.resolve(req.method, url.pathname);
+      if (found) {
+        const { route, match } = found;
+        // Inyectar params en el contexto
+        const refusal = denied(route.access, ctx, route.scope);
+        if (refusal) return refusal;
+        const params = (match.pathname.groups ?? {}) as Record<string, string>;
+        const enrichedCtx = { ...ctx, params, ...callerFields(ctx) };
+        return await route.handler(req, enrichedCtx);
       }
       // 404 si no hay match
       return new Response(

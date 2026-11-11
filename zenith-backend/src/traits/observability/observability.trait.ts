@@ -12,6 +12,41 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/** Request duration buckets (seconds): Prometheus' defaults. */
+export const HTTP_DURATION_BUCKETS = [
+  0.005,
+  0.01,
+  0.025,
+  0.05,
+  0.1,
+  0.25,
+  0.5,
+  1,
+  2.5,
+  5,
+  10,
+] as const;
+
+/** Routes whose 404 means "no such object", not "no such route" (after any mount prefix, as /parse). */
+const OBJECT_ROUTES = /\/(classes|users|sessions|roles|installations|files|queue|webhooks)\//;
+
+const ID_SEGMENT = /^(?=.*\d)[A-Za-z0-9_-]{6,}$|^[0-9a-f]{24}$|^[0-9a-f-]{32,36}$/i;
+
+/**
+ * A low-cardinality label for a request path: object ids become `:id` (`/classes/GameScore/:id`), and long
+ * paths are cut, so metrics keep one series per route, not per object.
+ */
+export function routeLabel(pathname: string): string {
+  const seg = pathname.split("/");
+  const out = seg.map((s, i) => {
+    if (!s) return s;
+    if (i >= 3 && seg[i - 2] === "classes") return ":id";
+    if (ID_SEGMENT.test(s)) return ":id";
+    return s.length > 40 ? ":long" : s;
+  });
+  return out.length > 7 ? `${out.slice(0, 6).join("/")}/…` : out.join("/");
+}
+
 export const ObservabilityTrait = createTraitDescriptor({
   name: "ZenithObservability",
   provides: [
@@ -130,7 +165,10 @@ export const ObservabilityTrait = createTraitDescriptor({
     };
     const metrics = {
       counters: new Map<string, Series & { value: number }>(),
-      histograms: new Map<string, Series & { count: number; sum: number }>(),
+      histograms: new Map<
+        string,
+        Series & { count: number; sum: number; buckets?: number[]; counts?: number[] }
+      >(),
       gauges: new Map<string, Series & { value: number }>(),
       increment: (name: string, labels: Record<string, string> = {}, value: number = 1) => {
         const key = keyOf(name, labels);
@@ -141,13 +179,33 @@ export const ObservabilityTrait = createTraitDescriptor({
       gauge: (name: string, value: number, labels: Record<string, string> = {}) => {
         metrics.gauges.set(keyOf(name, labels), { name, labels: { ...labels }, value });
       },
-      histogram: (name: string, value: number, labels: Record<string, string> = {}) => {
+      /**
+       * With `buckets` (upper bounds, ascending) it is a real Prometheus histogram (`_bucket{le}`), as
+       * histogram_quantile needs; without them, count and sum only.
+       */
+      histogram: (
+        name: string,
+        value: number,
+        labels: Record<string, string> = {},
+        buckets?: readonly number[],
+      ) => {
         const key = keyOf(name, labels);
-        const h = metrics.histograms.get(key);
-        if (h) {
-          h.count++;
-          h.sum += value;
-        } else metrics.histograms.set(key, { name, labels: { ...labels }, count: 1, sum: value });
+        let h = metrics.histograms.get(key);
+        if (!h) {
+          h = {
+            name,
+            labels: { ...labels },
+            count: 0,
+            sum: 0,
+            ...(buckets ? { buckets: [...buckets], counts: buckets.map(() => 0) } : {}),
+          };
+          metrics.histograms.set(key, h);
+        }
+        h.count++;
+        h.sum += value;
+        h.buckets?.forEach((le, i) => {
+          if (value <= le) h!.counts![i]++;
+        });
       },
       snapshot: () => ({
         counters: [...metrics.counters.values()].map(({ name, labels, value }) => ({
@@ -170,28 +228,43 @@ export const ObservabilityTrait = createTraitDescriptor({
       toPrometheus: () => {
         const lines: string[] = [];
         const emit = (
-          type: string,
+          type: (s: any) => string,
           series: Iterable<Series & Record<string, any>>,
-          values: (s: any) => Array<[string, number]>,
+          values: (s: any) => Array<[string, number, Record<string, string>?]>,
         ) => {
           const byName = new Map<string, Array<Series & Record<string, any>>>();
           for (const s of series) byName.set(s.name, [...(byName.get(s.name) ?? []), s]);
           for (const [name, list] of byName) {
-            lines.push(`# TYPE ${name} ${type === "histogram" ? "summary" : type}`);
+            lines.push(`# TYPE ${name} ${type(list[0])}`);
             for (const s of list) {
-              for (const [suffix, v] of values(s)) {
-                lines.push(`${name}${suffix}${labelText(s.labels)} ${v}`);
+              for (const [suffix, v, extra] of values(s)) {
+                lines.push(`${name}${suffix}${labelText({ ...s.labels, ...(extra ?? {}) })} ${v}`);
               }
             }
           }
         };
-        emit("counter", metrics.counters.values(), (s) => [["", s.value]]);
-        emit("gauge", metrics.gauges.values(), (s) => [["", s.value]]);
-        // Count and sum only (no buckets): exposed as a summary without quantiles.
+        emit(() => "counter", metrics.counters.values(), (s) => [["", s.value]]);
+        emit(() => "gauge", metrics.gauges.values(), (s) => [["", s.value]]);
+        // With buckets: a histogram (cumulative _bucket{le}, +Inf = count). Without: a summary with no
+        // quantiles (count and sum).
         emit(
-          "histogram",
+          (s) => (s.buckets ? "histogram" : "summary"),
           metrics.histograms.values(),
-          (s) => [["_count", s.count], ["_sum", s.sum]],
+          (s) => [
+            ...((s.buckets ?? []) as number[]).map((
+              le,
+              i,
+            ): [string, number, Record<string, string>] => [
+              "_bucket",
+              s.counts[i],
+              { le: String(le) },
+            ]),
+            ...(s.buckets
+              ? [["_bucket", s.count, { le: "+Inf" }] as [string, number, Record<string, string>]]
+              : []),
+            ["_count", s.count],
+            ["_sum", s.sum],
+          ],
         );
         return lines.join("\n") + (lines.length ? "\n" : "");
       },
@@ -218,7 +291,15 @@ export const ObservabilityTrait = createTraitDescriptor({
       log: (...args: any[]) => (logger.info as (...a: any[]) => void)(...args),
       error: (...args: any[]) => (logger.error as (...a: any[]) => void)(...args),
 
-      middleware: async (req: Request, next: () => Promise<Response>) => {
+      /**
+       * HTTP metrics around a request. `routeOf` (the router's) gives the route template for the `route` label;
+       * without it, ids are folded by routeLabel() and a 404 outside the object routes is "unmatched".
+       */
+      middleware: async (
+        req: Request,
+        next: () => Promise<Response>,
+        routeOf?: (method: string, pathname: string) => string | undefined,
+      ) => {
         const start = Date.now();
         const method = req.method;
         const path = new URL(req.url).pathname;
@@ -228,16 +309,33 @@ export const ObservabilityTrait = createTraitDescriptor({
         });
         try {
           const response = await next();
+          // Prometheus conventions: `code` for the status, seconds for durations, and the route (a bounded
+          // set) instead of the raw path, which carried object ids and made one series per object.
+          // A 404 outside the object routes is a path nobody serves (scanners, typos): one series for all.
+          const route = routeOf
+            ? routeOf(method, path) ?? "unmatched"
+            : response.status === 404 && !OBJECT_ROUTES.test(path)
+            ? "unmatched"
+            : routeLabel(path);
           metrics.increment("http_requests_total", {
             method,
-            path,
-            status: String(response.status),
+            route,
+            code: String(response.status),
           });
-          metrics.histogram("http_request_duration_ms", Date.now() - start, { method, path });
+          metrics.histogram(
+            "http_request_duration_seconds",
+            (Date.now() - start) / 1000,
+            { method, route },
+            HTTP_DURATION_BUCKETS,
+          );
           span.setAttribute("http.status_code", response.status);
           return response;
         } catch (e: any) {
-          metrics.increment("http_requests_total", { method, path, status: "500" });
+          metrics.increment("http_requests_total", {
+            method,
+            route: routeOf ? routeOf(method, path) ?? "unmatched" : routeLabel(path),
+            code: "500",
+          });
           span.recordException(e);
           throw e;
         } finally {

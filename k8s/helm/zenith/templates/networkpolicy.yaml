@@ -18,19 +18,18 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: {{ .Values.networkPolicy.ingressNamespace | default "ingress-nginx" }}
+              # Set by Kubernetes on every namespace (a plain `name` label is not).
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.ingressNamespace | default "ingress-nginx" }}
       ports:
         - port: {{ .Values.zenith.port }}
           protocol: TCP
         - port: {{ .Values.service.grpcPort }}
           protocol: TCP
-        - port: {{ .Values.service.metricsPort | default 9090 }}
-          protocol: TCP
     # Allow Prometheus scraping from monitoring namespace.
     - from:
         - namespaceSelector:
             matchLabels:
-              name: {{ .Values.networkPolicy.monitoringNamespace | default "monitoring" }}
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace | default "monitoring" }}
       ports:
         - port: {{ .Values.service.metricsPort | default 9090 }}
           protocol: TCP
@@ -47,7 +46,7 @@ spec:
         - port: 53
           protocol: TCP
     # MongoDB.
-    {{- range .Values.networkPolicy.egress.mongodb.hosts }}
+    {{- range (dig "egress" "mongodb" "hosts" (list) .Values.networkPolicy) }}
     - to:
         - podSelector:
             matchLabels:
@@ -61,7 +60,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              name: {{ .namespace | default "vault" }}
+              kubernetes.io/metadata.name: {{ .namespace | default "vault" }}
       ports:
         - port: {{ .port | default 8200 }}
           protocol: TCP

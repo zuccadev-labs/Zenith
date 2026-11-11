@@ -30,7 +30,7 @@ spec:
         # Prometheus scraping.
         {{- if .Values.serviceMonitor.enabled }}
         prometheus.io/scrape: "true"
-        prometheus.io/port: "{{ .Values.service.port }}"
+        prometheus.io/port: "{{ .Values.service.metricsPort | default 9090 }}"
         prometheus.io/path: "/metrics"
         {{- end }}
         # Vault agent injection (if enabled).
@@ -68,6 +68,9 @@ spec:
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
+            # The scrape listener (src/observability/metrics-server.ts): GET /metrics, every app, no credentials.
+            - name: ZENITH_METRICS_PORT
+              value: {{ .Values.service.metricsPort | default 9090 | quote }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:

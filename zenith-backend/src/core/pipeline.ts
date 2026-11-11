@@ -57,6 +57,13 @@ export interface ExtractContextOpts {
    * store can be shared by every app, and the Application-Id header is chosen by the caller.
    */
   appId?: string;
+  /**
+   * Called each time the static master key is accepted (`zenith_master_key_usage_total`): it should be
+   * rare, and the ZenithMasterKeyUsed alert watches it.
+   */
+  onMasterKey?: () => void;
+  /** Called for each request authenticated by an API key, with the key's environment (live/test). */
+  onApiKey?: (env: string) => void;
 }
 
 // ─── Pasos Estándar del Pipeline ──────────────────────────────────────────────
@@ -202,6 +209,7 @@ export function extractContext(
     // Solo aplica si la API key falló o no estaba presente.
     const providedMasterKey = headers.get("Zen-Master-Key") ?? headers.get("X-Parse-Master-Key");
     const authenticatedByApiKey = !!(apiKeyCtx?.record && !apiKeyCtx.reason);
+    if (authenticatedByApiKey) opts.onApiKey?.(String(apiKeyCtx!.record!.env ?? "unknown"));
     if (!isMasterKeyValid && !authenticatedByApiKey && providedMasterKey) {
       if (!isLocalhost) {
         console.warn(
@@ -210,6 +218,7 @@ export function extractContext(
       } else {
         // Tiempo constante, también respecto a la longitud (core/crypto.ts).
         isMasterKeyValid = await timingSafeEqualString(providedMasterKey, configMasterKey);
+        if (isMasterKeyValid) opts.onMasterKey?.();
       }
     }
 

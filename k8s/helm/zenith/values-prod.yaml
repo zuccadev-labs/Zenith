@@ -63,21 +63,18 @@ autoscaling:
       stabilizationWindowSeconds: 300
     scaleUp:
       stabilizationWindowSeconds: 30
+  # Whole autoscaling/v2 MetricSpecs. Requests per second per pod, from http_requests_total through the
+  # Prometheus Adapter (rule: sum(rate(http_requests_total[2m])) by (pod), exposed as
+  # http_requests_per_second). Before, these entries lacked the pods/object block and the metric name, and the
+  # HPA did not validate; the Ingress-wide one was dropped: it lacked its target value and per pod covers it.
   extraMetrics:
     - type: Pods
-      target:
-        type: AverageValue
-        averageValue: "10000m"
-    # RPS per pod (custom metric via Prometheus Adapter)
-    - type: Object
-      target:
-        type: Value
-        describedObject:
-          apiVersion: networking.k8s.io/v1
-          kind: Ingress
-          name: zenith
+      pods:
         metric:
-          name: requests_per_second
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "10"
 
 # ── PDB ──────────────────────────────────────────────────────────────────────
 podDisruptionBudget:
@@ -205,119 +202,10 @@ prometheusRule:
   namespace: monitoring
   labels:
     release: prometheus
-  groups:
-    - name: zenith.rules
-      interval: 30s
-      rules:
-        # Availability
-        - alert: ZenithDown
-          expr: up{job="zenith"} == 0
-          for: 2m
-          labels:
-            severity: critical
-            team: platform
-          annotations:
-            summary: "Zenith is down"
-            description: "Zenith pod {{ $labels.pod }} has been down for 2 minutes."
-            runbook_url: "https://docs.zenith.io/runbooks/05_api_outage"
-
-        - alert: ZenithHighErrorRate
-          expr: |
-            sum(rate(http_requests_total{job="zenith",status=~"5.."}[5m]))
-            /
-            sum(rate(http_requests_total{job="zenith"}[5m]))
-            > 0.05
-          for: 5m
-          labels:
-            severity: warning
-            team: platform
-          annotations:
-            summary: "Zenith error rate > 5%"
-            description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
-
-        # Latency
-        - alert: ZenithHighLatencyP95
-          expr: |
-            histogram_quantile(0.95,
-              sum(rate(http_request_duration_seconds_bucket{job="zenith"}[5m])) by (le, route)
-            ) > 1
-          for: 10m
-          labels:
-            severity: warning
-            team: platform
-          annotations:
-            summary: "p95 latency > 1s on {{ $labels.route }}"
-
-        # Saturation
-        - alert: ZenithHighCPU
-          expr: |
-            rate(container_cpu_usage_seconds_total{pod=~"zenith-.*"}[5m]) > 0.9
-          for: 10m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Zenith pod {{ $labels.pod }} CPU > 90%"
-
-        - alert: ZenithHighMemory
-          expr: |
-            container_memory_working_set_bytes{pod=~"zenith-.*"}
-            / container_spec_memory_limit_bytes{pod=~"zenith-.*"}
-            > 0.9
-          for: 10m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Zenith pod {{ $labels.pod }} memory > 90%"
-
-        # SLO burn rate
-        - alert: ZenithSLOBurnRateFast
-          expr: |
-            (
-              sum(rate(http_requests_total{job="zenith",status=~"5.."}[1h]))
-              /
-              sum(rate(http_requests_total{job="zenith"}[1h]))
-            ) > (14.4 * 0.001)
-          for: 2m
-          labels:
-            severity: critical
-            slo: availability
-          annotations:
-            summary: "SLO burn rate > 14.4x (1h budget exhausted in 2 days)"
-
-        - alert: ZenithSLOBurnRateSlow
-          expr: |
-            (
-              sum(rate(http_requests_total{job="zenith",status=~"5.."}[6h]))
-              /
-              sum(rate(http_requests_total{job="zenith"}[6h]))
-            ) > (6 * 0.001)
-          for: 5m
-          labels:
-            severity: warning
-            slo: availability
-          annotations:
-            summary: "SLO burn rate > 6x (1d budget exhausted in 4 days)"
-
-        # Dependency health
-        - alert: ZenithMongoDBDown
-          expr: up{job="mongodb"} == 0
-          for: 1m
-          labels:
-            severity: critical
-            team: dba
-          annotations:
-            summary: "MongoDB primary is down"
-            runbook_url: "https://docs.zenith.io/runbooks/03_mongodb_failover"
-
-        - alert: ZenithVaultSealed
-          expr: vault_sealed == 1
-          for: 1m
-          labels:
-            severity: critical
-            team: security
-          annotations:
-            summary: "Vault is sealed"
-            runbook_url: "https://docs.zenith.io/runbooks/04_vault_unsealing"
+  # The rules are the canonical ones (observability/prometheus/zenith-alerts.yaml, included by
+  # includeDefaultRules). The copies that lived here were duplicates, with labels the code does not emit.
+  includeDefaultRules: true
+  groups: []
 
 # ── Service Account ──────────────────────────────────────────────────────────
 serviceAccount:
