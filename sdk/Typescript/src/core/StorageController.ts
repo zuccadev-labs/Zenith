@@ -57,8 +57,12 @@ export class WebStorageAdapter implements StorageController {
 export class CookieStorageAdapter implements StorageController {
   async getItem(key: string): Promise<string | null> {
     if (typeof document === "undefined") return null;
-    const match = document.cookie.match(new RegExp('(^| )' + key + '=([^;]+)'));
-    return match ? decodeURIComponent(match[2]) : null;
+    // Plain parsing: the key used to go into a RegExp unescaped (wrong matches, ReDoS with odd keys).
+    for (const part of document.cookie.split(";")) {
+      const eq = part.indexOf("=");
+      if (eq > 0 && part.slice(0, eq).trim() === key) return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+    return null;
   }
 
   async setItem(key: string, value: string): Promise<void> {

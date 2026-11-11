@@ -81,50 +81,56 @@ export const ObservabilityTrait = createTraitDescriptor({
       log: (msg: string) => console.log(JSON.stringify({ level: "info", timestamp: new Date().toISOString(), msg })),
     };
 
+    // Prometheus text exposition (0.0.4): one TYPE line per metric, one series per label set. Before,
+    // labels were dropped (series of the same metric came out as duplicated lines, which Prometheus
+    // rejects) and histograms kept every value forever.
+    type Series = { name: string; labels: Record<string, string> };
+    const keyOf = (name: string, labels: Record<string, string>) =>
+      `${name}|${JSON.stringify(Object.fromEntries(Object.entries(labels).sort(([a], [b]) => a.localeCompare(b))))}`;
+    const escape = (v: string) => v.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/"/g, '\\"');
+    const labelText = (labels: Record<string, string>) => {
+      const e = Object.entries(labels).sort(([a], [b]) => a.localeCompare(b));
+      return e.length ? `{${e.map(([k, v]) => `${k}="${escape(String(v))}"`).join(",")}}` : "";
+    };
     const metrics = {
-      counters: new Map<string, { value: number; labels: string[] }>(),
-      histograms: new Map<string, { values: number[]; labels: string[] }>(),
-      gauges: new Map<string, { value: number; labels: string[] }>(),
+      counters: new Map<string, Series & { value: number }>(),
+      histograms: new Map<string, Series & { count: number; sum: number }>(),
+      gauges: new Map<string, Series & { value: number }>(),
       increment: (name: string, labels: Record<string, string> = {}, value: number = 1) => {
-        const key = `${name}|${JSON.stringify(labels)}`;
+        const key = keyOf(name, labels);
         const c = metrics.counters.get(key);
         if (c) c.value += value;
-        else metrics.counters.set(key, { value, labels: Object.keys(labels) });
+        else metrics.counters.set(key, { name, labels: { ...labels }, value });
       },
       gauge: (name: string, value: number, labels: Record<string, string> = {}) => {
-        const key = `${name}|${JSON.stringify(labels)}`;
-        metrics.gauges.set(key, { value, labels: Object.keys(labels) });
+        metrics.gauges.set(keyOf(name, labels), { name, labels: { ...labels }, value });
       },
       histogram: (name: string, value: number, labels: Record<string, string> = {}) => {
-        const key = `${name}|${JSON.stringify(labels)}`;
+        const key = keyOf(name, labels);
         const h = metrics.histograms.get(key);
-        if (h) h.values.push(value);
-        else metrics.histograms.set(key, { values: [value], labels: Object.keys(labels) });
+        if (h) { h.count++; h.sum += value; }
+        else metrics.histograms.set(key, { name, labels: { ...labels }, count: 1, sum: value });
       },
       snapshot: () => ({
-        counters: Array.from(metrics.counters.entries()).map(([k, v]) => ({ name: k.split("|")[0], labels: {}, value: v.value })),
-        gauges: Array.from(metrics.gauges.entries()).map(([k, v]) => ({ name: k.split("|")[0], labels: {}, value: v.value })),
-        histograms: Array.from(metrics.histograms.entries()).map(([k, v]) => ({ name: k.split("|")[0], labels: {}, count: v.values.length, sum: v.values.reduce((a, b) => a + b, 0) })),
+        counters: [...metrics.counters.values()].map(({ name, labels, value }) => ({ name, labels, value })),
+        gauges: [...metrics.gauges.values()].map(({ name, labels, value }) => ({ name, labels, value })),
+        histograms: [...metrics.histograms.values()].map(({ name, labels, count, sum }) => ({ name, labels, count, sum })),
       }),
       toPrometheus: () => {
         const lines: string[] = [];
-        for (const [key, counter] of metrics.counters) {
-          const name = key.split("|")[0];
-          lines.push(`# TYPE ${name} counter`);
-          lines.push(`${name} ${counter.value}`);
-        }
-        for (const [key, gauge] of metrics.gauges) {
-          const name = key.split("|")[0];
-          lines.push(`# TYPE ${name} gauge`);
-          lines.push(`${name} ${gauge.value}`);
-        }
-        for (const [key, hist] of metrics.histograms) {
-          const name = key.split("|")[0];
-          lines.push(`# TYPE ${name} histogram`);
-          lines.push(`${name}_count ${hist.values.length}`);
-          lines.push(`${name}_sum ${hist.values.reduce((a, b) => a + b, 0)}`);
-        }
-        return lines.join("\n");
+        const emit = (type: string, series: Iterable<Series & Record<string, any>>, values: (s: any) => Array<[string, number]>) => {
+          const byName = new Map<string, Array<Series & Record<string, any>>>();
+          for (const s of series) byName.set(s.name, [...(byName.get(s.name) ?? []), s]);
+          for (const [name, list] of byName) {
+            lines.push(`# TYPE ${name} ${type === "histogram" ? "summary" : type}`);
+            for (const s of list) for (const [suffix, v] of values(s)) lines.push(`${name}${suffix}${labelText(s.labels)} ${v}`);
+          }
+        };
+        emit("counter", metrics.counters.values(), (s) => [["", s.value]]);
+        emit("gauge", metrics.gauges.values(), (s) => [["", s.value]]);
+        // Count and sum only (no buckets): exposed as a summary without quantiles.
+        emit("histogram", metrics.histograms.values(), (s) => [["_count", s.count], ["_sum", s.sum]]);
+        return lines.join("\n") + (lines.length ? "\n" : "");
       },
     };
 

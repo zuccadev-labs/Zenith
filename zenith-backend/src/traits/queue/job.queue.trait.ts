@@ -22,6 +22,7 @@
  * @barrits-summary ZenithJobQueue
  * @barrits-provides queue-routes, queue, jobQueue
  * @barrits-consumes db
+ * @barrits-tags uses:metric-registry
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -83,6 +84,7 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
     name: "ZenithJobQueue",
     provides: ["queue-routes", "queue", "jobQueue"],
     consumes: ["db"],
+    tags: ["uses:metric-registry"],
     state: [],
     runtimes: ["deno"],
     summary: "Durable job queue on _Job: survives restarts, shared by every instance without duplicates (core/outbox.ts), priorities, delays, idempotency keys, exponential retries and a dead-letter state.",
@@ -93,6 +95,11 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
       const leaseMs = options.leaseMs ?? 300_000;
       const concurrency = options.concurrency ?? 5;
       const workers = new Map<string, (data: any) => unknown | Promise<unknown>>();
+      const metrics = deps.traits["metric-registry"];
+      const count = (job: Job, result: string, ms: number) => {
+        metrics?.increment("zenith_jobs_total", { type: job.type, result });
+        metrics?.histogram("zenith_job_duration_ms", ms, { type: job.type, result });
+      };
 
       /** Estado visible: `running` si está pendiente con concesión en vigor. */
       const view = (j: Job): Job => ({ ...j, status: j.status === "pending" && isLeased(j, clock()) ? "running" : j.status });
@@ -103,12 +110,17 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
       const run = async (job: Job): Promise<Job> => {
         const attempts = (job.attempts ?? 0) + 1;
         const worker = workers.get(job.type)!;
+        const started = clock();
         try {
           const result = await worker(job.data);
+          count(job, "completed", clock() - started);
           return view(await finish(job, { status: "completed", attempts, result: result ?? null, finishedAt: iso(clock()), nextAttemptAt: null, lastError: undefined }));
         } catch (e) {
           const lastError = (e as Error)?.message ?? String(e);
-          if (attempts >= job.maxAttempts) {
+          const dead = attempts >= job.maxAttempts;
+          count(job, dead ? "failed" : "retry", clock() - started);
+          if (dead) {
+            console.warn(`[queue] job ${job.jobId} (${job.type}) failed after ${attempts} attempts: ${lastError}`);
             return view(await finish(job, { status: "failed", attempts, lastError, finishedAt: iso(clock()), nextAttemptAt: null }));
           }
           return view(await finish(job, { status: "pending", attempts, lastError, nextAttemptAt: iso(clock() + backoffMs(attempts, random)) }));
@@ -128,7 +140,13 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
       };
 
       let timer: ReturnType<typeof setInterval> | null = null;
+      let gauges: ReturnType<typeof setInterval> | null = null;
       let busy = false;
+      /** Backlog gauges for dashboards and alerts (every 30 s with the worker). */
+      const reportBacklog = async () => {
+        if (!metrics) return;
+        for (const status of ["pending", "failed"]) metrics.gauge("zenith_jobs", (await db.find(JOB_CLASS, { status })).length, { status });
+      };
 
       const traitApi = {
         registerWorker: (jobType: string, handler: (data: any) => unknown | Promise<unknown>) => {
@@ -194,11 +212,15 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
             }
           }, options.intervalMs ?? 1000);
           Deno.unrefTimer(timer);
+          gauges = setInterval(() => void reportBacklog().catch(() => {}), 30_000);
+          Deno.unrefTimer(gauges);
         },
         stopBackground() {
           if (timer !== null) clearInterval(timer);
-          timer = null;
+          if (gauges !== null) clearInterval(gauges);
+          timer = gauges = null;
         },
+        reportBacklog,
         /** Alias anterior de `startBackground`; devuelve la función para pararlo. */
         startWorker() {
           traitApi.startBackground();

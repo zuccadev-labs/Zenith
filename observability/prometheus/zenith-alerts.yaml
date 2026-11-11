@@ -269,3 +269,60 @@ groups:
           team: security
         annotations:
           summary: "Plugin signature verification failed — possible tampering"
+
+  # ----------------------------------------------------------------
+  # 6. Background work: webhooks and the durable job queue (ADR-017)
+  #    Metrics: zenith_webhook_*, zenith_jobs*, from the metric registry (/metrics).
+  # ----------------------------------------------------------------
+  - name: zenith.background
+    interval: 30s
+    rules:
+      - alert: ZenithWebhookEndpointDisabled
+        expr: increase(zenith_webhook_endpoints_disabled_total[15m]) > 0
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "A webhook endpoint was disabled on {{ $labels.instance }}"
+          description: "An endpoint answered 410 Gone or 5 messages in a row failed every retry. Its owner stops receiving events until it is resumed (zen webhook resume). Messages keep accumulating while it is paused."
+
+      - alert: ZenithWebhookFailuresHigh
+        expr: |
+          sum(rate(zenith_webhook_attempts_total{result=~"retry|error"}[10m]))
+            / clamp_min(sum(rate(zenith_webhook_attempts_total[10m])), 1e-9) > 0.5
+        for: 15m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "More than half of webhook attempts fail"
+          description: "Receivers are down or rejecting deliveries. Check zen webhook messages <id> --status pending and the egress path."
+
+      - alert: ZenithWebhookBacklogGrowing
+        expr: max(zenith_webhook_messages{status="pending"}) > 1000 and deriv(max(zenith_webhook_messages{status="pending"})[30m:1m]) > 0
+        for: 30m
+        labels:
+          severity: warning
+          team: integrations
+        annotations:
+          summary: "Webhook backlog above 1000 and growing"
+          description: "Deliveries are not keeping up. Check the worker is running (startBackground) and the database outbox."
+
+      - alert: ZenithJobsDeadLettered
+        expr: increase(zenith_jobs_total{result="failed"}[15m]) > 0
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Jobs of type {{ $labels.type }} exhausted their retries"
+          description: "They are in the dead-letter state: inspect GET /queue/jobs?status=failed and retry with POST /queue/jobs/:jobId/retry once fixed."
+
+      - alert: ZenithJobBacklogGrowing
+        expr: max(zenith_jobs{status="pending"}) > 5000 and deriv(max(zenith_jobs{status="pending"})[30m:1m]) > 0
+        for: 30m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Job queue backlog above 5000 and growing"
+          description: "Workers are not keeping up, or a job type has no worker registered on any instance."

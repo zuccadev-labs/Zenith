@@ -1,0 +1,35 @@
+# Dependabot: every manifest of the monorepo, weekly. Minor and patch updates come grouped in one PR per
+# ecosystem and directory; majors arrive one by one, because they need reading their changelog.
+# Each PR must pass the CI (lint, typecheck, tests with frozen locks, Trivy) before merging.
+version: 2
+
+updates:
+  - package-ecosystem: deno
+    directories: ["/zenith-backend", "/zenith-cli"]
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 10
+    groups:
+      deno-minor-patch: { update-types: [minor, patch] }
+
+  - package-ecosystem: npm
+    directories: ["/sdk/Typescript", "/sdk/Typescript/example/vite-react-app", "/create-zenith"]
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch: { update-types: [minor, patch] }
+
+  - package-ecosystem: docker
+    directory: "/zenith-backend"
+    schedule: { interval: weekly, day: monday }
+
+  - package-ecosystem: docker-compose
+    directory: "/lab-infra/docker"
+    schedule: { interval: weekly, day: monday }
+    groups:
+      lab-images: { patterns: ["*"] }
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions: { patterns: ["*"] }
