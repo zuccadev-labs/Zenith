@@ -106,3 +106,43 @@ export async function verifyWebhook(
   }
   return ok;
 }
+
+// ─── Endpoint verification (Standard Webhooks extension) ────────────────────
+// spec/extensions/endpoint-verification.md: the producer sends a dedicated signed POST with
+// `webhook-challenge` (32 random bytes, base64); the endpoint answers
+// `webhook-challenge-response: v1,base64(HMAC(HMAC(key, "wev-v1"), challenge))`. A separate key domain,
+// so the answer is useless for anything but verifying this endpoint.
+
+export const WEBHOOK_CHALLENGE_HEADER = "webhook-challenge";
+export const WEBHOOK_CHALLENGE_RESPONSE_HEADER = "webhook-challenge-response";
+
+/** A new challenge: 32 bytes of the CSPRNG, base64. One per request. */
+export function generateChallenge(): string {
+  return toBase64(randomBytes(32));
+}
+
+/** The `webhook-challenge-response` value for `challenge` (the header string as received). */
+export async function endpointVerificationResponse(secret: string, challenge: string): Promise<string> {
+  const verificationKey = await hmacSha256(webhookKeyBytes(secret), "wev-v1");
+  return `v1,${toBase64(await hmacSha256(verificationKey, challenge))}`;
+}
+
+/**
+ * Whether `header` answers `challenge` with one of `secrets`. The whole value is compared in constant
+ * time; a list of signatures or another identifier fails.
+ */
+export async function verifyEndpointVerificationResponse(secrets: readonly string[], challenge: string, header: string | null): Promise<boolean> {
+  if (!header || header.includes(" ") || !header.startsWith("v1,")) return false;
+  const enc = new TextEncoder();
+  let ok = false;
+  for (const s of secrets) {
+    let expected: string;
+    try {
+      expected = await endpointVerificationResponse(s, challenge);
+    } catch {
+      continue;
+    }
+    ok = timingSafeEqual(enc.encode(expected), enc.encode(header)) || ok;
+  }
+  return ok;
+}

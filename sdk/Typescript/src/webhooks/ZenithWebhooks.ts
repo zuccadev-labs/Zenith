@@ -20,7 +20,9 @@ export interface ZenithWebhook {
   description?: string;
   /** Event types or patterns: "Contact.created", "Deal.*", "*". */
   events: string[];
-  status: "active" | "paused" | "disabled";
+  /** `unverified` until the receiver answers the verification challenge (`verify`). */
+  status: "unverified" | "active" | "paused" | "disabled";
+  verifiedAt?: string;
   headers?: Record<string, string>;
   /** Signing secrets currently in use (2 during a rotation). The secrets themselves are never returned. */
   secretCount: number;
@@ -101,6 +103,14 @@ export class ZenithWebhooks {
   /** Resumes a paused endpoint, or re-enables one disabled after repeated failures. */
   resume(objectId: string): Promise<ZenithWebhook> {
     return this.call("POST", `/${encodeURIComponent(objectId)}/resume`);
+  }
+
+  /**
+   * Endpoint verification (Standard Webhooks): Zenith sends a challenge; the receiver answers
+   * `webhook-challenge-response` with its secret. Activates an unverified endpoint.
+   */
+  verify(objectId: string): Promise<{ id: string; verified: boolean; status: ZenithWebhook["status"]; reason?: string }> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/verify`);
   }
 
   /** Queues a `webhook.test` message. */

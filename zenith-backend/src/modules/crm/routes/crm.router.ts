@@ -10,7 +10,7 @@ export function createCRMRouter(Zen: any) {
     {
       method: "POST",
       path: "/zen/crm/contacts",
-      handler: async (req: Request, ctx: any) => {
+      handler: async (req: Request, _ctx: any) => {
         try {
           const body = await req.json();
           // Smart Routing: Validar campos corporativos
@@ -42,7 +42,7 @@ export function createCRMRouter(Zen: any) {
     {
       method: "GET",
       path: "/zen/crm/contacts",
-      handler: async (req: Request, ctx: any) => {
+      handler: async (req: Request, _ctx: any) => {
         const url = new URL(req.url);
         const limit = parseInt(url.searchParams.get("limit") || "100", 10);
         const contacts = await Zen.DB.find("Contact", { limit, order: "-createdAt" });
@@ -52,7 +52,7 @@ export function createCRMRouter(Zen: any) {
     {
       method: "POST",
       path: "/zen/crm/leads",
-      handler: async (req: Request, ctx: any) => {
+      handler: async (req: Request, _ctx: any) => {
         try {
           const body = await req.json();
           if (!body.contactId) throw ZenithErrors.invalidRequest("contactId es obligatorio para un Lead.");
@@ -72,7 +72,7 @@ export function createCRMRouter(Zen: any) {
     {
       method: "POST",
       path: "/zen/crm/leads/:leadId/convert",
-      handler: async (req: Request, ctx: any) => {
+      handler: async (req: Request, _ctx: any) => {
          try {
            const urlPattern = new URLPattern({ pathname: "/zen/crm/leads/:leadId/convert" });
            const match = urlPattern.exec(req.url);

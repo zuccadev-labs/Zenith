@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-unused-vars
 /**
  * Plugin Marketplace Trait — Registro, instalación y gestión de plugins.
  *
@@ -21,7 +20,7 @@
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, now } from "../../core/trait-utils.ts";
 
 export interface PluginManifest {
   id:          string;   // @vendor/plugin-name

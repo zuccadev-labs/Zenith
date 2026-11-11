@@ -7,6 +7,7 @@
  *   zen webhook delete <objectId>
  *   zen webhook pause  <objectId>
  *   zen webhook resume <objectId>
+ *   zen webhook verify <objectId>   (verificación de endpoint: el receptor responde al desafío)
  *   zen webhook test   <objectId>
  *   zen webhook rotate-secret <objectId> [--grace-hours 24]
  *   zen webhook messages <objectId> [--status pending|succeeded|failed]   (alias: deliveries)
@@ -48,6 +49,7 @@ export async function run(args: string[]): Promise<void> {
       console.log("✅ Webhook creado:", res.objectId);
       console.log(`⚠️  Secret (solo visible ahora): ${res.secret}`);
       console.log("   Guárdalo — no se mostrará de nuevo.");
+      if (res.status === "unverified") console.log(`   Configúralo en el receptor y ejecuta: zen webhook verify ${res.objectId}`);
       break;
     }
     case "delete": {
@@ -72,6 +74,13 @@ export async function run(args: string[]): Promise<void> {
       if (!id) { console.error("❌ Proporciona el objectId"); Deno.exit(1); }
       const res = await zenApiCall(cfg, "POST", `/zen/webhooks/${id}/test`);
       console.log(`✅ Mensaje de prueba encolado: ${res.messageId} (zen webhook messages ${id})`);
+      break;
+    }
+    case "verify": {
+      need(id, "el objectId");
+      const res = await zenApiCall(cfg, "POST", `/zen/webhooks/${id}/verify`);
+      if (res.verified) console.log(`✅ Endpoint verificado. Estado: ${res.status}`);
+      else { console.error(`❌ No verificado: ${res.reason}`); Deno.exit(1); }
       break;
     }
     case "rotate-secret": {
@@ -120,6 +129,7 @@ Uso:
   zen webhook delete  <objectId>
   zen webhook pause   <objectId>
   zen webhook resume  <objectId>
+  zen webhook verify  <objectId>
   zen webhook test    <objectId>
   zen webhook rotate-secret <objectId> [--grace-hours 24]
   zen webhook messages  <objectId> [--status pending|succeeded|failed]

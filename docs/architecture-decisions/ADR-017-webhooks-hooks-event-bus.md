@@ -109,4 +109,5 @@ momento.
     duradero);
   - los cambios de un `beforeSave` se guardan también al actualizar.
   Los dos están probados con MongoDB real en `tests/integration/pieces-e2e.test.ts`.
-- **Pendiente:** la verificación de endpoints de Standard Webhooks (extensión opcional).
+- **Verificación de endpoints** (extensión `endpoint-verification`): también implementada el mismo día, activa por
+  defecto (`ZENITH_WEBHOOKS_VERIFY=0` la desactiva).

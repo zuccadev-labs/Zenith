@@ -381,7 +381,7 @@ export const ERPTrait: AnyTraitDescriptor = createTraitDescriptor({
         const where = query.where ?? {};
         const limit = Math.min(parseInt(query.limit ?? "100", 10), 1000);
         const skip  = parseInt(query.skip ?? "0", 10);
-        let results = await db.find("Order", where);
+        const results = await db.find("Order", where);
         if (query.order) {
           const key = query.order.replace(/^-/, "");
           const desc = query.order.startsWith("-");

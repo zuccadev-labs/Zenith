@@ -45,8 +45,13 @@ export interface SurrealConfig {
  */
 export class SurrealClient {
   private baseHeaders: Record<string, string>;
+  private ensured: Promise<void> | null = null;
 
   constructor(private config: SurrealConfig) {
+    // They go into DEFINE statements: identifiers only, never data.
+    for (const [k, v] of [["namespace", config.namespace], ["database", config.database]] as const) {
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(String(v))) throw new Error(`[SurrealDB] Invalid ${k} name: ${JSON.stringify(v)}`);
+    }
     const credentials = btoa(`${config.user}:${config.pass}`);
     this.baseHeaders = {
       "Authorization": `Basic ${credentials}`,
@@ -81,10 +86,41 @@ export class SurrealClient {
     return results;
   }
 
+  /**
+   * SurrealDB 3+ no longer creates the namespace and database on first use (2.x did): the adapter
+   * failed with "The namespace 'zenith' does not exist". Created once, idempotently, when missing; an
+   * account that may not define them gets the original error.
+   */
+  private ensureNamespaceAndDatabase(): Promise<void> {
+    this.ensured ??= (async () => {
+      const { namespace: ns, database: db } = this.config;
+      const res = await fetch(`${this.config.url}/sql`, {
+        method: "POST",
+        headers: { Authorization: this.baseHeaders.Authorization, Accept: "application/json", "Content-Type": "text/plain" },
+        body: `DEFINE NAMESPACE IF NOT EXISTS ${ns}; USE NS ${ns}; DEFINE DATABASE IF NOT EXISTS ${db};`,
+      });
+      if (!res.ok) throw new Error(`[SurrealDB] Could not define namespace/database: ${res.status} ${await res.text()}`);
+    })().catch((e) => {
+      this.ensured = null;
+      throw e;
+    });
+    return this.ensured;
+  }
+
   /** Ejecuta una query SurrealQL y retorna los resultados del primer statement */
   async query<T = any>(surrealQL: string, vars?: Record<string, unknown>): Promise<T[]> {
-    const results = await this.sql(surrealQL, vars);
+    let results = await this.sql(surrealQL, vars);
+    const missing = (r: any) => r && r.status !== "OK" && /(namespace|database) '[^']*' does not exist/i.test(String(r.detail ?? r.result ?? ""));
+    if (missing(results[0])) {
+      await this.ensureNamespaceAndDatabase();
+      results = await this.sql(surrealQL, vars);
+    }
     const first = results[0];
+    // SurrealDB 3+ fails on a table nobody has written to yet (2.x returned nothing). For Zenith, as
+    // for Parse, a class without objects is empty: reads, updates and deletes on it match nothing.
+    if (first && first.status !== "OK" && /The table '[^']*' does not exist/.test(String(first.detail ?? first.result ?? ""))) {
+      return [] as T[];
+    }
     if (!first || first.status !== "OK") {
       throw new Error(`[SurrealDB] Query failed: ${first?.detail ?? first?.result ?? "unknown error"}`);
     }
@@ -139,7 +175,7 @@ const buildWhereClause = (where: Record<string, any>, tableAlias = "", collectio
 
     // El id es un record, no un string: compararlo con texto nunca coincide
     if (key === "objectId" && collection && typeof val === "string") {
-      clauses.push(`id = type::thing(${JSON.stringify(collection)}, ${JSON.stringify(val)})`);
+      clauses.push(`id = type::record(${JSON.stringify(collection)}, ${JSON.stringify(val)})`);
       continue;
     }
 
@@ -290,7 +326,7 @@ export function createSurrealAdapter(client: SurrealClient): DatabaseAdapter {
           ? `${field(key)} >= ${JSON.stringify(val.$gte)}`
           : `${field(key)} = ${JSON.stringify(val)}`
       );
-      const record = `type::thing(${JSON.stringify(field(collection))}, ${JSON.stringify(objectId)})`;
+      const record = `type::record(${JSON.stringify(field(collection))}, ${JSON.stringify(objectId)})`;
       const docs = await retryOnConflict(() => client.query(
         `UPDATE ${record} SET ${assignments.join(", ")} WHERE ${checks.join(" AND ")} RETURN AFTER`
       ));

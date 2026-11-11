@@ -63,3 +63,25 @@
 - **500**: Internal Server Error
 
 ---
+
+## `GET /files/{objectId}/{filename}`
+**Download a file through a signed URL (expires, sig); 403 if the signature is invalid or expired**
+
+### Parámetros
+| Nombre | In | Tipo | Requerido | Descripción |
+|--------|----|------|-----------|-------------|
+| `objectId` | path | string | ✅ |  |
+| `filename` | path | string | ✅ |  |
+| `expires` | query | string | ✅ |  |
+| `sig` | query | string | ✅ |  |
+
+### Respuestas
+- **200**: OK
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---

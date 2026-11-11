@@ -40,10 +40,7 @@ export const CloudCodeTrait = createTraitDescriptor({
   runtimes: ["deno"],
   summary: "Parse Server-compatible Cloud Code: define/register functions, before/after triggers on collections, custom REST routes with security policies (Parse Server master key replacement via API keys).",
   // deno-lint-ignore no-explicit-any
-  create: (deps: Record<string, any>) => {
-    const db = deps.traits["db"];
-    const acl = deps.traits["acl"];
-    const schema = deps.traits["schema"];
+  create: (_deps: Record<string, any>) => {
 
     const registeredFunctions = new Map<string, CloudFunctionHandler>();
     const beforeSaveTriggers = new Map<string, CloudTriggerHandler[]>();

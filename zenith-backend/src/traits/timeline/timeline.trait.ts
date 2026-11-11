@@ -14,7 +14,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
-import { jsonRes, errRes, pathParams, parsePage, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, pathParams } from "../../core/trait-utils.ts";
 
 /** Mapa de tipo → ícono sugerido para el frontend */
 const TIMELINE_ICON: Record<string, string> = {

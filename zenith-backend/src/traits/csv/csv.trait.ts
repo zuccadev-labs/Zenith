@@ -18,7 +18,7 @@
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, pathParams, queryParams, parseFilterParam, applyFilter, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, pathParams, parseFilterParam, applyFilter, now } from "../../core/trait-utils.ts";
 
 /** Campos exportables por clase */
 const EXPORT_FIELDS: Record<string, string[]> = {

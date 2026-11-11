@@ -78,14 +78,17 @@ otra arrancada después (`tests/integration/pieces-e2e.test.ts`).
 validar el resultado, como Parse Server. Probado con MongoDB real y un hook de `/hooks`; la prueba falla si se
 quita el arreglo.
 
-### Verificación de endpoints de webhooks (extensión de Standard Webhooks)
-La extensión opcional `webhook-challenge` no está implementada: verificar con un desafío firmado que el receptor
-controla la URL antes de entregarle eventos, y volver a verificar si cambia la URL.
+### Verificación de endpoints de webhooks: resuelto el 2026-11-11
+Implementada la extensión de Standard Webhooks: un endpoint nuevo empieza `unverified`, no recibe eventos y
+`POST /zen/webhooks/:id/verify` le manda un desafío firmado. Pasa con `webhook-challenge-response` (coincide con el
+vector de la especificación). Cambiar la URL lo vuelve a `unverified`. `ZENITH_WEBHOOKS_VERIFY=0` lo desactiva.
 
-### URLs firmadas de `storage` sin verificar
-`presignedUrl` firma con HMAC (ADR-016), pero ninguna ruta de `/files` comprueba `sig` ni `expires`. Las rutas son
-solo para la master key, así que hoy la firma no protege nada. Hay que verificarla, con tiempo constante y
-caducidad, o usar las URLs prefirmadas del adaptador S3 (RustFS).
+### URLs firmadas de `storage`: resuelto el 2026-11-11
+`GET /files/:objectId/:filename` (público) sirve el archivo solo con firma HMAC válida y sin caducar (tiempo
+constante; máximo 7 días, como AWS SigV4). `GET /zen/files/:filename/url` (master) la genera, con el prefijo de
+montaje (`X-Forwarded-Prefix`). De paso: nadie creaba el directorio de archivos y el error de escritura se tragaba,
+así que cada subida perdía el contenido; y el contenido se guardaba con un id distinto del `objectId` del registro.
+Probado con MongoDB y en el contenedor.
 
 ### `POST /zen/workspace/invitations/accept` toma `userId` del cuerpo
 Con acceso master (el valor por defecto) es una herramienta de administración. Si se abre a usuarios (ADR-013),
@@ -171,14 +174,13 @@ las tareas `dev`, `compile` y `build` de `zenith-backend/deno.json` para el arra
 rotas: `lab:up` y `lab:down` apuntan a `lab-infra/docker-compose.yml` (el real está en
 `lab-infra/docker/docker-compose.yml`) y `verify` llama a `coverage:check`, que no existe.
 
-### `zenith-cli/deno.lock` desactualizado para las pruebas
-`deno test` en `zenith-cli/` reescribe el lock: quita entradas del motor (mongodb, stripe, viem…) que solo
-alcanzan los imports dinámicos al enlazar `zenith-backend/` en local. Con `--frozen` falla. Hay que decidir si el
-CLI fija esas dependencias (y entonces el lock debe incluirlas de forma estable) o no.
+### `zenith-cli/deno.lock`: resuelto el 2026-11-11
+El lock refleja el grafo de las pruebas y los puntos de entrada; `deno test --frozen`, `deno check --frozen` y
+`zen generate` con el motor local pasan con él congelado.
 
-### `package-lock.json` ignorado
-`.gitignore` excluye `**/package-lock.json`, así que el SDK de cliente y el ejemplo no tienen builds reproducibles.
-En el motor y en el CLI, `deno.lock` sí está versionado.
+### `package-lock.json` ignorado: resuelto el 2026-11-11
+Ya se versiona. El SDK no compilaba desde cero (React era solo `peerDependency`); ahora también es
+`devDependency` y `npm ci && tsc` pasa en limpio.
 
 ### Código fuente de core-class-barrel ilegible
 `apps/core-class-barrel`, el proyecto Rust del que salió barrits, tiene 115 de sus 127 archivos fuente con
@@ -247,4 +249,16 @@ pasaba `"-addext basicConstraints=…"` como un solo argumento. Al corregirlo ap
 `computeSpkiPin` fallaba con cualquier certificado. Además devolvía solo el contenido del SPKI, no la
 estructura completa que hashea RFC 7469. Ahora el pin coincide con el de OpenSSL
 (`x509 -pubkey | pkey -pubin -outform der | sha256`).
+
+### GitHub Actions no se ejecutaba: CI reescrito el 2026-11-11
+El workflow probaba una carpeta que no existe (`src/test/`), sin `--unstable-kv` ni Mongo, y con
+`trivy-action@master` sin fijar. El nuevo (`ci.yml`, ver `docs/testing.md`) ejecuta lint (0 errores tras limpiar
+40), typecheck, pruebas unitarias con lock congelado, integración contra MongoDB, CLI, SDK, build de la imagen y
+Trivy. Que GitHub lance las ejecuciones en el repo privado depende de la organización (Settings → Actions y
+facturación de minutos): no lo puedo cambiar con los permisos de este token.
+
+### Imagen Docker: no arrancaba (resuelto el 2026-11-11)
+El binario de `deno compile` no incluía `apps.config.ts`; ahora va con `--include`. Además: actualizaciones de
+seguridad de Debian en la imagen final (Trivy: 0 CRITICAL/HIGH con arreglo) y `ZENITH_FILES_DIR=/data/files`.
+Probado arrancando el contenedor de solo lectura con MongoDB y ScyllaDB reales.
 

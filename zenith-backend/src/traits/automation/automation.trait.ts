@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-unused-vars
 /**
  * Automation Rules Engine — Motor de automatización de negocio.
  *
@@ -29,11 +28,7 @@
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { safeFetch } from "../../security/outbound-http.ts";
-import {
-  jsonRes, errRes, NO_CONTENT, pathParams, queryParams,
-  parsePage, sortResults, ptr, now,
-  parseFilterParam, applyFilter,
-} from "../../core/trait-utils.ts";
+import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
 // ── Tipos del motor ───────────────────────────────────────────────────────────
 

@@ -240,3 +240,22 @@
 - **500**: Internal Server Error
 
 ---
+
+## `POST /zen/webhooks/{objectId}/verify`
+**Endpoint verification (Standard Webhooks): send a challenge; a correct answer activates an unverified endpoint**
+
+### Parámetros
+| Nombre | In | Tipo | Requerido | Descripción |
+|--------|----|------|-----------|-------------|
+| `objectId` | path | string | ✅ |  |
+
+### Respuestas
+- **201**: Created
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---

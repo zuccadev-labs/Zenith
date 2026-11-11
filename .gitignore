@@ -46,7 +46,7 @@ ehthumbs.db
 # Node.js / JavaScript toolchain
 # ============================================================
 **/node_modules/
-**/package-lock.json
+# package-lock.json is versioned: builds of the SDK and its example must be reproducible (npm ci).
 **/yarn.lock
 **/pnpm-lock.yaml
 **/bun.lockb

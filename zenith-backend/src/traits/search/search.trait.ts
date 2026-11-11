@@ -15,7 +15,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
-import { jsonRes, errRes, pathParams, parseFilterParam, applyFilter, sortResults, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, parseFilterParam, applyFilter, sortResults } from "../../core/trait-utils.ts";
 
 /** Configuración de qué campos se indexan por clase */
 const SEARCH_INDEX: Record<string, string[]> = {

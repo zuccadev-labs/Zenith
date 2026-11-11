@@ -21,7 +21,7 @@
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, sortResults, ptr, now } from "../../core/trait-utils.ts";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 

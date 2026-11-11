@@ -14,8 +14,13 @@
  *   - `/zen/webhooks`: CRUD;
  *   - `/pause`, `/resume`, `/test` y `/rotate-secret`;
  *   - mensajes, intentos, reentrega de un mensaje y recuperación de los fallidos desde una fecha.
+ * - **Verificación de endpoints** (extensión de Standard Webhooks): un endpoint nuevo empieza
+ *   `unverified` y no recibe nada hasta que `POST /zen/webhooks/:id/verify` le manda un desafío y responde
+ *   con la clave derivada de su secreto. Así consta que quien opera la URL aceptó los webhooks y tiene el
+ *   secreto correcto. Cambiar la URL lo devuelve a `unverified`. `ZENITH_WEBHOOKS_VERIFY=0` lo desactiva.
  * - **En caliente:** con la pieza `webhooks` apagada (`/zen/features`) no se encolan ni se entregan
- *   mensajes. Un endpoint pausado acumula los mensajes y los entrega al reanudarse.
+ *   mensajes. Un endpoint pausado acumula los mensajes y los entrega al reanudarse; uno sin verificar
+ *   no recibe eventos, porque todavía no consta su consentimiento.
  *
  * @barrits-trait
  * @barrits-summary ZenithWebhookManager
@@ -29,8 +34,11 @@ import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/b
 import { ZenithError, ZenithErrorCode, ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, sortResults, now } from "../../core/trait-utils.ts";
 import { isSealed, randomBytes, seal, toBase64Url, unseal } from "../../core/crypto.ts";
-import { generateWebhookSecret } from "../../security/webhook-signature.ts";
-import { checkOutboundUrl, OutboundBlockedError, type OutboundPolicy } from "../../security/outbound-http.ts";
+import {
+  generateChallenge, generateWebhookSecret, verifyEndpointVerificationResponse, WEBHOOK_CHALLENGE_HEADER,
+  WEBHOOK_CHALLENGE_RESPONSE_HEADER, webhookHeaders,
+} from "../../security/webhook-signature.ts";
+import { checkOutboundUrl, OutboundBlockedError, safeFetch, type OutboundPolicy } from "../../security/outbound-http.ts";
 import { sanitizePayload } from "../../security/sanitize.ts";
 import { ATTEMPT_CLASS, deliverDue, ENDPOINT_CLASS, MESSAGE_CLASS, type DeliveryDeps } from "./webhook.delivery.ts";
 
@@ -40,7 +48,8 @@ const WEBHOOK_SCHEMA = {
     url:           { type: "String", required: true },
     description:   { type: "String" },
     events:        { type: "Array",  required: true }, // ["Contact.created", "Deal.*", "*"]
-    status:        { type: "String", defaultValue: "active" }, // active | paused | disabled
+    status:        { type: "String", defaultValue: "active" }, // unverified | active | paused | disabled
+    verifiedAt:    { type: "Date" },
     secrets:       { type: "Array" },  // [{ value: cifrado, createdAt, expiresAt? }], el actual primero
     headers:       { type: "Object", defaultValue: {} },
     exhaustedCount:{ type: "Number", defaultValue: 0 },
@@ -98,6 +107,8 @@ export interface WebhookManagerOptions {
   readonly secretsKey?: string;
   readonly fetcher?: DeliveryDeps["fetcher"];
   readonly now?: () => number;
+  /** Endpoints start unverified until they answer a challenge. Default: on (`ZENITH_WEBHOOKS_VERIFY=0` turns it off). */
+  readonly requireVerification?: boolean;
 }
 
 function envFlag(name: string): string | undefined {
@@ -127,6 +138,7 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
       const allowPrivate = envFlag("ZENITH_WEBHOOKS_ALLOW_PRIVATE") === "1";
       const policy: OutboundPolicy = options.policy ?? (allowPrivate ? { allowHttp: true, allowPrivate: true } : {});
       const secretsKey = options.secretsKey ?? envFlag("WEBHOOK_SECRETS_KEY");
+      const requireVerification = options.requireVerification ?? envFlag("ZENITH_WEBHOOKS_VERIFY") !== "0";
       let warnedPlain = false;
 
       if (deps.traits["cloud"]?.defineSchema) {
@@ -286,20 +298,27 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
         async create(data: Record<string, any>) {
           const fields = await validate(data, false);
           const secret = generateWebhookSecret();
-          const ep = await db.create(ENDPOINT_CLASS, { ...fields, headers: fields.headers ?? {}, status: "active", exhaustedCount: 0, secrets: [] });
+          const status = requireVerification ? "unverified" : "active";
+          const ep = await db.create(ENDPOINT_CLASS, { ...fields, headers: fields.headers ?? {}, status, exhaustedCount: 0, secrets: [] });
           await db.update(ENDPOINT_CLASS, { objectId: ep.objectId }, { secrets: [{ value: await protect(secret, ep.objectId), createdAt: now() }] });
           invalidate();
-          return { ...redact({ ...ep, secrets: [1] }), secret, _secretWarning: "Store this secret now: it is not shown again." };
+          return {
+            ...redact({ ...ep, secrets: [1] }), secret, _secretWarning: "Store this secret now: it is not shown again.",
+            ...(requireVerification ? { _verification: `Configure the secret in the receiver, then POST /zen/webhooks/${ep.objectId}/verify.` } : {}),
+          };
         },
         async update(id: string, data: Record<string, any>) {
-          await endpointOrThrow(id);
+          const current = await endpointOrThrow(id);
           const fields = await validate(data, true);
+          // A new URL may be operated by someone else: it must pass the check again.
+          if (requireVerification && fields.url !== undefined && fields.url !== current.url) Object.assign(fields, { status: "unverified", verifiedAt: null });
           const updated = await db.update(ENDPOINT_CLASS, { objectId: id }, fields);
           invalidate();
           return redact(updated);
         },
         async setStatus(id: string, status: "active" | "paused") {
-          await endpointOrThrow(id);
+          const current = await endpointOrThrow(id);
+          if (current.status === "unverified") throw bad(`Endpoint ${id} is not verified: POST /zen/webhooks/${id}/verify first.`);
           const patch = status === "active" ? { status, exhaustedCount: 0, disabledReason: null, disabledAt: null } : { status };
           const updated = await db.update(ENDPOINT_CLASS, { objectId: id }, patch);
           invalidate();
@@ -324,6 +343,39 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
           await db.update(ENDPOINT_CLASS, { objectId: id }, { secrets });
           invalidate();
           return { id, secret, previousValidUntil: graceHours > 0 && previous.length ? until : null };
+        },
+        /**
+         * Endpoint verification: a dedicated signed POST with `webhook-challenge` (never with a delivery).
+         * The endpoint passes if it answers 2xx with the matching `webhook-challenge-response`.
+         */
+        async verify(id: string) {
+          const ep = await endpointOrThrow(id);
+          const secrets = await secretsOf(ep);
+          const challenge = generateChallenge();
+          const body = JSON.stringify({ type: "webhook.endpoint.verification", timestamp: new Date(clock()).toISOString(), data: null });
+          let verified = false;
+          let reason = "";
+          try {
+            const headers = {
+              "content-type": "application/json", "user-agent": "Zenith-Webhooks/1.0",
+              ...(await webhookHeaders(secrets, newMessageId(), body, clock())),
+              [WEBHOOK_CHALLENGE_HEADER]: challenge,
+            };
+            const res = await (options.fetcher ?? safeFetch)(ep.url, { method: "POST", headers, body }, policy);
+            await res.body?.cancel();
+            if (res.status < 200 || res.status >= 300) reason = `HTTP ${res.status}.`;
+            else if (!(await verifyEndpointVerificationResponse(secrets, challenge, res.headers.get(WEBHOOK_CHALLENGE_RESPONSE_HEADER)))) {
+              reason = `Missing or wrong ${WEBHOOK_CHALLENGE_RESPONSE_HEADER}: the receiver must answer the challenge with its secret.`;
+            } else verified = true;
+          } catch (e) {
+            reason = (e as Error).name === "TimeoutError" ? "Timeout." : (e as Error).message;
+          }
+          if (!verified) return { id, verified: false, status: ep.status, reason };
+          const patch = { verifiedAt: new Date(clock()).toISOString(), ...(ep.status === "unverified" ? { status: "active" } : {}) };
+          await db.update(ENDPOINT_CLASS, { objectId: id }, patch);
+          invalidate();
+          kick();
+          return { id, verified: true, status: ep.status === "unverified" ? "active" : ep.status };
         },
         async test(id: string) {
           const ep = await endpointOrThrow(id);
@@ -395,6 +447,7 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
         route("POST", "/zen/webhooks/:objectId/pause", "Pause deliveries (messages wait until resume)", async (_r, p) => jsonRes(await api.setStatus(p.objectId, "paused"))),
         route("POST", "/zen/webhooks/:objectId/resume", "Resume, or re-enable a disabled endpoint", async (_r, p) => jsonRes(await api.setStatus(p.objectId, "active"))),
         route("POST", "/zen/webhooks/:objectId/test", "Send a webhook.test message", async (_r, p) => jsonRes(await api.test(p.objectId), 202)),
+        route("POST", "/zen/webhooks/:objectId/verify", "Endpoint verification (Standard Webhooks): send a challenge; a correct answer activates an unverified endpoint", async (_r, p) => jsonRes(await api.verify(p.objectId))),
         route("POST", "/zen/webhooks/:objectId/rotate-secret", "New secret, returned once. The previous one keeps signing for graceHours (default 24)", async (req, p) => {
           const b = await body(req);
           return jsonRes(await api.rotateSecret(p.objectId, b.graceHours === undefined ? 24 : Number(b.graceHours)));

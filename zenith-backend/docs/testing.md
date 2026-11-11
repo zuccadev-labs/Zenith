@@ -1,0 +1,76 @@
+# Pruebas de Zenith
+
+Una funcionalidad no está terminada hasta que pasa contra servicios reales, no solo en pruebas unitarias. Este
+documento es la receta. El CI (`.github/workflows/ci.yml`) ejecuta todo menos lo que necesita el binario de
+engine-auth.
+
+## Niveles
+
+| Nivel | Qué prueba | Dónde |
+|---|---|---|
+| Unitarias | Módulos aislados, con dobles (`tests/unit/_fake_db.ts`) | Local y CI |
+| Integración | Adaptadores contra MongoDB 9.0.4 (standalone y replica set) | Local y CI |
+| Punta a punta | `createZenithApp` con MongoDB y engine-auth reales, peticiones HTTP y comprobación en la base (`tests/integration/pieces-e2e.test.ts`, `boot.test.ts`, `engine-auth.test.ts`, `classes.test.ts`) | Local (necesita el binario de engine-auth) |
+| Imagen | Build, escaneo de Trivy y arranque del contenedor con MongoDB y ScyllaDB | CI (build y Trivy) y local (arranque) |
+
+## Todo en local
+
+```bash
+# Servicios
+docker run -d --rm --name zenith-it-mongo   -p 127.0.0.1:27999:27017 --memory 2g mongo:9.0.4
+docker run -d --rm --name zenith-it-mongors -p 127.0.0.1:28000:27017 --memory 2g mongo:9.0.4 --replSet rs0 --bind_ip_all
+docker exec zenith-it-mongors mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+
+# engine-auth y libzutool_auth.so, compilados en apps/zutool (cargo build -p engine-auth)
+export ENGINE_AUTH_BIN=…/apps/zutool/target/debug/engine-auth ZUTOOL_LIB_DIR=…/apps/zutool/target/debug
+export ZENITH_TEST_MONGO=mongodb://127.0.0.1:27999
+export ZENITH_TEST_MONGO_URI="mongodb://127.0.0.1:27999/?directConnection=true"
+export MONGO_TEST_URI="mongodb://127.0.0.1:28000/?replicaSet=rs0&directConnection=true"
+export TMPDIR=/home/$USER/.cache/zenith-tests-tmp   # /tmp es pequeño en esta máquina
+
+cd zenith-backend
+deno lint src/ && deno check --frozen src/mod.ts
+systemd-run --user --scope -p MemoryMax=6G -E TMPDIR -E ENGINE_AUTH_BIN -E ZUTOOL_LIB_DIR -E ZENITH_TEST_MONGO \
+  -E ZENITH_TEST_MONGO_URI -E MONGO_TEST_URI \
+  deno test --allow-all --no-check --unstable-kv --frozen --ignore=tests/integration/engine.test.ts tests/
+```
+
+SurrealDB y Vault (con TLS, como exige el cliente):
+
+```bash
+docker run -d --rm --name zenith-it-surreal -p 127.0.0.1:28800:8000 surrealdb/surrealdb:v4.0.1 start --user root --pass root memory
+docker run -d --rm --name zenith-it-vault -p 127.0.0.1:28200:8200 --cap-add IPC_LOCK -e VAULT_DEV_ROOT_TOKEN_ID=root \
+  hashicorp/vault:2.2.1 server -dev -dev-tls -dev-listen-address=0.0.0.0:8200 -dev-tls-san=127.0.0.1
+docker exec zenith-it-vault sh -c 'cat /tmp/vault-tls*/vault-ca.pem' > $TMPDIR/vault-ca.pem
+export ZENITH_TEST_SURREAL_URL=http://127.0.0.1:28800 VAULT_TEST_ADDR=https://127.0.0.1:28200 VAULT_TEST_TOKEN=root
+export DENO_CERT=$TMPDIR/vault-ca.pem
+```
+
+Sin un servicio, sus pruebas se omiten (`ignored`) en lugar de fallar. Con todos levantados no se omite ninguna.
+La primera ejecución contra SurrealDB 4 (la versión del laboratorio) encontró que el adaptador estaba escrito para
+2.x: no creaba el namespace ni la base, usaba `type::thing` (ahora `type::record`) y fallaba al leer una tabla aún
+vacía.
+
+## La imagen, de verdad
+
+```bash
+docker build -t zenith-backend:local zenith-backend/
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.69.3 image \
+  --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 zenith-backend:local
+docker run -d --rm --name zenith-it-scylla -p 127.0.0.1:29042:9042 --memory 3g scylladb/scylla:2026.1.15 \
+  --smp 1 --memory 1G --overprovisioned 1 --developer-mode 1
+docker run -d --name zenith-smoke --network host --read-only --tmpfs /tmp:exec -v zenith-smoke-data:/data \
+  -e APP1_MASTER_KEY=$(openssl rand -hex 40) -e APP2_MASTER_KEY=$(openssl rand -hex 40) \
+  -e MONGO_URI="mongodb://127.0.0.1:27999/smoke?directConnection=true" -e SCYLLA_URI=127.0.0.1:29042 \
+  -e WEBHOOK_SECRETS_KEY=$(openssl rand -hex 32) zenith-backend:local
+curl http://127.0.0.1:1337/parse/health
+```
+
+El arranque con el sistema de archivos de solo lectura encontró dos fallos que las pruebas no veían: el binario no
+incluía `apps.config.ts` (import dinámico que `deno compile` no sigue) y los archivos se escribían en `/app`, donde
+el usuario `zenith` no puede escribir.
+
+## Lockfiles
+
+`deno.lock` (motor y CLI) y `package-lock.json` (SDK) están versionados, y el CI usa `--frozen` / `npm ci`. Si
+cambias dependencias, actualiza el lock en el mismo commit (`deno install`, `npm install`).

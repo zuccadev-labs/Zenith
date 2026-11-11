@@ -21,7 +21,7 @@ function receiver(reply: () => Response | Promise<Response> = () => new Response
   return { url: `http://127.0.0.1:${server.addr.port}/hook`, received, stop: async () => { ac.abort(); await server.finished; } };
 }
 
-function boot(opts: { enabled?: () => boolean; secretsKey?: string; db?: ReturnType<typeof fakeDb> } = {}) {
+function boot(opts: { enabled?: () => boolean; secretsKey?: string; db?: ReturnType<typeof fakeDb>; verify?: boolean } = {}) {
   const db = opts.db ?? fakeDb();
   // Real time: the official library rejects signatures more than 5 minutes off its own clock.
   const start = Date.now();
@@ -30,7 +30,7 @@ function boot(opts: { enabled?: () => boolean; secretsKey?: string; db?: ReturnT
   const traits: unknown[] = [
     EventBusTrait,
     createTraitDescriptor({ name: "Db", provides: ["db"], consumes: [], state: [], runtimes: ["deno"], create: () => ({ db }) }),
-    createWebhookManagerTrait({ policy: { allowHttp: true, allowPrivate: true }, now: () => clock, secretsKey: opts.secretsKey }),
+    createWebhookManagerTrait({ policy: { allowHttp: true, allowPrivate: true }, now: () => clock, secretsKey: opts.secretsKey, requireVerification: opts.verify ?? false }),
   ];
   if (opts.enabled) {
     traits.push(createTraitDescriptor({ name: "RF", provides: ["runtime-features"], consumes: [], state: [], runtimes: ["deno"], create: () => ({ "runtime-features": { isEnabled: () => opts.enabled!() } }) }));
@@ -198,7 +198,7 @@ Deno.test("webhooks: turned off at runtime, nothing is enqueued", async () => {
 Deno.test("webhooks: endpoints are validated (SSRF, events, reserved headers) and secrets can be encrypted at rest", async () => {
   const strict = composeZenith([
     createTraitDescriptor({ name: "Db", provides: ["db"], consumes: [], state: [], runtimes: ["deno"], create: () => ({ db: fakeDb() }) }),
-    createWebhookManagerTrait({ policy: {} }),
+    createWebhookManagerTrait({ policy: {}, requireVerification: false }),
   ]).traits as any;
   await assertRejects(() => strict.webhookManager.create({ name: "x", url: "http://example.com/h", events: ["*"] }), Error, "https");
   await assertRejects(() => strict.webhookManager.create({ name: "x", url: "https://169.254.169.254/", events: ["*"] }), Error, "non-public");
@@ -221,3 +221,49 @@ Deno.test("webhooks: schedule, status classification, event patterns and sanitis
   assert(matchesEvent(["Deal.*"], "Deal.won") && !matchesEvent(["Deal.*"], "Dealer.x") && matchesEvent(["*"], "x"));
   assertEquals(sanitizePayload([{ a: 1, authData: {} }]), [{ a: 1 }]);
 });
+
+Deno.test({ name: "webhooks: endpoint verification (Standard Webhooks) gates deliveries until the receiver answers the challenge", ...sanitize, fn: async () => {
+  const { endpointVerificationResponse } = await import("../../src/security/webhook-signature.ts");
+  let secret = "";
+  let answer = false;
+  const rx = receiver(async () => new Response(null, { status: 204 }));
+  // A receiver that answers challenges the way the spec says, once it knows its secret.
+  const ac = new AbortController();
+  const challenges: Record<string, string>[] = [];
+  const srv = Deno.serve({ hostname: "127.0.0.1", port: 0, signal: ac.signal, onListen: () => {} }, async (req) => {
+    const c = req.headers.get("webhook-challenge");
+    if (c) {
+      challenges.push(Object.fromEntries(req.headers));
+      return new Response(null, { status: 204, headers: answer ? { "webhook-challenge-response": await endpointVerificationResponse(secret, c) } : {} });
+    }
+    return fetch(rx.url, { method: "POST", headers: req.headers, body: await req.text() });
+  });
+  const url = `http://127.0.0.1:${srv.addr.port}/hook`;
+  const { api } = boot({ verify: true });
+  try {
+    const ep = await api.create({ name: "x", url, events: ["*"] });
+    secret = ep.secret;
+    assertEquals(ep.status, "unverified");
+    assert(ep._verification.includes("/verify"));
+    assertEquals(await api.publish("A.b", {}), 0, "no consent yet: nothing is enqueued");
+    await assertRejects(() => api.setStatus(ep.objectId, "active"), Error, "not verified");
+    const failed = await api.verify(ep.objectId);
+    assertEquals([failed.verified, failed.status], [false, "unverified"]);
+    assert(failed.reason.includes("webhook-challenge-response"));
+    assert(challenges[0]["webhook-signature"]?.startsWith("v1,"), "the challenge request is signed like a webhook");
+    assertEquals(atob(challenges[0]["webhook-challenge"]).length, 32);
+    answer = true;
+    assertEquals((await api.verify(ep.objectId)).status, "active");
+    assert(challenges[0]["webhook-challenge"] !== challenges[1]["webhook-challenge"], "a new challenge each time");
+    assertEquals(await api.publish("A.b", { n: 1 }), 1);
+    await api.deliverDue();
+    assertEquals(rx.received.length, 1, "delivered once verified");
+    const moved = await api.update(ep.objectId, { url: `${url}?v=2` });
+    assertEquals(moved.status, "unverified", "a new URL must pass the check again");
+  } finally {
+    ac.abort();
+    await srv.finished;
+    await rx.stop();
+  }
+} });
+

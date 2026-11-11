@@ -318,9 +318,18 @@ if (!HAS_VAULT) {
   });
 
   Deno.test("VaultClient: lookupSelf returns valid token info", async () => {
-    const client = new VaultClient({ address: TEST_ADDR!, token: TEST_TOKEN!, logger: silent });
-    const info = await client.lookupSelf();
-    assert(info.ttl > 0 || info.expireTime > 0);
+    // The dev root token never expires (ttl 0, no expire_time): a child token with a TTL shows that
+    // the expiry is parsed. Before, the test asserted a TTL on the root token and could never pass.
+    const created = await fetch(`${TEST_ADDR}/v1/auth/token/create`, {
+      method: "POST",
+      headers: { "X-Vault-Token": TEST_TOKEN!, "content-type": "application/json" },
+      body: JSON.stringify({ ttl: "1h", policies: ["default"] }),
+    });
+    const child = (await created.json()).auth.client_token as string;
+    const info = await new VaultClient({ address: TEST_ADDR!, token: child, logger: silent }).lookupSelf();
+    assert(info.ttl > 3000 && info.ttl <= 3600, `ttl ${info.ttl}`);
+    const root = await new VaultClient({ address: TEST_ADDR!, token: TEST_TOKEN!, logger: silent }).lookupSelf();
+    assertEquals(root.ttl, 0, "the root token does not expire");
   });
 
   Deno.test("VaultClient: kvList returns keys", async () => {

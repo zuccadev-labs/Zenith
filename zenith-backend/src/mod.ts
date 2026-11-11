@@ -19,10 +19,8 @@ import { runtimeFeaturesTrait } from "./core/runtime-features.ts";
 import { startBackground } from "./core/lifecycle.ts";
 import { generateOpenApiSchema } from "./core/openapi.ts";
 import { loadMergedTrustStore, parseManifest, verifyPlugin } from "./security/plugin-signing/mod.ts";
-import { ZenLogger } from "./core/cloud.ts";
 import { createMongoAdapter } from "./adapters/database/mongo.adapter.ts";
 import { createScyllaAdapter } from "./adapters/database/scylla.adapter.ts";
-import type { DatabaseSurrealTrait, SurrealClient, createSurrealAdapter } from "./adapters/database/surreal.adapter.ts";
 import { createRustFSAdapter } from "./adapters/storage/rustfs.adapter.ts";
 import { MongoClient } from "mongodb";
 import cassandra from "cassandra-driver";
@@ -33,14 +31,11 @@ import { createIPFSAdapter } from "./adapters/storage/ipfs.adapter.ts";
 import { createNeo4jAdapter } from "./adapters/database/neo4j.adapter.ts";
 import { createStripeAdapter } from "./adapters/billing/stripe.adapter.ts";
 import { initialSchemaMigration } from "./migrations/001_initial_schema.ts";
-import type { createOllamaEmbedProvider, createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
-import type { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
-import type { createScyllaTimeSeriesAdapter } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
 import "./adapters/git.adapter.ts";
 import "./adapters/vault.adapter.ts";
 import "./adapters/lux-cache.adapter.ts";
 import type { ZenithConfig } from "./core/types.ts";
-import type { EngineAPI, CloudFunctionService, TriggerService, BillingMeteringService } from "./core/engine-api.ts";
+import type { EngineAPI, CloudFunctionService, BillingMeteringService } from "./core/engine-api.ts";
 import { _cloudCodeRegistry, ZENITH_ENGINE } from "./core/cloud.ts";
 
 export { createSurrealAdapter, SurrealClient } from "./adapters/database/surreal.adapter.ts";
@@ -494,7 +489,7 @@ if (import.meta.main) {
   // The monorepo's multi-app boot (Docker image, `deno task start`). These files are not part of the
   // published package; projects boot through `zen dev` / `zen compile` instead.
   const { apps } = await import(new URL("../apps.config.ts", import.meta.url).href);
-  const { loadAppDefinitions, RuntimeMode } = await import(new URL("../config-loader.ts", import.meta.url).href);
+  const { RuntimeMode } = await import(new URL("../config-loader.ts", import.meta.url).href);
 
   if (RuntimeMode.isProduction) {
     console.log("[Zenith] 🔒 Production mode — fail-closed security enforced.");
@@ -595,9 +590,13 @@ if (import.meta.main) {
 
             const newPathname = url.pathname.slice(mountPath.length) || "/";
             const newUrl = new URL(newPathname + url.search, url.origin);
+            // The app sees paths without its mount: X-Forwarded-Prefix tells it (absolute URLs it
+            // returns, such as signed file URLs). Set here, overwriting any value from the client.
+            const forwardedHeaders = new Headers(req.headers);
+            forwardedHeaders.set("x-forwarded-prefix", mountPath);
             const newReq = new Request(newUrl.href, {
               method: req.method,
-              headers: req.headers,
+              headers: forwardedHeaders,
               body: req.body,
               duplex: "half",
             } as RequestInit & { duplex: "half" });

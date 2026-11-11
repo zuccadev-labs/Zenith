@@ -19,14 +19,22 @@ RUN deno install --frozen
 COPY src/ src/
 COPY apps.config.ts config-loader.ts zen.config.ts ./
 
+# mod.ts loads apps.config.ts and config-loader.ts with a computed import(), which `deno compile`
+# cannot follow: --include embeds them (without it the binary failed at startup: "Module not found").
 # Same permissions as `deno task compile`, plus FFI for the engine-auth binding and
 # Deno KV (cloud.ts opens it at startup).
 RUN deno compile --unstable-kv --allow-net --allow-read --allow-env --allow-write --allow-sys --allow-ffi \
+      --include apps.config.ts --include config-loader.ts \
       --no-check --output zenith-server src/mod.ts --mode=production
 
 # 2. Runtime — Debian slim, not distroless: @node-rs/argon2 picks its glibc build by reading
 # /usr/bin/ldd, which distroless lacks, and then fails loading the musl one.
 FROM debian:13-slim
+
+# Debian security updates on top of the base image (Trivy fails the CI on fixed CRITICAL/HIGH).
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --uid 10001 --home-dir /data --create-home zenith
 WORKDIR /app
@@ -34,7 +42,8 @@ COPY --from=builder /app/zenith-server /app/zenith-server
 
 # Deno KV and runtime data live in /data. With a read-only root filesystem, mount /data
 # writable and /tmp writable *with exec*: native addons are extracted there and loaded.
-ENV ZENITH_MODE=production DENO_DIR=/data HOME=/data
+# Uploaded file contents too (ZENITH_FILES_DIR): /app is read-only for the zenith user.
+ENV ZENITH_MODE=production DENO_DIR=/data HOME=/data ZENITH_FILES_DIR=/data/files
 VOLUME ["/data"]
 EXPOSE 1337
 USER zenith

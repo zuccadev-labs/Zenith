@@ -37,6 +37,7 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [Email](./api/Email.md) (11 endpoints)
 - [Favorites](./api/Favorites.md) (3 endpoints)
 - [Features](./api/Features.md) (2 endpoints)
+- [Files](./api/Files.md) (1 endpoints)
 - [Forum](./api/Forum.md) (7 endpoints)
 - [GRAPHQL](./api/GRAPHQL.md) (2 endpoints)
 - [HR](./api/HR.md) (2 endpoints)
@@ -54,13 +55,13 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [Schema](./api/Schema.md) (5 endpoints)
 - [Search](./api/Search.md) (2 endpoints)
 - [Shell](./api/Shell.md) (2 endpoints)
-- [Storage](./api/Storage.md) (3 endpoints)
+- [Storage](./api/Storage.md) (4 endpoints)
 - [Tags](./api/Tags.md) (8 endpoints)
 - [Timeline](./api/Timeline.md) (1 endpoints)
 - [User](./api/User.md) (2 endpoints)
 - [User Management](./api/User_Management.md) (5 endpoints)
 - [Views](./api/Views.md) (5 endpoints)
-- [Webhooks](./api/Webhooks.md) (13 endpoints)
+- [Webhooks](./api/Webhooks.md) (14 endpoints)
 - [Workspace](./api/Workspace.md) (6 endpoints)
 
 ## Quick Start
