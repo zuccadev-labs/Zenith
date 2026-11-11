@@ -46,7 +46,8 @@ const exists = async (p: string): Promise<boolean> => {
 };
 
 const randomHex = (bytes: number): string =>
-  Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+  Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
 /**
  * Where a new project takes the engine from:
@@ -59,48 +60,69 @@ export async function engineSource(): Promise<"jsr" | "local"> {
   const forced = Deno.env.get("ZENITH_ENGINE");
   if (forced === "jsr" || forced === "local") return forced;
   if (forced) throw new Error(`ZENITH_ENGINE=${forced}: usa "jsr" o "local".`);
-  return CORE_ENTRY.protocol === "file:" && (await exists(fromFileUrl(CORE_ENTRY))) ? "local" : "jsr";
+  return CORE_ENTRY.protocol === "file:" && (await exists(fromFileUrl(CORE_ENTRY)))
+    ? "local"
+    : "jsr";
 }
 
 /** deno.json of a new project. From JSR the engine brings its own dependencies; locally, its import map comes along. */
 async function projectDenoJson(source: "jsr" | "local"): Promise<string> {
-  const base = { nodeModulesDir: "auto", unstable: ["kv"], tasks: { dev: "zen dev", compile: "zen compile" } };
+  const base = {
+    nodeModulesDir: "auto",
+    unstable: ["kv"],
+    tasks: { dev: "zen dev", compile: "zen compile" },
+  };
   if (source === "jsr") {
-    return JSON.stringify({ imports: { "@zuccadev-labs/zenith": ENGINE_JSR }, ...base }, null, 2) + "\n";
+    return JSON.stringify({ imports: { "@zuccadev-labs/zenith": ENGINE_JSR }, ...base }, null, 2) +
+      "\n";
   }
   const core = JSON.parse(await Deno.readTextFile(CORE_DENO_JSON));
-  return JSON.stringify({
-    imports: { ...core.imports, "@zuccadev-labs/zenith": CORE_ENTRY.href },
-    ...base,
-    ...(core.minimumDependencyAge ? { minimumDependencyAge: core.minimumDependencyAge } : {}),
-  }, null, 2) + "\n";
+  return JSON.stringify(
+    {
+      imports: { ...core.imports, "@zuccadev-labs/zenith": CORE_ENTRY.href },
+      ...base,
+      ...(core.minimumDependencyAge ? { minimumDependencyAge: core.minimumDependencyAge } : {}),
+    },
+    null,
+    2,
+  ) + "\n";
 }
 
 async function runInit(args: string[]): Promise<void> {
   const name = args[0];
   const source = await engineSource();
   if (name !== undefined && !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(name)) {
-    throw new Error(`Nombre de proyecto no válido: ${JSON.stringify(name)} (letras, números, _ y -).`);
+    throw new Error(
+      `Nombre de proyecto no válido: ${JSON.stringify(name)} (letras, números, _ y -).`,
+    );
   }
   const dir = name ? resolve(Deno.cwd(), name) : Deno.cwd();
   const appId = (name ?? (dir.split(/[\\/]/).pop() || "zenith_app")).replace(/[^A-Za-z0-9_]/g, "_");
   for (const f of ["zen.config.ts", "deno.json", ".env", "cloud/main.ts"]) {
-    if (await exists(join(dir, f))) throw new Error(`${join(dir, f)} ya existe: zen init no sobrescribe un proyecto.`);
+    if (await exists(join(dir, f))) {
+      throw new Error(`${join(dir, f)} ya existe: zen init no sobrescribe un proyecto.`);
+    }
   }
   console.log(`🚀 Nuevo proyecto Zenith en ${dir}`);
   await ensureDir(join(dir, "cloud"));
   await ensureDir(join(dir, "plugins"));
 
-  await Deno.writeTextFile(join(dir, ".env"), [
-    `ZENITH_APP_ID=${appId}`,
-    `# 64 bytes aleatorios. En producción, desde un gestor de secretos.`,
-    `ZENITH_MASTER_KEY=${randomHex(64)}`,
-    `ZENITH_DATABASE_URI=mongodb://127.0.0.1:27017/${appId}?directConnection=true`,
-    `ZENITH_PORT=1337`,
-    "",
-  ].join("\n"), { mode: 0o600 });
+  await Deno.writeTextFile(
+    join(dir, ".env"),
+    [
+      `ZENITH_APP_ID=${appId}`,
+      `# 64 bytes aleatorios. En producción, desde un gestor de secretos.`,
+      `ZENITH_MASTER_KEY=${randomHex(64)}`,
+      `ZENITH_DATABASE_URI=mongodb://127.0.0.1:27017/${appId}?directConnection=true`,
+      `ZENITH_PORT=1337`,
+      "",
+    ].join("\n"),
+    { mode: 0o600 },
+  );
 
-  await Deno.writeTextFile(join(dir, "zen.config.ts"), `// Configuración de la app. Los secretos vienen de .env (zen dev lo carga).
+  await Deno.writeTextFile(
+    join(dir, "zen.config.ts"),
+    `// Configuración de la app. Los secretos vienen de .env (zen dev lo carga).
 const env = (name: string): string => {
   const v = Deno.env.get(name);
   if (!v) throw new Error(\`Falta \${name}: defínelo en .env o en el entorno.\`);
@@ -118,22 +140,35 @@ export default {
   pluginsPath: "./plugins",
   features: {},
 };
-`);
+`,
+  );
 
-  await Deno.writeTextFile(join(dir, "cloud", "main.ts"), `import { Zen } from "@zuccadev-labs/zenith";
+  await Deno.writeTextFile(
+    join(dir, "cloud", "main.ts"),
+    `import { Zen } from "@zuccadev-labs/zenith";
 
 Zen.Cloud.define("hello", () => ({ message: "Hola desde Zenith Cloud Code" }));
-`);
+`,
+  );
   await Deno.writeTextFile(join(dir, "plugins", ".gitkeep"), "");
   await Deno.writeTextFile(join(dir, "deno.json"), await projectDenoJson(source));
   // Locally, start from the engine's lockfile: the exact versions and hashes it was tested with.
   // From JSR, the first `zen dev` writes the project's own deno.lock (commit it).
   const lock = source === "local" && (await exists(fromFileUrl(CORE_DENO_LOCK)));
   if (lock) await Deno.copyFile(CORE_DENO_LOCK, join(dir, "deno.lock"));
-  await Deno.writeTextFile(join(dir, ".gitignore"), ".env\n.zenith/\nnode_modules/\n/zenith-app\n/zenith-app.exe\n");
+  await Deno.writeTextFile(
+    join(dir, ".gitignore"),
+    ".env\n.zenith/\nnode_modules/\n/zenith-app\n/zenith-app.exe\n",
+  );
 
-  console.log(`✅ Creado: cloud/, plugins/, zen.config.ts, .env, deno.json, ${lock ? "deno.lock, " : ""}.gitignore`);
-  console.log(`   Motor: ${source === "jsr" ? ENGINE_JSR : `${fromFileUrl(CORE_ENTRY)} (monorepo)`}`);
+  console.log(
+    `✅ Creado: cloud/, plugins/, zen.config.ts, .env, deno.json, ${
+      lock ? "deno.lock, " : ""
+    }.gitignore`,
+  );
+  console.log(
+    `   Motor: ${source === "jsr" ? ENGINE_JSR : `${fromFileUrl(CORE_ENTRY)} (monorepo)`}`,
+  );
   console.log(`\n   ${name ? `cd ${name} && ` : ""}zen dev`);
 }
 
@@ -148,13 +183,22 @@ async function writeEntry(cwd: string, staticLink: boolean): Promise<string> {
   if (staticLink) {
     for (const glob of ["plugins/**/*.{ts,tsx}", "cloud/**/*.{ts,tsx}"]) {
       for await (const e of expandGlob(join(cwd, glob))) {
-        if (e.isFile) imports.push(`import "./${relative(zenithDir, e.path).replace(/\\/g, "/")}";`);
+        if (e.isFile) {
+          imports.push(`import "./${relative(zenithDir, e.path).replace(/\\/g, "/")}";`);
+        }
       }
     }
   }
-  await Deno.writeTextFile(join(zenithDir, "manifest.ts"), `// Generado por zen. No editar.\n${imports.join("\n")}\nexport const linked = ${imports.length};\n`);
+  await Deno.writeTextFile(
+    join(zenithDir, "manifest.ts"),
+    `// Generado por zen. No editar.\n${
+      imports.join("\n")
+    }\nexport const linked = ${imports.length};\n`,
+  );
   const entry = join(zenithDir, "entry.ts");
-  await Deno.writeTextFile(entry, `// Generado por zen. No editar.
+  await Deno.writeTextFile(
+    entry,
+    `// Generado por zen. No editar.
 import { createZenithApp } from "@zuccadev-labs/zenith";
 import config from "../zen.config.ts";
 import "./manifest.ts";
@@ -168,13 +212,16 @@ Deno.serve({ port }, (req, info) => {
   return handler(req);
 });
 console.log(\`🌐 Zenith en http://localhost:\${port}\`);
-`);
+`,
+  );
   return entry;
 }
 
 async function requireProject(cwd: string): Promise<void> {
   for (const f of ["zen.config.ts", "deno.json"]) {
-    if (!(await exists(join(cwd, f)))) throw new Error(`No hay ${f} en ${cwd}: ¿es un proyecto Zenith? (zen init)`);
+    if (!(await exists(join(cwd, f)))) {
+      throw new Error(`No hay ${f} en ${cwd}: ¿es un proyecto Zenith? (zen init)`);
+    }
   }
 }
 
@@ -185,7 +232,18 @@ async function runDev(): Promise<void> {
   console.log("🛠️  Zenith en desarrollo (recarga en caliente)…");
   const envFile = (await exists(join(cwd, ".env"))) ? ["--env-file=.env"] : [];
   const child = new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", "--unstable-kv", "--no-check", "--watch", ...envFile, "--config", join(cwd, "deno.json"), entry, "--mode=development"],
+    args: [
+      "run",
+      "-A",
+      "--unstable-kv",
+      "--no-check",
+      "--watch",
+      ...envFile,
+      "--config",
+      join(cwd, "deno.json"),
+      entry,
+      "--mode=development",
+    ],
     cwd,
     stdout: "inherit",
     stderr: "inherit",
@@ -193,7 +251,9 @@ async function runDev(): Promise<void> {
   // Stopping `zen dev` stops the server too (otherwise it is left running, orphaned).
   const signals: Deno.Signal[] = Deno.build.os === "windows" ? ["SIGINT"] : ["SIGINT", "SIGTERM"];
   const stop = () => {
-    try { child.kill("SIGTERM"); } catch (_e) { /* already gone */ }
+    try {
+      child.kill("SIGTERM");
+    } catch (_e) { /* already gone */ }
   };
   for (const s of signals) Deno.addSignalListener(s, stop);
   const status = await child.status;
@@ -210,9 +270,21 @@ async function runCompile(args: string[]): Promise<void> {
   console.log("📦 Compilando el proyecto en un binario…");
   const status = await new Deno.Command(Deno.execPath(), {
     args: [
-      "compile", "--unstable-kv", "--no-check",
-      "--allow-net", "--allow-read", "--allow-env", "--allow-write", "--allow-sys", "--allow-ffi",
-      "--config", join(cwd, "deno.json"), "--output", output, entry, "--mode=production",
+      "compile",
+      "--unstable-kv",
+      "--no-check",
+      "--allow-net",
+      "--allow-read",
+      "--allow-env",
+      "--allow-write",
+      "--allow-sys",
+      "--allow-ffi",
+      "--config",
+      join(cwd, "deno.json"),
+      "--output",
+      output,
+      entry,
+      "--mode=production",
     ],
     cwd,
     stdout: "inherit",
@@ -223,7 +295,10 @@ async function runCompile(args: string[]): Promise<void> {
 }
 
 /** `init`, `dev`, `compile`: used by the registry. */
-export async function runDevCommand(name: "init" | "dev" | "compile", args: string[]): Promise<void> {
+export async function runDevCommand(
+  name: "init" | "dev" | "compile",
+  args: string[],
+): Promise<void> {
   if (name === "init") return await runInit(args);
   if (name === "dev") return await runDev();
   return await runCompile(args);

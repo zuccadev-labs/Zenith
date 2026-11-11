@@ -10,7 +10,12 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
-import type { CloudFunctionRequest, CloudTriggerRequest, CloudBeforeFindRequest, CloudAfterFindHandler } from "../../core/cloud.ts";
+import type {
+  CloudAfterFindHandler,
+  CloudBeforeFindRequest,
+  CloudFunctionRequest,
+  CloudTriggerRequest,
+} from "../../core/cloud.ts";
 import { _cloudCodeRegistry } from "../../core/cloud.ts";
 
 export interface CloudFunctionHandler {
@@ -38,10 +43,10 @@ export const CloudCodeTrait = createTraitDescriptor({
   consumes: ["acl", "db", "schema"],
   state: ["registeredFunctions", "beforeFindTriggers", "afterFindTriggers"],
   runtimes: ["deno"],
-  summary: "Parse Server-compatible Cloud Code: define/register functions, before/after triggers on collections, custom REST routes with security policies (Parse Server master key replacement via API keys).",
+  summary:
+    "Parse Server-compatible Cloud Code: define/register functions, before/after triggers on collections, custom REST routes with security policies (Parse Server master key replacement via API keys).",
   // deno-lint-ignore no-explicit-any
   create: (_deps: Record<string, any>) => {
-
     const registeredFunctions = new Map<string, CloudFunctionHandler>();
     const beforeSaveTriggers = new Map<string, CloudTriggerHandler[]>();
     const afterSaveTriggers = new Map<string, CloudTriggerHandler[]>();
@@ -50,16 +55,30 @@ export const CloudCodeTrait = createTraitDescriptor({
     const beforeDeleteTriggers = new Map<string, CloudTriggerHandler[]>();
     const afterDeleteTriggers = new Map<string, CloudTriggerHandler[]>();
     const fileTriggers = new Map<string, FileTriggerSet>();
-    const customRoutes = new Map<string, { method: string; path: string; handler: (req: Request, ctx: unknown) => Promise<Response>; security?: unknown }>();
+    const customRoutes = new Map<
+      string,
+      {
+        method: string;
+        path: string;
+        handler: (req: Request, ctx: unknown) => Promise<Response>;
+        security?: unknown;
+      }
+    >();
 
     type RouteHandler = (req: Request, ctx: unknown) => Promise<Response>;
-    type SimpleHandler = (args: { params: Record<string, unknown>; query: Record<string, string> }) => unknown;
+    type SimpleHandler = (
+      args: { params: Record<string, unknown>; query: Record<string, string> },
+    ) => unknown;
     /** A plain handler gets { params, query } (params = JSON body on POST/PUT); its result, awaited, is the JSON reply. */
     const addRoute = (method: string, path: string, handler: unknown, security?: unknown) => {
-      if (typeof handler !== "function") throw new Error(`express.${method.toLowerCase()}(${path}): handler must be a function`);
+      if (typeof handler !== "function") {
+        throw new Error(`express.${method.toLowerCase()}(${path}): handler must be a function`);
+      }
       const wrapped: RouteHandler = async (req: Request) => {
         const query = Object.fromEntries(new URL(req.url).searchParams);
-        const params = method === "POST" || method === "PUT" ? await req.json().catch(() => ({})) : {};
+        const params = method === "POST" || method === "PUT"
+          ? await req.json().catch(() => ({}))
+          : {};
         return Response.json(await (handler as SimpleHandler)({ params, query }));
       };
       return customRoutes.set(`${method} ${path}`, { method, path, handler: wrapped, security });
@@ -67,15 +86,22 @@ export const CloudCodeTrait = createTraitDescriptor({
 
     const traitApi = {
       define: (name: string, fn: CloudFunctionHandler) => {
-        if (typeof name !== "string" || typeof fn !== "function") throw new Error("define(name, fn): both required");
+        if (typeof name !== "string" || typeof fn !== "function") {
+          throw new Error("define(name, fn): both required");
+        }
         registeredFunctions.set(name, fn);
         return { name, registeredAt: new Date().toISOString() };
       },
 
       undefine: (name: string) => registeredFunctions.delete(name),
 
-      run: async (name: string, params: Record<string, unknown>, context: Record<string, unknown> = {}) => {
-        const fn = registeredFunctions.get(name) ?? _cloudCodeRegistry.getFunction(name)?.handler as CloudFunctionHandler | undefined;
+      run: async (
+        name: string,
+        params: Record<string, unknown>,
+        context: Record<string, unknown> = {},
+      ) => {
+        const fn = registeredFunctions.get(name) ??
+          _cloudCodeRegistry.getFunction(name)?.handler as CloudFunctionHandler | undefined;
         if (!fn) throw new Error(`cloud function not found: ${name}`);
         const request: CloudFunctionRequest = {
           params,
@@ -125,16 +151,28 @@ export const CloudCodeTrait = createTraitDescriptor({
         afterDeleteTriggers.get(className)!.push(fn);
       },
 
-      beforeSaveFile: (fn: CloudTriggerHandler) => { fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), beforeWrite: fn }); },
-      afterSaveFile: (fn: CloudTriggerHandler) => { fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), afterWrite: fn }); },
-      beforeDeleteFile: (fn: CloudTriggerHandler) => { fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), beforeDelete: fn }); },
-      afterDeleteFile: (fn: CloudTriggerHandler) => { fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), afterDelete: fn }); },
+      beforeSaveFile: (fn: CloudTriggerHandler) => {
+        fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), beforeWrite: fn });
+      },
+      afterSaveFile: (fn: CloudTriggerHandler) => {
+        fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), afterWrite: fn });
+      },
+      beforeDeleteFile: (fn: CloudTriggerHandler) => {
+        fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), beforeDelete: fn });
+      },
+      afterDeleteFile: (fn: CloudTriggerHandler) => {
+        fileTriggers.set("global", { ...(fileTriggers.get("global") || {}), afterDelete: fn });
+      },
 
       express: {
-        get: (path: string, handler: unknown, security?: unknown) => addRoute("GET", path, handler, security),
-        post: (path: string, handler: unknown, security?: unknown) => addRoute("POST", path, handler, security),
-        put: (path: string, handler: unknown, security?: unknown) => addRoute("PUT", path, handler, security),
-        delete: (path: string, handler: unknown, security?: unknown) => addRoute("DELETE", path, handler, security),
+        get: (path: string, handler: unknown, security?: unknown) =>
+          addRoute("GET", path, handler, security),
+        post: (path: string, handler: unknown, security?: unknown) =>
+          addRoute("POST", path, handler, security),
+        put: (path: string, handler: unknown, security?: unknown) =>
+          addRoute("PUT", path, handler, security),
+        delete: (path: string, handler: unknown, security?: unknown) =>
+          addRoute("DELETE", path, handler, security),
       },
 
       listFunctions: () => {
@@ -158,7 +196,14 @@ export const CloudCodeTrait = createTraitDescriptor({
         for (const fn of triggers) await fn(request);
       },
 
-      runAfterFind: async (className: string, request: { className: string; objects: Record<string, unknown>[]; query: Record<string, unknown> }) => {
+      runAfterFind: async (
+        className: string,
+        request: {
+          className: string;
+          objects: Record<string, unknown>[];
+          query: Record<string, unknown>;
+        },
+      ) => {
         const triggers = afterFindTriggers.get(className) || [];
         for (const fn of triggers) await fn(request);
       },
@@ -173,7 +218,10 @@ export const CloudCodeTrait = createTraitDescriptor({
         for (const fn of triggers) await fn(request);
       },
 
-      runFileTrigger: async (phase: "beforeWrite" | "afterWrite" | "beforeDelete" | "afterDelete", request: CloudTriggerRequest) => {
+      runFileTrigger: async (
+        phase: "beforeWrite" | "afterWrite" | "beforeDelete" | "afterDelete",
+        request: CloudTriggerRequest,
+      ) => {
         const triggers = fileTriggers.get("global");
         if (triggers && triggers[phase]) await triggers[phase]!(request);
       },
@@ -186,7 +234,9 @@ export const CloudCodeTrait = createTraitDescriptor({
           await import(resolved);
           const loaded = _cloudCodeRegistry.listFunctions();
           if (loaded.length > 0) {
-            console.log(`[CloudCode] ✅ ${loaded.length} function(s) registered via global registry`);
+            console.log(
+              `[CloudCode] ✅ ${loaded.length} function(s) registered via global registry`,
+            );
             for (const fn of loaded) {
               const entry = _cloudCodeRegistry.getFunction(fn);
               if (entry && !registeredFunctions.has(fn)) {
@@ -210,20 +260,47 @@ export const CloudCodeTrait = createTraitDescriptor({
         path: "/functions/:functionName",
         _openapi: {
           summary: "Execute a registered Cloud Code function",
-          parameters: [{ name: "functionName", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { content: { "application/json": { schema: { type: "object", additionalProperties: true } } } },
+          parameters: [{
+            name: "functionName",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          }],
+          requestBody: {
+            content: {
+              "application/json": { schema: { type: "object", additionalProperties: true } },
+            },
+          },
         },
-        handler: async (req: Request, ctx: { user?: { objectId: string; username?: string }; apiKey?: { master?: boolean }; master?: boolean }) => {
+        handler: async (
+          req: Request,
+          ctx: {
+            user?: { objectId: string; username?: string };
+            apiKey?: { master?: boolean };
+            master?: boolean;
+          },
+        ) => {
           const url = new URL(req.url);
           const functionName = url.pathname.split("/").pop();
           const body = await req.json().catch(() => ({}));
           try {
-            const result = await traitApi.run(functionName!, body, { user: ctx?.user, master: ctx?.apiKey?.master || ctx?.master, ip: req.headers.get("x-forwarded-for"), headers: Object.fromEntries(req.headers) });
-            return new Response(JSON.stringify({ result }), { status: 200, headers: { "content-type": "application/json" } });
+            const result = await traitApi.run(functionName!, body, {
+              user: ctx?.user,
+              master: ctx?.apiKey?.master || ctx?.master,
+              ip: req.headers.get("x-forwarded-for"),
+              headers: Object.fromEntries(req.headers),
+            });
+            return new Response(JSON.stringify({ result }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            });
           } catch (e: unknown) {
             const err = e as { status?: number; message: string };
             const status = err.status || 500;
-            return new Response(JSON.stringify({ code: status, error: err.message }), { status, headers: { "content-type": "application/json" } });
+            return new Response(JSON.stringify({ code: status, error: err.message }), {
+              status,
+              headers: { "content-type": "application/json" },
+            });
           }
         },
       },
@@ -231,7 +308,11 @@ export const CloudCodeTrait = createTraitDescriptor({
         method: "GET" as const,
         path: "/functions",
         _openapi: { summary: "List all registered Cloud Code functions" },
-        handler: async () => new Response(JSON.stringify({ functions: traitApi.listFunctions() }), { status: 200, headers: { "content-type": "application/json" } }),
+        handler: async () =>
+          new Response(JSON.stringify({ functions: traitApi.listFunctions() }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
       },
       {
         method: "POST" as const,
@@ -239,19 +320,31 @@ export const CloudCodeTrait = createTraitDescriptor({
         _openapi: {
           summary: "Enqueue a background job",
           parameters: [{ name: "jobName", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { content: { "application/json": { schema: { type: "object", additionalProperties: true } } } },
+          requestBody: {
+            content: {
+              "application/json": { schema: { type: "object", additionalProperties: true } },
+            },
+          },
         },
         handler: async (req: Request) => {
           const jobName = new URL(req.url).pathname.split("/").pop();
           const body = await req.json().catch(() => ({}));
           if (!traitApi.listFunctions().includes(jobName!)) {
-            return new Response(JSON.stringify({ error: `job not found: ${jobName}` }), { status: 404, headers: { "content-type": "application/json" } });
+            return new Response(JSON.stringify({ error: `job not found: ${jobName}` }), {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            });
           }
           const jobId = crypto.randomUUID();
           setTimeout(async () => {
-            try { await traitApi.run(jobName!, body, { master: true }); } catch { /* noop: background job */ }
+            try {
+              await traitApi.run(jobName!, body, { master: true });
+            } catch { /* noop: background job */ }
           }, 0);
-          return new Response(JSON.stringify({ jobId, status: "queued" }), { status: 202, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ jobId, status: "queued" }), {
+            status: 202,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

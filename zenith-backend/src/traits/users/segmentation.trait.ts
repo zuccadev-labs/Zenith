@@ -20,7 +20,8 @@ export const SegmentationTrait = createTraitDescriptor({
   tags: ["uses:events"],
   state: ["segmentCache"],
   runtimes: ["deno"],
-  summary: "GDPR/LGPD-compliant user segmentation: dynamic segments based on rules, consent-aware exports, data subject access request (DSAR) fulfillment, right-to-be-forgotten.",
+  summary:
+    "GDPR/LGPD-compliant user segmentation: dynamic segments based on rules, consent-aware exports, data subject access request (DSAR) fulfillment, right-to-be-forgotten.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const events = deps.traits["events"];
@@ -28,7 +29,11 @@ export const SegmentationTrait = createTraitDescriptor({
     const traitApi: any = {
       segmentCache: new Map<string, { count: number; computedAt: number }>(),
 
-      defineSegment: async (name: string, rules: { field: string; op: string; value: any }[], options: { description?: string; refreshInterval?: number } = {}) => {
+      defineSegment: async (
+        name: string,
+        rules: { field: string; op: string; value: any }[],
+        options: { description?: string; refreshInterval?: number } = {},
+      ) => {
         const segment = {
           name,
           rules,
@@ -37,8 +42,9 @@ export const SegmentationTrait = createTraitDescriptor({
           createdAt: new Date().toISOString(),
         };
         const existing = await db.find("_Segment", { name });
-        if (existing.length > 0) await db.update("_Segment", { objectId: existing[0].objectId }, segment);
-        else await db.create("_Segment", segment);
+        if (existing.length > 0) {
+          await db.update("_Segment", { objectId: existing[0].objectId }, segment);
+        } else await db.create("_Segment", segment);
         traitApi.segmentCache.delete(name);
         return segment;
       },
@@ -55,11 +61,26 @@ export const SegmentationTrait = createTraitDescriptor({
           let isMatch = true;
           for (const rule of seg.rules) {
             const fieldValue = user[rule.field];
-            if (rule.op === "==" && fieldValue !== rule.value) { isMatch = false; break; }
-            if (rule.op === "!=" && fieldValue === rule.value) { isMatch = false; break; }
-            if (rule.op === ">" && !(fieldValue > rule.value)) { isMatch = false; break; }
-            if (rule.op === "<" && !(fieldValue < rule.value)) { isMatch = false; break; }
-            if (rule.op === "contains" && !(String(fieldValue).includes(rule.value))) { isMatch = false; break; }
+            if (rule.op === "==" && fieldValue !== rule.value) {
+              isMatch = false;
+              break;
+            }
+            if (rule.op === "!=" && fieldValue === rule.value) {
+              isMatch = false;
+              break;
+            }
+            if (rule.op === ">" && !(fieldValue > rule.value)) {
+              isMatch = false;
+              break;
+            }
+            if (rule.op === "<" && !(fieldValue < rule.value)) {
+              isMatch = false;
+              break;
+            }
+            if (rule.op === "contains" && !(String(fieldValue).includes(rule.value))) {
+              isMatch = false;
+              break;
+            }
           }
           if (isMatch) matched.push(user.objectId);
         }
@@ -72,11 +93,16 @@ export const SegmentationTrait = createTraitDescriptor({
         if (!user) throw new Error("user not found");
         const { passwordHash, mfaSecret, passwordResetToken, ...safeUser } = user;
         const allClasses = await db.listClasses();
-        const data: Record<string, any> = { user: safeUser, relatedObjects: {} as Record<string, any[]> };
+        const data: Record<string, any> = {
+          user: safeUser,
+          relatedObjects: {} as Record<string, any[]>,
+        };
         for (const className of allClasses) {
           if (className === "_User") continue;
           const records = await db.find(className, {});
-          const userRelated = records.filter((r: any) => r.userId === userId || (r.user && r.user.objectId === userId));
+          const userRelated = records.filter((r: any) =>
+            r.userId === userId || (r.user && r.user.objectId === userId)
+          );
           if (userRelated.length > 0) (data.relatedObjects as any)[className] = userRelated;
         }
         return data;
@@ -90,7 +116,9 @@ export const SegmentationTrait = createTraitDescriptor({
         for (const className of allClasses) {
           if (className === "_User") continue;
           const records = await db.find(className, {});
-          const userRelated = records.filter((r: any) => r.userId === userId || (r.user && r.user.objectId === userId));
+          const userRelated = records.filter((r: any) =>
+            r.userId === userId || (r.user && r.user.objectId === userId)
+          );
           for (const r of userRelated) {
             await db.delete(className, { objectId: r.objectId });
           }
@@ -107,42 +135,79 @@ export const SegmentationTrait = createTraitDescriptor({
         path: "/segments",
         _openapi: {
           summary: "Define or update a segment",
-          requestBody: { content: { "application/json": { schema: { type: "object", properties: { name: { type: "string" }, rules: { type: "array" }, description: { type: "string" } }, required: ["name", "rules"] } } } },
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    rules: { type: "array" },
+                    description: { type: "string" },
+                  },
+                  required: ["name", "rules"],
+                },
+              },
+            },
+          },
         },
         handler: async (req: Request) => {
           const body = await req.json() as { name: string; rules: any[]; description?: string };
-          const seg = await traitApi.defineSegment(body.name, body.rules, { description: body.description });
-          return new Response(JSON.stringify(seg), { status: 201, headers: { "content-type": "application/json" } });
+          const seg = await traitApi.defineSegment(body.name, body.rules, {
+            description: body.description,
+          });
+          return new Response(JSON.stringify(seg), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/segments/:name/evaluate",
-        _openapi: { summary: "Evaluate a segment and return matching user IDs", parameters: [{ name: "name", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Evaluate a segment and return matching user IDs",
+          parameters: [{ name: "name", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const name = new URL(req.url).pathname.split("/")[2];
           const userIds = await traitApi.evaluateSegment(name);
-          return new Response(JSON.stringify({ name, count: userIds.length, userIds }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ name, count: userIds.length, userIds }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/gdpr/export/:userId",
-        _openapi: { summary: "Export all user data (DSAR)", parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Export all user data (DSAR)",
+          parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const userId = new URL(req.url).pathname.split("/")[3];
           const data = await traitApi.exportUserData(userId);
-          return new Response(JSON.stringify(data), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(data), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "DELETE" as const,
         path: "/gdpr/user/:userId",
-        _openapi: { summary: "Delete all user data (right to be forgotten)", parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Delete all user data (right to be forgotten)",
+          parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const userId = new URL(req.url).pathname.split("/")[3];
           const result = await traitApi.deleteUserData(userId);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

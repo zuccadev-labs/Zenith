@@ -21,14 +21,30 @@ export type ApiKeyEnv = "live" | "test";
  */
 export type ApiKeyScope =
   | "*"
-  | "admin:*" | "admin:read" | "admin:write"
-  | "data:*" | "data:read" | "data:write" | "data:create" | "data:delete"
-  | "users:*" | "users:read" | "users:write"
-  | "functions:*" | "functions:invoke" | "functions:deploy"
-  | "files:*" | "files:read" | "files:write" | "files:delete"
-  | "push:*" | "push:send"
+  | "admin:*"
+  | "admin:read"
+  | "admin:write"
+  | "data:*"
+  | "data:read"
+  | "data:write"
+  | "data:create"
+  | "data:delete"
+  | "users:*"
+  | "users:read"
+  | "users:write"
+  | "functions:*"
+  | "functions:invoke"
+  | "functions:deploy"
+  | "files:*"
+  | "files:read"
+  | "files:write"
+  | "files:delete"
+  | "push:*"
+  | "push:send"
   | "analytics:read"
-  | "webhooks:*" | "webhooks:read" | "webhooks:write";
+  | "webhooks:*"
+  | "webhooks:read"
+  | "webhooks:write";
 
 /**
  * Registro completo de una API key (lo que se guarda en la DB).
@@ -87,14 +103,14 @@ export type ApiKeyVerification =
   | { valid: false; reason: ApiKeyInvalidReason; keyId?: string };
 
 export type ApiKeyInvalidReason =
-  | "malformed"           // formato incorrecto
-  | "not_found"           // id no existe
-  | "wrong_secret"        // id existe pero el secret no coincide
-  | "revoked"             // key revocada
-  | "expired"             // expirada
-  | "rotated_grace_over"  // periodo de gracia de rotación terminado
-  | "ip_not_allowed"      // la IP del cliente está fuera de la política de la key
-  | "policy_missing";     // key con scope * sin lista de IP (dato antiguo): se rechaza
+  | "malformed" // formato incorrecto
+  | "not_found" // id no existe
+  | "wrong_secret" // id existe pero el secret no coincide
+  | "revoked" // key revocada
+  | "expired" // expirada
+  | "rotated_grace_over" // periodo de gracia de rotación terminado
+  | "ip_not_allowed" // la IP del cliente está fuera de la política de la key
+  | "policy_missing"; // key con scope * sin lista de IP (dato antiguo): se rechaza
 
 /**
  * Resultado de generar una key nueva. El `plaintext` solo se devuelve UNA VEZ.

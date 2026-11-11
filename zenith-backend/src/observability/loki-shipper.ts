@@ -95,19 +95,35 @@ const DEFAULT_MAX_LINE = 4096;
 const DEFAULT_FLUSH_INTERVAL = 5000;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_REQUEST_TIMEOUT = 10_000;
-const DEFAULT_FORBIDDEN = ["userId", "requestId", "traceId", "spanId", "user_id", "request_id", "trace_id", "span_id"];
+const DEFAULT_FORBIDDEN = [
+  "userId",
+  "requestId",
+  "traceId",
+  "spanId",
+  "user_id",
+  "request_id",
+  "trace_id",
+  "span_id",
+];
 
 export type LokiState = "running" | "stopped" | "errored";
 
 export class LokiShipper {
-  private readonly config: Required<Omit<LokiConfig, "bearerToken" | "basicAuth" | "tenantId" | "baseLabels" | "forbiddenLabelNames" | "logger">> & {
-    bearerToken: string | undefined;
-    basicAuth: LokiConfig["basicAuth"];
-    tenantId: string | undefined;
-    baseLabels: Record<string, string>;
-    forbiddenLabelNames: readonly string[];
-    logger: LoggerLike;
-  };
+  private readonly config:
+    & Required<
+      Omit<
+        LokiConfig,
+        "bearerToken" | "basicAuth" | "tenantId" | "baseLabels" | "forbiddenLabelNames" | "logger"
+      >
+    >
+    & {
+      bearerToken: string | undefined;
+      basicAuth: LokiConfig["basicAuth"];
+      tenantId: string | undefined;
+      baseLabels: Record<string, string>;
+      forbiddenLabelNames: readonly string[];
+      logger: LoggerLike;
+    };
   private readonly streams = new Map<string, BufferedStream>();
   private timer: number | null = null;
   private state: LokiState = "stopped";
@@ -135,8 +151,14 @@ export class LokiShipper {
   start(): void {
     if (this.state === "running") return;
     this.state = "running";
-    this.timer = setInterval(() => this.flushSafe(), this.config.flushIntervalMs) as unknown as number;
-    this.config.logger.info("loki: started", { endpoint: this.url(), intervalMs: this.config.flushIntervalMs });
+    this.timer = setInterval(
+      () => this.flushSafe(),
+      this.config.flushIntervalMs,
+    ) as unknown as number;
+    this.config.logger.info("loki: started", {
+      endpoint: this.url(),
+      intervalMs: this.config.flushIntervalMs,
+    });
   }
 
   /**
@@ -145,8 +167,13 @@ export class LokiShipper {
    */
   push(labels: Record<string, string>, line: string, timestampMs = Date.now()): void {
     // Backpressure: cap streams (evalúa ANTES de gastar CPU en sanitization).
-    if (!this.streams.has(streamKey({ ...this.config.baseLabels, ...labels })) && this.streams.size >= this.config.maxStreams) {
-      this.config.logger.warn("loki: max streams reached, dropping", { max: this.config.maxStreams });
+    if (
+      !this.streams.has(streamKey({ ...this.config.baseLabels, ...labels })) &&
+      this.streams.size >= this.config.maxStreams
+    ) {
+      this.config.logger.warn("loki: max streams reached, dropping", {
+        max: this.config.maxStreams,
+      });
       return;
     }
 
@@ -205,7 +232,10 @@ export class LokiShipper {
     while (attempt < this.config.maxRetries) {
       try {
         await this.send(body);
-        this.config.logger.debug("loki: flushed", { streams: limited.length, totalEntries: limited.reduce((a, s) => a + s.entries.length, 0) });
+        this.config.logger.debug("loki: flushed", {
+          streams: limited.length,
+          totalEntries: limited.reduce((a, s) => a + s.entries.length, 0),
+        });
         return;
       } catch (err) {
         attempt++;
@@ -242,7 +272,9 @@ export class LokiShipper {
   }
 
   private flushSafe(): void {
-    this.flush().catch((err) => this.config.logger.error("loki: flush threw", { error: String(err) }));
+    this.flush().catch((err) =>
+      this.config.logger.error("loki: flush threw", { error: String(err) })
+    );
   }
 
   private async send(body: string): Promise<void> {
@@ -253,7 +285,9 @@ export class LokiShipper {
     if (this.config.bearerToken) {
       headers["Authorization"] = `Bearer ${this.config.bearerToken}`;
     } else if (this.config.basicAuth) {
-      const credentials = btoa(`${this.config.basicAuth.username}:${this.config.basicAuth.password}`);
+      const credentials = btoa(
+        `${this.config.basicAuth.username}:${this.config.basicAuth.password}`,
+      );
       headers["Authorization"] = `Basic ${credentials}`;
     }
     if (this.config.tenantId) {
@@ -280,7 +314,9 @@ export class LokiShipper {
       throw err;
     } catch (err) {
       if ((err as Error).name === "AbortError") {
-        const e: Error & { retryable?: boolean } = new Error(`loki: timeout after ${this.config.requestTimeoutMs}ms`);
+        const e: Error & { retryable?: boolean } = new Error(
+          `loki: timeout after ${this.config.requestTimeoutMs}ms`,
+        );
         e.retryable = true;
         throw e;
       }

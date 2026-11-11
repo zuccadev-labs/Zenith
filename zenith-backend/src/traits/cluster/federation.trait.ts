@@ -20,7 +20,8 @@ export const FederationTrait = createTraitDescriptor({
   tags: ["uses:events"],
   state: ["peers", "crdtState"],
   runtimes: ["deno"],
-  summary: "Multi-region federation with CRDT (Yjs-style LWW-register) for conflict-free replication, gossip protocol over gRPC, vector clocks for causal ordering.",
+  summary:
+    "Multi-region federation with CRDT (Yjs-style LWW-register) for conflict-free replication, gossip protocol over gRPC, vector clocks for causal ordering.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const events = deps.traits["events"];
@@ -34,7 +35,11 @@ export const FederationTrait = createTraitDescriptor({
         traitApi.peers.set(peerId, { region, endpoint, lastSync: 0 });
       },
 
-      replicate: async (className: string, operation: "create" | "update" | "delete", object: any) => {
+      replicate: async (
+        className: string,
+        operation: "create" | "update" | "delete",
+        object: any,
+      ) => {
         const opId = crypto.randomUUID();
         const operation_record = {
           opId,
@@ -47,10 +52,16 @@ export const FederationTrait = createTraitDescriptor({
         };
         for (const [peerId, peer] of traitApi.peers) {
           try {
-            if (telemetry?.log) telemetry.log(`[Federation] → ${peerId}: ${operation} ${className}/${object.objectId || "?"}`);
+            if (telemetry?.log) {
+              telemetry.log(
+                `[Federation] → ${peerId}: ${operation} ${className}/${object.objectId || "?"}`,
+              );
+            }
             peer.lastSync = Date.now();
           } catch (e: any) {
-            if (telemetry?.error) telemetry.error(`[Federation] Failed to replicate to ${peerId}: ${e.message}`);
+            if (telemetry?.error) {
+              telemetry.error(`[Federation] Failed to replicate to ${peerId}: ${e.message}`);
+            }
           }
         }
         return operation_record;
@@ -66,7 +77,9 @@ export const FederationTrait = createTraitDescriptor({
         const entries: any[] = [];
         for (const [key, value] of traitApi.crdtState) entries.push({ key, value });
         for (const [peerId, peer] of traitApi.peers) {
-          if (telemetry?.log) telemetry.log(`[Federation] Gossip with ${peerId}: ${entries.length} entries`);
+          if (telemetry?.log) {
+            telemetry.log(`[Federation] Gossip with ${peerId}: ${entries.length} entries`);
+          }
           peer.lastSync = Date.now();
         }
         return { synced: traitApi.peers.size, entries: entries.length };
@@ -78,13 +91,25 @@ export const FederationTrait = createTraitDescriptor({
         method: "GET" as const,
         path: "/federation/peers",
         _openapi: { summary: "List known federation peers" },
-        handler: async () => new Response(JSON.stringify({ peers: Array.from(traitApi.peers.entries() as IterableIterator<[string, any]>).map(([id, p]: [string, any]) => ({ id, ...p })) }), { status: 200, headers: { "content-type": "application/json" } }),
+        handler: async () =>
+          new Response(
+            JSON.stringify({
+              peers: Array.from(traitApi.peers.entries() as IterableIterator<[string, any]>).map((
+                [id, p]: [string, any],
+              ) => ({ id, ...p })),
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
       },
       {
         method: "POST" as const,
         path: "/federation/gossip",
         _openapi: { summary: "Trigger a gossip round" },
-        handler: async () => new Response(JSON.stringify(await traitApi.gossip()), { status: 200, headers: { "content-type": "application/json" } }),
+        handler: async () =>
+          new Response(JSON.stringify(await traitApi.gossip()), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
       },
     ];
 

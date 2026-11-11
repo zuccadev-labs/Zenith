@@ -1,22 +1,22 @@
 /**
  * @module @zenith/core/cloud
  * Registro global de Cloud Code — API pública de Zenith.Cloud
- * 
+ *
  * Equivale a Parse.Cloud pero con tipado estricto y composición de traits.
  * Los desarrolladores usan esta API en su archivo `cloud/main.ts` para
  * registrar funciones, hooks y validaciones personalizadas.
- * 
+ *
  * Inspirado en 10 años de Parse Server:
  * - Parse.Cloud.define()     → Zen.Cloud.define()
  * - Parse.Cloud.beforeSave() → Zen.Cloud.beforeSave()
  * - Parse.Cloud.afterSave()  → Zen.Cloud.afterSave()
  * - Parse.Cloud.job()        → Zen.Cloud.job()
- * 
+ *
  * La diferencia es que en Zenith, todo está tipado y las funciones
  * se registran en un store inmutable que el CloudCodeTrait consume.
  */
 
-import type { ZenithObject, ZenithAuthContext, ZenithPluginsRegistry } from "./types.ts";
+import type { ZenithAuthContext, ZenithObject, ZenithPluginsRegistry } from "./types.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ZenithError, ZenithErrorCode } from "./errors.ts";
 import { applySchema, defineSchema, getSchema } from "./cloud-schema.ts";
@@ -33,7 +33,9 @@ import { applySchema, defineSchema, getSchema } from "./cloud-schema.ts";
  * const ctx = zenithContext.getStore();
  * if (ctx) console.log(ctx.appId, ctx.auth?.userId);
  */
-export const zenithContext = new AsyncLocalStorage<{ appId: string; auth?: ZenithAuthContext; masterKey?: boolean }>();
+export const zenithContext = new AsyncLocalStorage<
+  { appId: string; auth?: ZenithAuthContext; masterKey?: boolean }
+>();
 
 /**
  * Registro de Apps para Cross-Tenant Queries en la misma RAM.
@@ -63,8 +65,8 @@ export interface CloudFunctionRequest {
   readonly installationId?: string;
   /** Logueo nativo de la función (Parse Parity) */
   readonly log: {
-     info: (msg: string, metadata?: any) => void;
-     error: (msg: string, metadata?: any) => void;
+    info: (msg: string, metadata?: any) => void;
+    error: (msg: string, metadata?: any) => void;
   };
 }
 
@@ -91,8 +93,8 @@ export interface CloudTriggerRequest<T = ZenithObject> {
   readonly installationId?: string;
   /** Logueo nativo (Parse Parity) */
   readonly log: {
-     info: (msg: string, metadata?: any) => void;
-     error: (msg: string, metadata?: any) => void;
+    info: (msg: string, metadata?: any) => void;
+    error: (msg: string, metadata?: any) => void;
   };
   /** Propiedades específicas de _File (Parse Parity) */
   readonly fileSize?: number;
@@ -115,8 +117,8 @@ export interface CloudBeforeFindRequest {
   readonly context: Record<string, unknown>;
   /** Logueo nativo (Parse Parity) */
   readonly log: {
-     info: (msg: string, metadata?: any) => void;
-     error: (msg: string, metadata?: any) => void;
+    info: (msg: string, metadata?: any) => void;
+    error: (msg: string, metadata?: any) => void;
   };
   /** Indica si la consulta es un GET por ID (Parse Parity) */
   readonly isGet?: boolean;
@@ -132,10 +134,14 @@ export type CloudTriggerHandler = (request: CloudTriggerRequest) => Promise<void
 export type CloudBeforeFindHandler = (request: CloudBeforeFindRequest) => Promise<void> | void;
 
 /** Handler de un afterFind trigger */
-export type CloudAfterFindHandler = (request: { className: string; objects: ZenithObject[]; query: Record<string, unknown> }) => Promise<ZenithObject[]> | ZenithObject[];
+export type CloudAfterFindHandler = (
+  request: { className: string; objects: ZenithObject[]; query: Record<string, unknown> },
+) => Promise<ZenithObject[]> | ZenithObject[];
 
 /** Handler de un Background Job */
-export type CloudJobHandler = (request: { params: Record<string, unknown>; message: (msg: string) => void }) => Promise<void> | void;
+export type CloudJobHandler = (
+  request: { params: Record<string, unknown>; message: (msg: string) => void },
+) => Promise<void> | void;
 
 /** Validator para Cloud Functions y Triggers */
 export interface CloudValidator {
@@ -158,21 +164,76 @@ export interface CloudValidator {
 
 // ─── Trigger Categories ────────────────────────────────────────────────────────
 
-type TriggerCategory = "beforeSave" | "afterSave" | "beforeDelete" | "afterDelete" | "beforeFind" | "afterFind" | "beforeLogin" | "afterLogin" | "beforeLogout" | "afterLogout" | "beforePasswordResetRequest" | "beforeConnect" | "beforeSubscribe" | "afterLiveQueryEvent" | "beforePublish" | "beforeWatch" | "onStreamEvent" | "beforeSaveFile" | "afterSaveFile" | "beforeDeleteFile" | "afterDeleteFile";
+type TriggerCategory =
+  | "beforeSave"
+  | "afterSave"
+  | "beforeDelete"
+  | "afterDelete"
+  | "beforeFind"
+  | "afterFind"
+  | "beforeLogin"
+  | "afterLogin"
+  | "beforeLogout"
+  | "afterLogout"
+  | "beforePasswordResetRequest"
+  | "beforeConnect"
+  | "beforeSubscribe"
+  | "afterLiveQueryEvent"
+  | "beforePublish"
+  | "beforeWatch"
+  | "onStreamEvent"
+  | "beforeSaveFile"
+  | "afterSaveFile"
+  | "beforeDeleteFile"
+  | "afterDeleteFile";
 
 // ─── Store Global de Cloud Code ────────────────────────────────────────────────
 
 /** Registro de Cloud Functions */
-const _functions: Map<string, { handler: CloudFunctionHandler; validator?: CloudValidator }> = new Map();
+const _functions: Map<string, { handler: CloudFunctionHandler; validator?: CloudValidator }> =
+  new Map();
 
 /** Registro de Triggers (por categoría y className) */
-const _triggers: Map<string, Map<string, { handler: CloudTriggerHandler | CloudBeforeFindHandler | CloudAfterFindHandler; validator?: CloudValidator }>> = new Map();
+const _triggers: Map<
+  string,
+  Map<
+    string,
+    {
+      handler: CloudTriggerHandler | CloudBeforeFindHandler | CloudAfterFindHandler;
+      validator?: CloudValidator;
+    }
+  >
+> = new Map();
 
 /** Registro de Background Jobs */
 const _jobs: Map<string, CloudJobHandler> = new Map();
 
 // Inicializar categorías de triggers
-for (const cat of ["beforeSave", "afterSave", "beforeDelete", "afterDelete", "beforeFind", "afterFind", "beforeLogin", "afterLogin", "beforeLogout", "afterLogout", "beforePasswordResetRequest", "beforeConnect", "beforeSubscribe", "afterLiveQueryEvent", "beforePublish", "beforeWatch", "onStreamEvent", "beforeSaveFile", "afterSaveFile", "beforeDeleteFile", "afterDeleteFile"] as const) {
+for (
+  const cat of [
+    "beforeSave",
+    "afterSave",
+    "beforeDelete",
+    "afterDelete",
+    "beforeFind",
+    "afterFind",
+    "beforeLogin",
+    "afterLogin",
+    "beforeLogout",
+    "afterLogout",
+    "beforePasswordResetRequest",
+    "beforeConnect",
+    "beforeSubscribe",
+    "afterLiveQueryEvent",
+    "beforePublish",
+    "beforeWatch",
+    "onStreamEvent",
+    "beforeSaveFile",
+    "afterSaveFile",
+    "beforeDeleteFile",
+    "afterDeleteFile",
+  ] as const
+) {
   _triggers.set(cat, new Map());
 }
 
@@ -180,15 +241,15 @@ for (const cat of ["beforeSave", "afterSave", "beforeDelete", "afterDelete", "be
 
 /**
  * API principal de Cloud Code de Zenith.
- * 
+ *
  * Uso desde `cloud/main.ts`:
  * ```typescript
  * import { Zen } from "@zenith/core";
- * 
+ *
  * Zen.Cloud.define("hello", async (request) => {
  *   return { message: `Hello ${request.params.name}!` };
  * });
- * 
+ *
  * Zen.Cloud.beforeSave("GameScore", async (request) => {
  *   if (request.object.score > 1000) {
  *     throw new Error("Score too high!");
@@ -202,7 +263,15 @@ export interface ZenCloudAPI {
   defineSchema: typeof defineSchema;
   getSchema: typeof getSchema;
   define(name: string, handler: CloudFunctionHandler, validator?: CloudValidator): void;
-  run(name: string, params?: Record<string, unknown>, options?: { user?: { objectId: string; username?: string }; master?: boolean; installationId?: string }): Promise<unknown>;
+  run(
+    name: string,
+    params?: Record<string, unknown>,
+    options?: {
+      user?: { objectId: string; username?: string };
+      master?: boolean;
+      installationId?: string;
+    },
+  ): Promise<unknown>;
   job(name: string, handler: CloudJobHandler): void;
   beforeSave(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
   afterSave(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
@@ -216,7 +285,11 @@ export interface ZenCloudAPI {
   afterLogout(handler: CloudTriggerHandler, validator?: CloudValidator): void;
   beforePasswordResetRequest(handler: CloudTriggerHandler, validator?: CloudValidator): void;
   beforeConnect(handler: CloudTriggerHandler, validator?: CloudValidator): void;
-  beforeSubscribe(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void;
+  beforeSubscribe(
+    className: string,
+    handler: CloudTriggerHandler,
+    validator?: CloudValidator,
+  ): void;
   afterLiveQueryEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void;
   onLiveQueryEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void;
   beforePublish(handler: CloudTriggerHandler, validator?: CloudValidator): void;
@@ -227,15 +300,19 @@ export interface ZenCloudAPI {
   beforeDeleteFile(handler: CloudTriggerHandler, validator?: CloudValidator): void;
   afterDeleteFile(handler: CloudTriggerHandler, validator?: CloudValidator): void;
   // deno-lint-ignore no-explicit-any
-  httpRequest(options: { url: string; method?: string; headers?: Record<string, string>; body?: any }): Promise<any>;
-  sendEmail(data: { to: string; subject: string; text?: string; html?: string; from?: string }): Promise<void>;
+  httpRequest(
+    options: { url: string; method?: string; headers?: Record<string, string>; body?: any },
+  ): Promise<any>;
+  sendEmail(
+    data: { to: string; subject: string; text?: string; html?: string; from?: string },
+  ): Promise<void>;
 }
 
 export const ZenCloud: ZenCloudAPI = {
   /**
    * Define una Cloud Function.
    * Equivalente a `Parse.Cloud.define()`.
-   * 
+   *
    * @param name - Nombre de la función (se invoca vía POST /functions/:name)
    * @param handler - Función que recibe el request y retorna el resultado
    * @param validator - Reglas opcionales de validación
@@ -257,10 +334,18 @@ export const ZenCloud: ZenCloudAPI = {
    * Invoca programáticamente una Cloud Function local.
    * Equivalente a `Parse.Cloud.run()`.
    */
-  async run(name: string, params?: Record<string, unknown>, options?: { user?: { objectId: string; username?: string }; master?: boolean; installationId?: string }): Promise<unknown> {
+  async run(
+    name: string,
+    params?: Record<string, unknown>,
+    options?: {
+      user?: { objectId: string; username?: string };
+      master?: boolean;
+      installationId?: string;
+    },
+  ): Promise<unknown> {
     const entry = _functions.get(name);
     if (!entry) throw new Error(`Invalid function: "${name}".`);
-    
+
     // El request manual
     const request: CloudFunctionRequest = {
       params: params || {},
@@ -268,9 +353,12 @@ export const ZenCloud: ZenCloudAPI = {
       master: !!options?.master,
       headers: {},
       installationId: options?.installationId,
-      log: { info: (msg: string) => console.log(`[Cloud][INFO] ${msg}`), error: (msg: string) => console.log(`[Cloud][ERROR] ${msg}`) }
+      log: {
+        info: (msg: string) => console.log(`[Cloud][INFO] ${msg}`),
+        error: (msg: string) => console.log(`[Cloud][ERROR] ${msg}`),
+      },
     };
-    
+
     // Validation is usually done by CloudCodeTrait on HTTP, but if called programmatically we could do it too,
     // although for simplicity we will bypass it since it's an internal call (often master key).
     return entry.handler(request);
@@ -389,7 +477,11 @@ export const ZenCloud: ZenCloudAPI = {
    * Trigger antes de que un cliente se suscriba a una clase en LiveQuery.
    * Equivalente a `Parse.Cloud.beforeSubscribe()`.
    */
-  beforeSubscribe(className: string, handler: CloudTriggerHandler, validator?: CloudValidator): void {
+  beforeSubscribe(
+    className: string,
+    handler: CloudTriggerHandler,
+    validator?: CloudValidator,
+  ): void {
     _triggers.get("beforeSubscribe")!.set(className, { handler, validator });
   },
 
@@ -464,15 +556,21 @@ export const ZenCloud: ZenCloudAPI = {
   /**
    * HTTP Request proxy from Cloud Code (Parse.Cloud.httpRequest equivalent).
    */
-  async httpRequest(options: { url: string; method?: string; headers?: Record<string, string>; body?: any }): Promise<any> {
+  async httpRequest(
+    options: { url: string; method?: string; headers?: Record<string, string>; body?: any },
+  ): Promise<any> {
     const res = await fetch(options.url, {
       method: options.method || "GET",
       headers: options.headers,
-      body: options.body ? (typeof options.body === "string" ? options.body : JSON.stringify(options.body)) : undefined
+      body: options.body
+        ? (typeof options.body === "string" ? options.body : JSON.stringify(options.body))
+        : undefined,
     });
     const text = await res.text();
     let data = text;
-    try { data = JSON.parse(text); } catch (_e) { /* keep data=null on parse error */ }
+    try {
+      data = JSON.parse(text);
+    } catch (_e) { /* keep data=null on parse error */ }
     return { status: res.status, headers: Object.fromEntries(res.headers.entries()), text, data };
   },
 
@@ -480,17 +578,21 @@ export const ZenCloud: ZenCloudAPI = {
    * Envía un email usando el MailAdapter configurado.
    * Equivalente a `Parse.Cloud.sendEmail()`.
    */
-  async sendEmail(data: { to: string; subject: string; text?: string; html?: string; from?: string }): Promise<void> {
-     // Obtenemos la app activa en el clúster
-     const ctx = zenithContext.getStore();
-     if (!ctx || !ctx.appId) throw new Error("Zen.Cloud.sendEmail cannot run outside an active AppContext");
-     const app = ZenAppRegistry.get(ctx.appId);
-     if (!app || !app.mailAdapter) {
-         ZenLogger.warn(`Zen.Cloud.sendEmail: No mailAdapter configured for app ${ctx.appId}`);
-         throw new Error("No mail adapter configured for Parse Server.");
-     }
-     await app.mailAdapter.sendMail(data);
-  }
+  async sendEmail(
+    data: { to: string; subject: string; text?: string; html?: string; from?: string },
+  ): Promise<void> {
+    // Obtenemos la app activa en el clúster
+    const ctx = zenithContext.getStore();
+    if (!ctx || !ctx.appId) {
+      throw new Error("Zen.Cloud.sendEmail cannot run outside an active AppContext");
+    }
+    const app = ZenAppRegistry.get(ctx.appId);
+    if (!app || !app.mailAdapter) {
+      ZenLogger.warn(`Zen.Cloud.sendEmail: No mailAdapter configured for app ${ctx.appId}`);
+      throw new Error("No mail adapter configured for Parse Server.");
+    }
+    await app.mailAdapter.sendMail(data);
+  },
 } as const;
 
 // ─── Acceso Interno (para CloudCodeTrait y RestCrudTrait) ──────────────────────
@@ -504,7 +606,8 @@ export const _cloudCodeRegistry = {
   getFunction: (name: string) => _functions.get(name),
 
   /** Retorna un trigger registrado o undefined */
-  getTrigger: (category: TriggerCategory, className: string) => _triggers.get(category)?.get(className),
+  getTrigger: (category: TriggerCategory, className: string) =>
+    _triggers.get(category)?.get(className),
 
   /** Retorna un Background Job registrado o undefined */
   getJob: (name: string) => _jobs.get(name),
@@ -531,19 +634,53 @@ export interface ZenDBAPI {
   getAdapter(): any;
   _getUserRoles(userId: string): Promise<string[]>;
   // deno-lint-ignore no-explicit-any
-  _enforceAclQuery(query: Record<string, any>, options?: { useMasterKey?: boolean; userRoles?: string[] }): Record<string, any>;
-  _enforceAclWrite(className: string, id: string, options?: { useMasterKey?: boolean }): Promise<void>;
+  _enforceAclQuery(
+    query: Record<string, any>,
+    options?: { useMasterKey?: boolean; userRoles?: string[] },
+  ): Record<string, any>;
+  _enforceAclWrite(
+    className: string,
+    id: string,
+    options?: { useMasterKey?: boolean },
+  ): Promise<void>;
   // deno-lint-ignore no-explicit-any
-  find(className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any[]>;
+  find(
+    className: string,
+    query: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any[]>;
   // deno-lint-ignore no-explicit-any
-  findOne(className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  findOne(
+    className: string,
+    query: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any>;
   // deno-lint-ignore no-explicit-any
-  insert(className: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  insert(
+    className: string,
+    document: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any>;
   // deno-lint-ignore no-explicit-any
-  update(className: string, id: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
+  update(
+    className: string,
+    id: string,
+    document: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any>;
   // deno-lint-ignore no-explicit-any
-  updateIf(className: string, id: string, conditions: Record<string, unknown>, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any>;
-  delete(className: string, id: string, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<void>;
+  updateIf(
+    className: string,
+    id: string,
+    conditions: Record<string, unknown>,
+    document: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any>;
+  delete(
+    className: string,
+    id: string,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<void>;
 }
 
 export const ZenDB: ZenDBAPI = {
@@ -564,7 +701,9 @@ export const ZenDB: ZenDBAPI = {
       return firstApp.db;
     }
     const app = ZenAppRegistry.get(ctx.appId);
-    if (!app || !app.db) throw new Error(`Zen.DB Error: No DB adapter found for appId '${ctx.appId}'`);
+    if (!app || !app.db) {
+      throw new Error(`Zen.DB Error: No DB adapter found for appId '${ctx.appId}'`);
+    }
     return app.db;
   },
 
@@ -580,7 +719,7 @@ export const ZenDB: ZenDBAPI = {
       const adapter = ZenDB.getAdapter();
       // Los roles en _Role tienen un campo 'users' con Relation a _User
       const roles = await adapter.find("_Role", {
-        where: { "users": { $elemMatch: { objectId: userId } } }
+        where: { "users": { $elemMatch: { objectId: userId } } },
       });
       return (roles || []).map((r: any) => `role:${r.name}`);
     } catch (_e) {
@@ -598,7 +737,10 @@ export const ZenDB: ZenDBAPI = {
    * @returns Query modificada con filtro ACL
    * @internal
    */
-  _enforceAclQuery(query: Record<string, any>, options?: { useMasterKey?: boolean; userRoles?: string[] }): Record<string, any> {
+  _enforceAclQuery(
+    query: Record<string, any>,
+    options?: { useMasterKey?: boolean; userRoles?: string[] },
+  ): Record<string, any> {
     const ctx = zenithContext.getStore();
     const isMaster = options?.useMasterKey || ctx?.masterKey;
     if (isMaster) return query; // Bypass ACL con MasterKey
@@ -613,8 +755,8 @@ export const ZenDB: ZenDBAPI = {
       $or: [
         { _rperm: { $exists: false } },
         { _rperm: { $size: 0 } },
-        { _rperm: { $in: allowedIdentities } }
-      ]
+        { _rperm: { $in: allowedIdentities } },
+      ],
     };
 
     return { $and: [query, readQuery] };
@@ -631,7 +773,11 @@ export const ZenDB: ZenDBAPI = {
    * @throws Error si el usuario no tiene permisos de escritura
    * @internal
    */
-  async _enforceAclWrite(className: string, id: string, options?: { useMasterKey?: boolean }): Promise<void> {
+  async _enforceAclWrite(
+    className: string,
+    id: string,
+    options?: { useMasterKey?: boolean },
+  ): Promise<void> {
     const ctx = zenithContext.getStore();
     const isMaster = options?.useMasterKey || ctx?.masterKey;
     if (isMaster) return;
@@ -645,7 +791,9 @@ export const ZenDB: ZenDBAPI = {
 
     const userId = ctx?.auth?.userId;
     if (!userId || !wperms.includes(userId)) {
-      throw new Error(`Zen.DB Error: Access denied. You don't have write permissions for this object.`);
+      throw new Error(
+        `Zen.DB Error: Access denied. You don't have write permissions for this object.`,
+      );
     }
   },
 
@@ -659,10 +807,18 @@ export const ZenDB: ZenDBAPI = {
    * @param options — targetAppId (cross-tenant), useMasterKey (bypass ACL)
    * @returns Array de documentos
    */
-  find: async (className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any[]> => {
-    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
-    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
-    
+  find: async (
+    className: string,
+    query: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any[]> => {
+    const adapter = options?.targetAppId
+      ? ZenAppRegistry.get(options.targetAppId)?.db
+      : ZenDB.getAdapter();
+    if (!adapter) {
+      throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    }
+
     // Inject ACL
     if (query.where) {
       query.where = ZenDB._enforceAclQuery(query.where, options);
@@ -680,10 +836,18 @@ export const ZenDB: ZenDBAPI = {
    * @param options — targetAppId, useMasterKey
    * @returns Documento encontrado o null
    */
-  findOne: async (className: string, query: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
-    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
-    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
-    
+  findOne: async (
+    className: string,
+    query: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any> => {
+    const adapter = options?.targetAppId
+      ? ZenAppRegistry.get(options.targetAppId)?.db
+      : ZenDB.getAdapter();
+    if (!adapter) {
+      throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    }
+
     // Inject ACL
     if (query.where) {
       query.where = ZenDB._enforceAclQuery(query.where, options);
@@ -701,9 +865,17 @@ export const ZenDB: ZenDBAPI = {
    * @param options — targetAppId, useMasterKey
    * @returns Documento creado (con objectId)
    */
-  insert: async (className: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
-    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
-    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+  insert: async (
+    className: string,
+    document: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any> => {
+    const adapter = options?.targetAppId
+      ? ZenAppRegistry.get(options.targetAppId)?.db
+      : ZenDB.getAdapter();
+    if (!adapter) {
+      throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    }
     return adapter.insert(className, applySchema(className, document));
   },
 
@@ -717,10 +889,19 @@ export const ZenDB: ZenDBAPI = {
    * @param options — targetAppId, useMasterKey
    * @returns Documento actualizado
    */
-  update: async (className: string, id: string, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
-    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
-    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
-    
+  update: async (
+    className: string,
+    id: string,
+    document: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any> => {
+    const adapter = options?.targetAppId
+      ? ZenAppRegistry.get(options.targetAppId)?.db
+      : ZenDB.getAdapter();
+    if (!adapter) {
+      throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    }
+
     await ZenDB._enforceAclWrite(className, id, options);
     return adapter.update(className, id, document);
   },
@@ -732,10 +913,24 @@ export const ZenDB: ZenDBAPI = {
    * @returns Documento actualizado, o null si las condiciones no se cumplieron
    * @throws Error si el adapter activo no puede garantizar la atomicidad
    */
-  updateIf: async (className: string, id: string, conditions: Record<string, unknown>, document: Record<string, any>, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<any> => {
-    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
-    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
-    if (!adapter.updateIf) throw new Error(`Zen.DB Error: the active database adapter does not support atomic updateIf.`);
+  updateIf: async (
+    className: string,
+    id: string,
+    conditions: Record<string, unknown>,
+    document: Record<string, any>,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<any> => {
+    const adapter = options?.targetAppId
+      ? ZenAppRegistry.get(options.targetAppId)?.db
+      : ZenDB.getAdapter();
+    if (!adapter) {
+      throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    }
+    if (!adapter.updateIf) {
+      throw new Error(
+        `Zen.DB Error: the active database adapter does not support atomic updateIf.`,
+      );
+    }
 
     await ZenDB._enforceAclWrite(className, id, options);
     return adapter.updateIf(className, id, conditions, document);
@@ -749,13 +944,21 @@ export const ZenDB: ZenDBAPI = {
    * @param id — ObjectId del documento
    * @param options — targetAppId, useMasterKey
    */
-  delete: async (className: string, id: string, options?: { targetAppId?: string; useMasterKey?: boolean }): Promise<void> => {
-    const adapter = options?.targetAppId ? ZenAppRegistry.get(options.targetAppId)?.db : ZenDB.getAdapter();
-    if (!adapter) throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
-    
+  delete: async (
+    className: string,
+    id: string,
+    options?: { targetAppId?: string; useMasterKey?: boolean },
+  ): Promise<void> => {
+    const adapter = options?.targetAppId
+      ? ZenAppRegistry.get(options.targetAppId)?.db
+      : ZenDB.getAdapter();
+    if (!adapter) {
+      throw new Error(`Cannot find DB adapter for targetAppId: ${options?.targetAppId}`);
+    }
+
     await ZenDB._enforceAclWrite(className, id, options);
     return adapter.delete(className, id);
-  }
+  },
 };
 
 // ─── Wrapper de Federation (RPC Cluster) ──────────────────────────────────────
@@ -781,19 +984,21 @@ export const ZenFederation = {
    */
   rpcCall: async (options: { targetAppId: string; action: string; payload: any }): Promise<any> => {
     const localApp = ZenAppRegistry.get(options.targetAppId);
-    
+
     // Si la App está en el mismo proceso (Misma RAM), resolvemos in-memory sin red
     if (localApp && localApp.federation) {
-       return await localApp.federation.handleLocalRpc(options.action, options.payload);
+      return await localApp.federation.handleLocalRpc(options.action, options.payload);
     }
-    
+
     // Si la App está en otro servidor, usamos ZeroMQ (el trait inyecta el manejador real aquí)
     if ((globalThis as any).Zen?.Cluster?.rpcCall) {
-       return await (globalThis as any).Zen.Cluster.rpcCall(options);
+      return await (globalThis as any).Zen.Cluster.rpcCall(options);
     }
-    
-    throw new Error(`[Federation] Cannot reach targetAppId: ${options.targetAppId}. It is not local and ZeroMQ cluster transport is missing.`);
-  }
+
+    throw new Error(
+      `[Federation] Cannot reach targetAppId: ${options.targetAppId}. It is not local and ZeroMQ cluster transport is missing.`,
+    );
+  },
 };
 
 // ─── Wrapper para Configuración Global (Zen.Config) ──────────────────────
@@ -831,7 +1036,9 @@ export const ZenConfig = {
       try {
         const cachedParams = await ZenPlugins.CacheAdapter.get(cacheKey);
         if (cachedParams) return key ? cachedParams[key] : cachedParams;
-      } catch (e) { ZenLogger.warn(`CacheAdapter get failed: ${e}`); }
+      } catch (e) {
+        ZenLogger.warn(`CacheAdapter get failed: ${e}`);
+      }
     } else {
       const cached = await kvStore.get(["config", appId, "params"]);
       if (cached.value) {
@@ -844,15 +1051,18 @@ export const ZenConfig = {
     const db = ZenDB.getAdapter();
     const conf = await db.findOne("_GlobalConfig", { where: { _id: "params" } });
     const params = conf ? conf.params : {};
-    
+
     // 3. Save to Cache
     if (ZenPlugins.CacheAdapter && ZenPlugins.CacheAdapter.set) {
-      try { await ZenPlugins.CacheAdapter.set(cacheKey, params); } 
-      catch (e) { ZenLogger.warn(`CacheAdapter set failed: ${e}`); }
+      try {
+        await ZenPlugins.CacheAdapter.set(cacheKey, params);
+      } catch (e) {
+        ZenLogger.warn(`CacheAdapter set failed: ${e}`);
+      }
     } else {
       await kvStore.set(["config", appId, "params"], params);
     }
-    
+
     return key ? params[key] : params;
   },
 
@@ -880,14 +1090,16 @@ export const ZenConfig = {
 
     // Invalidar y actualizar Caché
     if (ZenPlugins.CacheAdapter && ZenPlugins.CacheAdapter.set) {
-      try { await ZenPlugins.CacheAdapter.set(cacheKey, newParams); } 
-      catch (e) { ZenLogger.warn(`CacheAdapter set failed: ${e}`); }
+      try {
+        await ZenPlugins.CacheAdapter.set(cacheKey, newParams);
+      } catch (e) {
+        ZenLogger.warn(`CacheAdapter set failed: ${e}`);
+      }
     } else {
       await kvStore.set(["config", appId, "params"], newParams);
     }
-  }
+  },
 };
-
 
 // ─── Logger Global (OpenTelemetry Parity & File System) ────────────────────────
 
@@ -908,9 +1120,9 @@ const _ensureLogDir = (dir: string) => {
 const _writeToFile = (level: string, msg: string, metadata?: any) => {
   const logDir = _getLogDir();
   if (!logDir) return; // Si no hay configuración, solo usa stdout
-  
+
   _ensureLogDir(logDir);
-  
+
   try {
     const timestamp = new Date().toISOString();
     const metaStr = metadata ? ` ${JSON.stringify(metadata)}` : "";
@@ -951,7 +1163,10 @@ export class ZenGeoPoint {
   latitude: number;
   longitude: number;
 
-  constructor(latitude: number | { latitude: number; longitude: number } | [number, number], longitude?: number) {
+  constructor(
+    latitude: number | { latitude: number; longitude: number } | [number, number],
+    longitude?: number,
+  ) {
     if (Array.isArray(latitude)) {
       this.latitude = latitude[0];
       this.longitude = latitude[1];
@@ -963,8 +1178,12 @@ export class ZenGeoPoint {
       this.longitude = longitude || 0;
     }
 
-    if (this.latitude > 90.0 || this.latitude < -90.0) throw new Error("Latitude must be within range [-90.0, 90.0]");
-    if (this.longitude > 180.0 || this.longitude < -180.0) throw new Error("Longitude must be within range [-180.0, 180.0]");
+    if (this.latitude > 90.0 || this.latitude < -90.0) {
+      throw new Error("Latitude must be within range [-90.0, 90.0]");
+    }
+    if (this.longitude > 180.0 || this.longitude < -180.0) {
+      throw new Error("Longitude must be within range [-180.0, 180.0]");
+    }
   }
 
   toJSON(): { __type: "GeoPoint"; latitude: number; longitude: number } {
@@ -976,7 +1195,8 @@ export class ZenGeoPoint {
     const dLon = (point.longitude - this.longitude) * (Math.PI / 180.0);
     const lat1 = this.latitude * (Math.PI / 180.0);
     const lat2 = point.latitude * (Math.PI / 180.0);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
     return 2 * Math.asin(Math.sqrt(a));
   }
 
@@ -1008,7 +1228,7 @@ export const ZenAPI = {
     _customRoutes.push(config);
     ZenLogger.info(`[Zen.API] Registered Custom Secure Route: ${config.method} ${config.path}`);
   },
-  getRoutes: (): CustomRouteConfig[] => _customRoutes
+  getRoutes: (): CustomRouteConfig[] => _customRoutes,
 };
 
 // ─── Plugins Export Namespace ───────────────────────────────────────────────────
@@ -1030,12 +1250,16 @@ export const ZenPlugins: ZenithPluginsRegistry = {};
 export interface ZenShellAPI {
   _allowedCommands: string[];
   setAllowedCommands(commands: string[]): void;
-  exec(command: string, args?: string[], options?: { cwd?: string; env?: Record<string, string> }): Promise<{ stdout: string; stderr: string; code: number }>;
+  exec(
+    command: string,
+    args?: string[],
+    options?: { cwd?: string; env?: Record<string, string> },
+  ): Promise<{ stdout: string; stderr: string; code: number }>;
 }
 
 export const ZenShell: ZenShellAPI = {
   _allowedCommands: [] as string[],
-  
+
   /**
    * Configura la lista blanca de binarios permitidos (Military-Grade SecOps).
    */
@@ -1049,14 +1273,20 @@ export const ZenShell: ZenShellAPI = {
    * @param args Argumentos del comando
    * @param options Opciones adicionales como CWD o Env Vars
    */
-  exec: async (command: string, args: string[] = [], options?: { cwd?: string; env?: Record<string, string> }): Promise<{ stdout: string; stderr: string; code: number }> => {
+  exec: async (
+    command: string,
+    args: string[] = [],
+    options?: { cwd?: string; env?: Record<string, string> },
+  ): Promise<{ stdout: string; stderr: string; code: number }> => {
     // 1. Military-Grade Allowlist Check
     if (ZenShell._allowedCommands.length > 0 && !ZenShell._allowedCommands.includes(command)) {
-      ZenLogger.error(`[Zen.Shell] 🛡️ SecOps Blocked: Attempted to execute unauthorized command '${command}'`);
+      ZenLogger.error(
+        `[Zen.Shell] 🛡️ SecOps Blocked: Attempted to execute unauthorized command '${command}'`,
+      );
       throw new ZenithError(
         ZenithErrorCode.SHELL_COMMAND_NOT_ALLOWED,
         `Execution of binary '${command}' is not in the allowedShellCommands allowlist.`,
-        403
+        403,
       );
     }
 
@@ -1071,12 +1301,12 @@ export const ZenShell: ZenShellAPI = {
       const output = await cmd.output();
       const stdout = new TextDecoder().decode(output.stdout);
       const stderr = new TextDecoder().decode(output.stderr);
-      
+
       if (!output.success) {
         throw new ZenithError(
           ZenithErrorCode.SHELL_EXECUTION_FAILED,
           `Command failed with code ${output.code}: ${stderr}`,
-          500
+          500,
         );
       }
       return { stdout, stderr, code: output.code };
@@ -1085,7 +1315,7 @@ export const ZenShell: ZenShellAPI = {
       if (err instanceof ZenithError) throw err;
       throw new ZenithError(ZenithErrorCode.SHELL_EXECUTION_FAILED, err.message, 500);
     }
-  }
+  },
 };
 
 // ─── Namespace Principal (Exportación) ──────────────────────────────────────────
@@ -1131,12 +1361,12 @@ export const Zen = {
   Plugins: ZenPlugins,
   Shell: ZenShell,
   App: (appId: string): ZenAppHandle => ({
-      DB: {
-          find: (c: string, q: any) => ZenDB.find(c, q, { targetAppId: appId }),
-          findOne: (c: string, q: any) => ZenDB.findOne(c, q, { targetAppId: appId }),
-          insert: (c: string, d: any) => ZenDB.insert(c, d, { targetAppId: appId }),
-          update: (c: string, id: string, d: any) => ZenDB.update(c, id, d, { targetAppId: appId }),
-          delete: (c: string, id: string) => ZenDB.delete(c, id, { targetAppId: appId })
-      }
-  })
+    DB: {
+      find: (c: string, q: any) => ZenDB.find(c, q, { targetAppId: appId }),
+      findOne: (c: string, q: any) => ZenDB.findOne(c, q, { targetAppId: appId }),
+      insert: (c: string, d: any) => ZenDB.insert(c, d, { targetAppId: appId }),
+      update: (c: string, id: string, d: any) => ZenDB.update(c, id, d, { targetAppId: appId }),
+      delete: (c: string, id: string) => ZenDB.delete(c, id, { targetAppId: appId }),
+    },
+  }),
 } as const;

@@ -19,7 +19,8 @@ export const ZeroMQTrait = createTraitDescriptor({
   consumes: [],
   state: ["zmqServerRunning"],
   runtimes: ["deno"],
-  summary: "ZeroMQ-based cluster transport for ultra-low latency inter-node messaging via Rust FFI.",
+  summary:
+    "ZeroMQ-based cluster transport for ultra-low latency inter-node messaging via Rust FFI.",
   create: (deps: Record<string, any>) => {
     const obs = (deps.traits || deps)["telemetry"];
     const traitApi: any = {};
@@ -27,13 +28,17 @@ export const ZeroMQTrait = createTraitDescriptor({
     traitApi.init = () => {
       if (clusterLib) return;
       try {
-        const libSuffix = Deno.build.os === "windows" ? "dll" : Deno.build.os === "darwin" ? "dylib" : "so";
+        const libSuffix = Deno.build.os === "windows"
+          ? "dll"
+          : Deno.build.os === "darwin"
+          ? "dylib"
+          : "so";
         const libPath = `./zenith-cluster/target/release/zenith_cluster.${libSuffix}`;
 
         clusterLib = Deno.dlopen(libPath, {
           "start_zmq_server": { parameters: ["pointer", "function"], result: "i32" },
           "send_zmq_message": { parameters: ["pointer", "pointer"], result: "pointer" },
-          "free_string": { parameters: ["pointer"], result: "void" }
+          "free_string": { parameters: ["pointer"], result: "void" },
         });
         if (obs?.log) obs.log("[ZeroMQ] Native cluster library loaded successfully.");
       } catch (e) {
@@ -56,10 +61,13 @@ export const ZeroMQTrait = createTraitDescriptor({
             const msg = view.getCString();
             if (obs?.log) obs.log(`[ZeroMQ] Event received: ${msg}`);
           } catch (_e) { /* noop */ }
-        }
+        },
       );
 
-      const res = (clusterLib.symbols.start_zmq_server as (a: unknown, b: unknown) => number)(endpointPtr, callback.pointer);
+      const res = (clusterLib.symbols.start_zmq_server as (a: unknown, b: unknown) => number)(
+        endpointPtr,
+        callback.pointer,
+      );
       return res === 0 || res === 1; // 0 = ok, 1 = already running
     };
 
@@ -72,7 +80,11 @@ export const ZeroMQTrait = createTraitDescriptor({
       const msgString = typeof message === "string" ? message : JSON.stringify(message);
       const msgPtr = Deno.UnsafePointer.of(encoder.encode(msgString + "\0"));
 
-      const resPtr = (clusterLib.symbols.send_zmq_message as (a: unknown, b: unknown) => Deno.UnsafePointer)(endpointPtr, msgPtr);
+      const resPtr =
+        (clusterLib.symbols.send_zmq_message as (a: unknown, b: unknown) => Deno.UnsafePointer)(
+          endpointPtr,
+          msgPtr,
+        );
       if (!resPtr) return JSON.stringify({ error: "FFI return null" });
 
       const view = new Deno.UnsafePointerView(resPtr as Deno.PointerObject<unknown>);
@@ -83,11 +95,11 @@ export const ZeroMQTrait = createTraitDescriptor({
     };
 
     if ((globalThis as any).Zen) {
-       (globalThis as any).Zen.Cluster = {
-           send: async (endpoint: string, payload: any) => traitApi.sendMessage(endpoint, payload)
-       };
+      (globalThis as any).Zen.Cluster = {
+        send: async (endpoint: string, payload: any) => traitApi.sendMessage(endpoint, payload),
+      };
     }
 
     return { "cluster-transport": traitApi };
-  }
+  },
 });

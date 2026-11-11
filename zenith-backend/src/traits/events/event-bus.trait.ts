@@ -27,7 +27,9 @@ export interface EventBus {
   emit(eventName: string, payload?: unknown): Promise<void>;
 }
 
-export function createEventBus(log: (m: string, e: unknown) => void = (m, e) => console.error(m, e)): EventBus {
+export function createEventBus(
+  log: (m: string, e: unknown) => void = (m, e) => console.error(m, e),
+): EventBus {
   const subscribers = new Map<string, Set<EventHandler>>();
   const bus: EventBus = {
     on(eventName, handler) {
@@ -40,11 +42,19 @@ export function createEventBus(log: (m: string, e: unknown) => void = (m, e) => 
     },
     async emit(eventName, payload) {
       for (const handler of [...(subscribers.get(eventName) ?? [])]) {
-        try { await handler(payload); } catch (e) { log(`[events] handler error for ${eventName}:`, e); }
+        try {
+          await handler(payload);
+        } catch (e) {
+          log(`[events] handler error for ${eventName}:`, e);
+        }
       }
       const event = { event: eventName, payload, timestamp: Date.now() };
       for (const handler of [...(subscribers.get("*") ?? [])]) {
-        try { await handler(event); } catch (e) { log(`[events] wildcard handler error for ${eventName}:`, e); }
+        try {
+          await handler(event);
+        } catch (e) {
+          log(`[events] wildcard handler error for ${eventName}:`, e);
+        }
       }
     },
   };

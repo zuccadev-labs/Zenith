@@ -7,7 +7,6 @@ import { ZenithErrors } from "../../../core/errors.ts";
  */
 
 export function registerCRMTriggers(Zen: any) {
-  
   // Lógica: Antes de guardar un Contact, si no tiene owner, lanzar error (Zero Trust).
   Zen.Cloud.beforeSave("Contact", async (request: any) => {
     const contact = request.object;
@@ -23,19 +22,20 @@ export function registerCRMTriggers(Zen: any) {
   // Lógica: Después de guardar un Lead, generar embeddings vectoriales para RAG/IA.
   Zen.Cloud.afterSave("Lead", async (request: any) => {
     const lead = request.object;
-    
+
     // Background task: Generar embedding de IA
     setTimeout(async () => {
       try {
-        const textToEmbed = `Lead Source: ${lead.source}, Stage: ${lead.stage}, Value: ${lead.value}`;
-        
+        const textToEmbed =
+          `Lead Source: ${lead.source}, Stage: ${lead.stage}, Value: ${lead.value}`;
+
         // Asumiendo que el trait AI de Zenith expone getEmbeddings
         let vector = [];
         if (Zen.AI && Zen.AI.getEmbeddings) {
-           vector = await Zen.AI.getEmbeddings(textToEmbed);
+          vector = await Zen.AI.getEmbeddings(textToEmbed);
         } else {
-           // Fallback/Mock para desarrollo
-           vector = [0.1, 0.2, -0.1]; 
+          // Fallback/Mock para desarrollo
+          vector = [0.1, 0.2, -0.1];
         }
 
         // Guardar insight en VectorDB (mediante el smart routing de CRM_Insight)
@@ -43,9 +43,8 @@ export function registerCRMTriggers(Zen: any) {
           entityId: lead.objectId,
           entityType: "Lead",
           vector_data: vector,
-          summary: `Lead automatically summarized on ${new Date().toISOString()}`
+          summary: `Lead automatically summarized on ${new Date().toISOString()}`,
         });
-
       } catch (e) {
         console.error("[CRM AI] Failed to generate insight for Lead", lead.objectId, e);
       }
@@ -62,12 +61,12 @@ export function registerCRMTriggers(Zen: any) {
     }
 
     const deal = await Zen.DB.insert("Deal", {
-      title:     dealTitle ?? `Deal from Lead ${leadId}`,
-      owner:     lead.owner,
-      pipeline:  pipeline ?? "default",
-      stage:     stage ?? "proposal",
-      amount:    amount ?? lead.value,
-      currency:  lead.currency ?? "USD",
+      title: dealTitle ?? `Deal from Lead ${leadId}`,
+      owner: lead.owner,
+      pipeline: pipeline ?? "default",
+      stage: stage ?? "proposal",
+      amount: amount ?? lead.value,
+      currency: lead.currency ?? "USD",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -76,7 +75,7 @@ export function registerCRMTriggers(Zen: any) {
     if (lead.contact) {
       // Dependiendo del adaptador de Parse de Zenith, las relaciones se pueden agregar así
       await Zen.DB.update("Deal", deal.objectId, {
-         "contacts": { __op: "AddRelation", objects: [lead.contact] }
+        "contacts": { __op: "AddRelation", objects: [lead.contact] },
       });
     }
 
@@ -87,5 +86,4 @@ export function registerCRMTriggers(Zen: any) {
 
     return { deal, leadUpdated: true };
   });
-
 }

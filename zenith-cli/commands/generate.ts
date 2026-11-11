@@ -26,66 +26,87 @@ import { spinner } from "./_utils.ts";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-
 /** Descripción de tags para que la doc sea rica desde el día 1 */
 const TAG_DESCRIPTIONS: Record<string, string> = {
   // ── Base ──────────────────────────────────────────────────────────────────
-  Authentication:   "Registro, login, logout, gestión de sesiones y API Keys.",
-  CRUD:             "Operaciones genéricas CRUD sobre cualquier clase de objeto del schema.",
-  Schema:           "Definición dinámica de clases y columnas (Code-first schema management).",
-  Storage:          "Upload/download de archivos (RustFS/S3/IPFS). Parse-Server compat.",
-  CloudCode:        "Ejecución de funciones de negocio serverless (Cloud Functions & Triggers).",
-  GraphQL:          "Endpoint GraphQL con schema auto-generado desde el state de Barrits.",
-  Realtime:         "WebSocket LiveQuery: suscripción a cambios de objetos en tiempo real.",
-  Observability:    "Métricas Prometheus, health checks y tracing distribuido.",
+  Authentication: "Registro, login, logout, gestión de sesiones y API Keys.",
+  CRUD: "Operaciones genéricas CRUD sobre cualquier clase de objeto del schema.",
+  Schema: "Definición dinámica de clases y columnas (Code-first schema management).",
+  Storage: "Upload/download de archivos (RustFS/S3/IPFS). Parse-Server compat.",
+  CloudCode: "Ejecución de funciones de negocio serverless (Cloud Functions & Triggers).",
+  GraphQL: "Endpoint GraphQL con schema auto-generado desde el state de Barrits.",
+  Realtime: "WebSocket LiveQuery: suscripción a cambios de objetos en tiempo real.",
+  Observability: "Métricas Prometheus, health checks y tracing distribuido.",
   // ── Negocio ───────────────────────────────────────────────────────────────
-  CRM:              "Gestión de relaciones con clientes: Contacts, Leads, Deals, Accounts, Campaigns, Tickets. Lead scoring con IA.",
-  ERP:              "Planificación de recursos empresariales: Invoices, Products, Inventory, Orders, Employees, Payroll, Warehouses.",
+  CRM:
+    "Gestión de relaciones con clientes: Contacts, Leads, Deals, Accounts, Campaigns, Tickets. Lead scoring con IA.",
+  ERP:
+    "Planificación de recursos empresariales: Invoices, Products, Inventory, Orders, Employees, Payroll, Warehouses.",
   // ── Colaboración ──────────────────────────────────────────────────────────
-  Collaboration:    "Notes, Tasks (Kanban), Comments @mentions, Attachments — vinculados a cualquier objeto CRM/ERP.",
-  Workspace:        "Gestión de workspace: Members, Roles, Invitations, API Keys.",
-  Views:            "Vistas guardadas (Kanban, Table, List, Calendar, Timeline) con filtros y ordenación persistente.",
-  Search:           "Motor de búsqueda full-text con scoring de relevancia y filtros avanzados.",
-  Timeline:         "Feed de actividad inmutable por record: quién hizo qué y cuándo.",
-  Metadata:         "Custom Objects y Custom Fields — extiende el schema sin código ni migrations.",
-  Blog:             "Sistema de blog monetizable con posts, categorías, slugs SEO y reading time.",
-  Forum:            "Foro de comunidad con hilos, replies, upvotes/downvotes y respuestas aceptadas.",
+  Collaboration:
+    "Notes, Tasks (Kanban), Comments @mentions, Attachments — vinculados a cualquier objeto CRM/ERP.",
+  Workspace: "Gestión de workspace: Members, Roles, Invitations, API Keys.",
+  Views:
+    "Vistas guardadas (Kanban, Table, List, Calendar, Timeline) con filtros y ordenación persistente.",
+  Search: "Motor de búsqueda full-text con scoring de relevancia y filtros avanzados.",
+  Timeline: "Feed de actividad inmutable por record: quién hizo qué y cuándo.",
+  Metadata: "Custom Objects y Custom Fields — extiende el schema sin código ni migrations.",
+  Blog: "Sistema de blog monetizable con posts, categorías, slugs SEO y reading time.",
+  Forum: "Foro de comunidad con hilos, replies, upvotes/downvotes y respuestas aceptadas.",
   // ── AI & Agentes ──────────────────────────────────────────────────────────
-  "AI Agents":      "Agentes IA con Google ADK: CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent. Sesiones persistentes.",
-  "Agent Orchestrator": "Motor ReAct loop para orchestración multi-agente con tool calling y memoria.",
+  "AI Agents":
+    "Agentes IA con Google ADK: CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent. Sesiones persistentes.",
+  "Agent Orchestrator":
+    "Motor ReAct loop para orchestración multi-agente con tool calling y memoria.",
   // ── Marketplace ───────────────────────────────────────────────────────────
-  Plugins:          "Plugin Marketplace: instalar, desinstalar, publicar y auditar plugins con firma criptográfica.",
+  Plugins:
+    "Plugin Marketplace: instalar, desinstalar, publicar y auditar plugins con firma criptográfica.",
   // ── Fases 2/3 ─────────────────────────────────────────────────────────────
-  Notifications:    "Notificaciones en tiempo real vía SSE: push, mark-read, mark-all-read. Sin WebSocket requerido.",
-  Favorites:        "Favoritos por usuario con drag & drop (posición persistente). Toggle idempotente.",
-  Tags:             "Etiquetas polimórficas asignables a cualquier record del sistema. Cascade delete.",
-  Webhooks:         "Gestión de webhooks HMAC-SHA256: CRUD, pause/resume, test delivery, historial de entregas.",
-  CSV:              "Import/Export masivo de datos: batch insert, dry-run, validación de campos, descarga automática.",
-  Email:            "Sincronización IMAP/SMTP: canales, hilos de conversación, match automático sender→CRM, send outbound.",
-  Calendar:         "Sincronización Google/CalDAV/iCal: eventos con asistentes→CRM, detección de conflictos, booking de slots, feeds .ics.",
-  Automation:       "Motor de automatización IF-THEN: reglas sobre cualquier evento, 11 acciones built-in, template {{field}}, historial de logs.",
+  Notifications:
+    "Notificaciones en tiempo real vía SSE: push, mark-read, mark-all-read. Sin WebSocket requerido.",
+  Favorites: "Favoritos por usuario con drag & drop (posición persistente). Toggle idempotente.",
+  Tags: "Etiquetas polimórficas asignables a cualquier record del sistema. Cascade delete.",
+  Webhooks:
+    "Gestión de webhooks HMAC-SHA256: CRUD, pause/resume, test delivery, historial de entregas.",
+  CSV:
+    "Import/Export masivo de datos: batch insert, dry-run, validación de campos, descarga automática.",
+  Email:
+    "Sincronización IMAP/SMTP: canales, hilos de conversación, match automático sender→CRM, send outbound.",
+  Calendar:
+    "Sincronización Google/CalDAV/iCal: eventos con asistentes→CRM, detección de conflictos, booking de slots, feeds .ics.",
+  Automation:
+    "Motor de automatización IF-THEN: reglas sobre cualquier evento, 11 acciones built-in, template {{field}}, historial de logs.",
   // ── Infraestructura avanzada ──────────────────────────────────────────────
-  Billing:          "Suscripciones y pagos SaaS con Stripe: plans, checkout, portal, webhooks de Stripe.",
-  Segmentation:     "Segmentación de usuarios con filtros dinámicos y audiencias exportables.",
-  "Feature Flags":  "Feature flags con rollout porcentual, targeting por usuario/segment y overrides.",
-  IoT:              "Registro de dispositivos IoT, ingesta de telemetría SenML, alertas y series temporales.",
-  VectorDB:         "Base de datos vectorial semántica (Qdrant): embeddings, similarity search, RAG pipeline.",
-  TimeSeries:       "Series temporales en ScyllaDB: ingesta de puntos, downsample, aggregation, Grafana DS API.",
-  Workflow:         "Motor de workflows iPaaS: Triggers → Actions multi-step con reintentos y estado persistente.",
-  Compliance:       "GDPR/SOC2: audit trail inmutable, data export, retention policies, derecho al olvido.",
-  "Multi-Tenant":   "Row-Level Security multi-tenant: aislamiento de datos por workspace/org.",
-  "Circuit Breaker":"Patrón circuit breaker: fail-fast, auto-recovery, fallback handlers, métricas de salud.",
-  Cache:            "Cache facade LRU + Redis: TTL, tag-invalidation, write-through, stampede prevention.",
-  "Job Queue":      "Cola de jobs persistente: retry, dead-letter queue, jobs programados, prioridades, deduplicación.",
-  Push:             "Push notifications: FCM/APNs, registro de dispositivos, canales de suscripción.",
-  Web3:             "Integración blockchain y IPFS: wallets, NFT metadata, smart contract calls, almacenamiento descentralizado.",
-  Edge:             "WASM Edge Computing: funciones ejecutadas en el edge con latencia mínima.",
-  Federation:       "Multi-region federation CRDT: sincronización eventual entre clusters geográficos.",
-  "Event Streaming":"Kafka event sourcing: publish/subscribe, consumer groups, dead-letter topics.",
-  gRPC:             "Endpoints gRPC para comunicación interna de alta performance entre servicios.",
-  ZeroMQ:           "Mensajería ZeroMQ para arquitecturas de microservicios de ultra-baja latencia.",
-  Runner:           "Ejecución segura de código (sandboxed runner) y Shell API para automatización.",
-  Migration:        "Gestión de migraciones de base de datos: aplicar, revertir, estado de versiones.",
+  Billing: "Suscripciones y pagos SaaS con Stripe: plans, checkout, portal, webhooks de Stripe.",
+  Segmentation: "Segmentación de usuarios con filtros dinámicos y audiencias exportables.",
+  "Feature Flags":
+    "Feature flags con rollout porcentual, targeting por usuario/segment y overrides.",
+  IoT: "Registro de dispositivos IoT, ingesta de telemetría SenML, alertas y series temporales.",
+  VectorDB:
+    "Base de datos vectorial semántica (Qdrant): embeddings, similarity search, RAG pipeline.",
+  TimeSeries:
+    "Series temporales en ScyllaDB: ingesta de puntos, downsample, aggregation, Grafana DS API.",
+  Workflow:
+    "Motor de workflows iPaaS: Triggers → Actions multi-step con reintentos y estado persistente.",
+  Compliance:
+    "GDPR/SOC2: audit trail inmutable, data export, retention policies, derecho al olvido.",
+  "Multi-Tenant": "Row-Level Security multi-tenant: aislamiento de datos por workspace/org.",
+  "Circuit Breaker":
+    "Patrón circuit breaker: fail-fast, auto-recovery, fallback handlers, métricas de salud.",
+  Cache: "Cache facade LRU + Redis: TTL, tag-invalidation, write-through, stampede prevention.",
+  "Job Queue":
+    "Cola de jobs persistente: retry, dead-letter queue, jobs programados, prioridades, deduplicación.",
+  Push: "Push notifications: FCM/APNs, registro de dispositivos, canales de suscripción.",
+  Web3:
+    "Integración blockchain y IPFS: wallets, NFT metadata, smart contract calls, almacenamiento descentralizado.",
+  Edge: "WASM Edge Computing: funciones ejecutadas en el edge con latencia mínima.",
+  Federation: "Multi-region federation CRDT: sincronización eventual entre clusters geográficos.",
+  "Event Streaming":
+    "Kafka event sourcing: publish/subscribe, consumer groups, dead-letter topics.",
+  gRPC: "Endpoints gRPC para comunicación interna de alta performance entre servicios.",
+  ZeroMQ: "Mensajería ZeroMQ para arquitecturas de microservicios de ultra-baja latencia.",
+  Runner: "Ejecución segura de código (sandboxed runner) y Shell API para automatización.",
+  Migration: "Gestión de migraciones de base de datos: aplicar, revertir, estado de versiones.",
 };
 
 // ── Generadores de artefactos ─────────────────────────────────────────────────
@@ -95,22 +116,27 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
 type OpenApiDoc = Record<string, any>;
 
 /** File of a tag's page; the index links with the same name. */
-const tagFile = (tag: string): string => tag.replace(/[\s/]/g, "_").replace(/[^a-zA-Z0-9_]/g, "") + ".md";
+const tagFile = (tag: string): string =>
+  tag.replace(/[\s/]/g, "_").replace(/[^a-zA-Z0-9_]/g, "") + ".md";
 
 /**
  * Genera la spec OpenAPI 3.1 iniciando el motor Zenith en modo "spec-only"
  * (sin servidor HTTP, sin DB — solo compone los traits y extrae las rutas).
  */
 async function generateOpenApiSpec(cfg: {
-  serverURL: string; appId: string; title: string; version: string;
+  serverURL: string;
+  appId: string;
+  title: string;
+  version: string;
 }): Promise<OpenApiDoc> {
   const { generateProjectOpenApi } = await import("@zuccadev-labs/zenith/openapi");
   return generateProjectOpenApi(await projectRoutesConfig(cfg.appId), {
-    title:       cfg.title,
-    version:     cfg.version,
-    description: `API de Zenith. Compatible con los SDK de Parse Server. Autenticación con \`X-Parse-Application-Id\` y \`X-Parse-Session-Token\`, una API key o \`X-Parse-Master-Key\` (solo desde localhost).`,
-    serverURL:   cfg.serverURL,
-    appId:       cfg.appId,
+    title: cfg.title,
+    version: cfg.version,
+    description:
+      `API de Zenith. Compatible con los SDK de Parse Server. Autenticación con \`X-Parse-Application-Id\` y \`X-Parse-Session-Token\`, una API key o \`X-Parse-Master-Key\` (solo desde localhost).`,
+    serverURL: cfg.serverURL,
+    appId: cfg.appId,
     additionalTagDescriptions: TAG_DESCRIPTIONS,
   });
 }
@@ -131,7 +157,11 @@ async function projectRoutesConfig(appId: string): Promise<ProjectRoutesConfig> 
     const cfg = (await import(toFileUrl(path).href)).default ?? {};
     return { appId: cfg.appId ?? appId, features: cfg.features, topology: cfg.topology };
   } catch (e) {
-    throw new Error(`No se pudo cargar zen.config.ts (¿falta .env? usa: deno run --env-file=.env …): ${(e as Error).message}`);
+    throw new Error(
+      `No se pudo cargar zen.config.ts (¿falta .env? usa: deno run --env-file=.env …): ${
+        (e as Error).message
+      }`,
+    );
   }
 }
 
@@ -161,7 +191,9 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
     `# Zenith API Reference`,
     ``,
     `> Generado automáticamente por \`zen generate docs\``,
-    `> Versión: ${spec.info?.version} | Base URL: ${spec.servers?.[0]?.url ?? "http://localhost:1337"}`,
+    `> Versión: ${spec.info?.version} | Base URL: ${
+      spec.servers?.[0]?.url ?? "http://localhost:1337"
+    }`,
     `> Las mismas rutas que monta el router (zenith-backend/src/core/route-collection.ts).`,
     ``,
     `## Autenticación`,
@@ -180,7 +212,9 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
     ``,
     `## Secciones`,
     ``,
-    ...[...tagMap.keys()].sort().map(tag => `- [${tag}](./api/${tagFile(tag)}) (${tagMap.get(tag)!.length} endpoints)`),
+    ...[...tagMap.keys()].sort().map((tag) =>
+      `- [${tag}](./api/${tagFile(tag)}) (${tagMap.get(tag)!.length} endpoints)`
+    ),
     ``,
     `## Quick Start`,
     ``,
@@ -209,10 +243,10 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
     ];
 
     for (const { method, path, op } of endpoints.sort((a, b) => a.path.localeCompare(b.path))) {
-      const summary     = op.summary     ?? "";
+      const summary = op.summary ?? "";
       const description = op.description ?? "";
-      const params      = (op.parameters ?? []) as any[];
-      const hasBody     = !!op.requestBody;
+      const params = (op.parameters ?? []) as any[];
+      const hasBody = !!op.requestBody;
 
       lines.push(`## \`${method} ${path}\``);
       lines.push(`**${summary}**`);
@@ -224,7 +258,11 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
         lines.push(`| Nombre | In | Tipo | Requerido | Descripción |`);
         lines.push(`|--------|----|------|-----------|-------------|`);
         for (const p of params) {
-          lines.push(`| \`${p.name}\` | ${p.in} | ${p.schema?.type ?? "string"} | ${p.required ? "✅" : "—"} | ${p.description ?? ""} |`);
+          lines.push(
+            `| \`${p.name}\` | ${p.in} | ${p.schema?.type ?? "string"} | ${
+              p.required ? "✅" : "—"
+            } | ${p.description ?? ""} |`,
+          );
         }
         lines.push(``);
       }
@@ -232,7 +270,9 @@ function generateMarkdownDocs(spec: any, outDir: string): Array<{ file: string; 
       if (hasBody) {
         lines.push(`### Body`);
         lines.push("```json");
-        lines.push(JSON.stringify(op.requestBody?.content?.["application/json"]?.schema ?? {}, null, 2));
+        lines.push(
+          JSON.stringify(op.requestBody?.content?.["application/json"]?.schema ?? {}, null, 2),
+        );
         lines.push("```");
         lines.push(``);
       }
@@ -267,20 +307,22 @@ function generatePostmanCollection(spec: any, serverURL: string): object {
       if (!tagGroups.has(tag)) tagGroups.set(tag, []);
 
       const hasBody = method !== "get" && method !== "delete";
-      const url     = path.replace(/:(\w+)/g, "{{$1}}");
+      const url = path.replace(/:(\w+)/g, "{{$1}}");
 
       tagGroups.get(tag)!.push({
         name: (op as any).summary ?? `${method.toUpperCase()} ${path}`,
         request: {
           method: method.toUpperCase(),
           header: [
-            { key: "Content-Type",            value: "application/json" },
-            { key: "X-Parse-Application-Id",  value: "{{appId}}" },
-            { key: "X-Parse-Session-Token",   value: "{{sessionToken}}" },
+            { key: "Content-Type", value: "application/json" },
+            { key: "X-Parse-Application-Id", value: "{{appId}}" },
+            { key: "X-Parse-Session-Token", value: "{{sessionToken}}" },
           ],
-          ...(hasBody ? { body: { mode: "raw", raw: "{}", options: { raw: { language: "json" } } } } : {}),
+          ...(hasBody
+            ? { body: { mode: "raw", raw: "{}", options: { raw: { language: "json" } } } }
+            : {}),
           url: {
-            raw:  `{{baseUrl}}${url}`,
+            raw: `{{baseUrl}}${url}`,
             host: ["{{baseUrl}}"],
             path: url.split("/").filter(Boolean),
           },
@@ -296,16 +338,16 @@ function generatePostmanCollection(spec: any, serverURL: string): object {
 
   return {
     info: {
-      name:        spec.info?.title ?? "Zenith API",
+      name: spec.info?.title ?? "Zenith API",
       description: spec.info?.description ?? "",
-      schema:      "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-      version:     spec.info?.version ?? "1.0.0",
+      schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      version: spec.info?.version ?? "1.0.0",
     },
     variable: [
-      { key: "baseUrl",      value: serverURL,    type: "string" },
-      { key: "appId",        value: "my_app",     type: "string" },
-      { key: "masterKey",    value: "secret",     type: "string" },
-      { key: "sessionToken", value: "",           type: "string" },
+      { key: "baseUrl", value: serverURL, type: "string" },
+      { key: "appId", value: "my_app", type: "string" },
+      { key: "masterKey", value: "secret", type: "string" },
+      { key: "sessionToken", value: "", type: "string" },
     ],
     item: items,
   };
@@ -376,23 +418,23 @@ function generateRedocHtml(specRelativePath: string, title: string): string {
 
 export async function run(args: string[]): Promise<void> {
   const parsed = parseArgs(args, {
-    string:  ["out", "url", "app-id", "title", "version"],
+    string: ["out", "url", "app-id", "title", "version"],
     boolean: ["json", "open"],
     default: {
-      out:     "./docs",
-      url:     Deno.env.get("ZENITH_SERVER_URL") ?? "http://localhost:1337",
-      "app-id":Deno.env.get("ZENITH_APP_ID")    ?? "my_app",
-      title:   "Zenith Universal Business API",
+      out: "./docs",
+      url: Deno.env.get("ZENITH_SERVER_URL") ?? "http://localhost:1337",
+      "app-id": Deno.env.get("ZENITH_APP_ID") ?? "my_app",
+      title: "Zenith Universal Business API",
       version: "1.0.0",
     },
   });
 
-  const subCmd   = String(parsed._[0] ?? "docs");
-  const outDir   = String(parsed.out);
-  const serverURL= String(parsed.url);
-  const appId    = String(parsed["app-id"]);
-  const title    = String(parsed.title);
-  const version  = String(parsed.version);
+  const subCmd = String(parsed._[0] ?? "docs");
+  const outDir = String(parsed.out);
+  const serverURL = String(parsed.url);
+  const appId = String(parsed["app-id"]);
+  const title = String(parsed.title);
+  const version = String(parsed.version);
 
   const cfg = { serverURL, appId, title, version };
 
@@ -427,12 +469,14 @@ export async function run(args: string[]): Promise<void> {
         await Deno.writeTextFile(file, content);
       }
       spin2.stop(true);
-      const tagCount = mdFiles.filter(f => f.file.includes("/api/")).length;
-      console.log(`  ✅ Markdown docs:    ${outDir}/api/ (${tagCount} secciones, ${mdFiles.length} archivos)`);
+      const tagCount = mdFiles.filter((f) => f.file.includes("/api/")).length;
+      console.log(
+        `  ✅ Markdown docs:    ${outDir}/api/ (${tagCount} secciones, ${mdFiles.length} archivos)`,
+      );
 
       // 3. Postman Collection
       const spin3 = spinner("Generando Postman Collection...");
-      const postman     = generatePostmanCollection(spec, serverURL);
+      const postman = generatePostmanCollection(spec, serverURL);
       const postmanPath = join(outDir, "zenith.postman.json");
       await Deno.writeTextFile(postmanPath, JSON.stringify(postman, null, 2));
       spin3.stop(true);
@@ -441,7 +485,7 @@ export async function run(args: string[]): Promise<void> {
 
       // 4. Redoc HTML portal
       const spin4 = spinner("Generando portal Redoc...");
-      const htmlPath    = join(outDir, "index.html");
+      const htmlPath = join(outDir, "index.html");
       await Deno.writeTextFile(htmlPath, generateRedocHtml("./openapi.json", title));
       spin4.stop(true);
       console.log(`  ✅ Redoc portal:     ${htmlPath}`);
@@ -534,10 +578,12 @@ Próximos pasos:
         if (!schema.properties) continue;
         lines.push(`export interface ${name} {`);
         for (const [prop, def] of Object.entries(schema.properties as Record<string, any>)) {
-          const required  = (schema.required ?? []).includes(prop);
-          const tsType    = def.type === "integer" ? "number"
-                          : def.type === "array"   ? `${def.items?.type ?? "unknown"}[]`
-                          : def.type               ?? "unknown";
+          const required = (schema.required ?? []).includes(prop);
+          const tsType = def.type === "integer"
+            ? "number"
+            : def.type === "array"
+            ? `${def.items?.type ?? "unknown"}[]`
+            : def.type ?? "unknown";
           lines.push(`  ${prop}${required ? "" : "?"}: ${tsType};`);
         }
         lines.push(`}`, ``);

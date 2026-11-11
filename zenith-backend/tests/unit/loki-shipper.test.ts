@@ -1,14 +1,26 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { LokiShipper, serializeToLokiJson, type LoggerLike } from "../../src/observability/loki-shipper.ts";
+import {
+  type LoggerLike,
+  LokiShipper,
+  serializeToLokiJson,
+} from "../../src/observability/loki-shipper.ts";
 
 const silent: LoggerLike = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
 
 Deno.test("loki: requires HTTPS", () => {
-  assertThrows(() => new LokiShipper({ endpoint: "http://loki:3100", logger: silent }), Error, "HTTPS");
+  assertThrows(
+    () => new LokiShipper({ endpoint: "http://loki:3100", logger: silent }),
+    Error,
+    "HTTPS",
+  );
 });
 
 Deno.test("loki: rejects invalid URL", () => {
-  assertThrows(() => new LokiShipper({ endpoint: "not-a-url", logger: silent }), Error, "invalid endpoint");
+  assertThrows(
+    () => new LokiShipper({ endpoint: "not-a-url", logger: silent }),
+    Error,
+    "invalid endpoint",
+  );
 });
 
 Deno.test("loki: push adds entry to stream", () => {

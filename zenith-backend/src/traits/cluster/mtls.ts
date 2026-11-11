@@ -23,7 +23,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { encodeBase64, decodeBase64 } from "@std/encoding";
+import { decodeBase64, encodeBase64 } from "@std/encoding";
 import { sha256 } from "../../core/crypto.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -174,15 +174,18 @@ export async function loadMTlsConfig(): Promise<MTlsConfig> {
   const keyPath = Deno.env.get("ZENITH_TLS_KEY_PATH") ?? "/etc/zenith/tls/node.key";
 
   // Peer pins are comma-separated SPKI hashes
-  const peerPins = (Deno.env.get("ZENITH_PEER_SPKI_PINS") ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  const peerPins = (Deno.env.get("ZENITH_PEER_SPKI_PINS") ?? "").split(",").map((s) => s.trim())
+    .filter(Boolean);
 
   // Quick existence check (fail-fast at boot)
   for (const p of [caPath, certPath, keyPath]) {
     try {
       await Deno.stat(p);
     } catch {
-      throw new Error(`[mTLS] Required TLS file not found: ${p}. ` +
-        `Generate dev certs with 'zenith mtls:gen-dev' or provision a real CA.`);
+      throw new Error(
+        `[mTLS] Required TLS file not found: ${p}. ` +
+          `Generate dev certs with 'zenith mtls:gen-dev' or provision a real CA.`,
+      );
     }
   }
 
@@ -252,17 +255,28 @@ export async function generateDevCertificates(options: {
 
 // ─── Crypto Primitives (Web Crypto based) ────────────────────────────────────
 
-interface KeyPair { publicKey: CryptoKey; privateKey: CryptoKey; }
+interface KeyPair {
+  publicKey: CryptoKey;
+  privateKey: CryptoKey;
+}
 
 async function generateRsaKeyPair(bits: number): Promise<KeyPair> {
   return await crypto.subtle.generateKey(
-    { name: "RSASSA-PKCS1-v1_5", modulusLength: bits, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: bits,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
     true,
     ["sign", "verify"],
   ) as KeyPair;
 }
 
-interface CertSubject { CN: string; O?: string; }
+interface CertSubject {
+  CN: string;
+  O?: string;
+}
 
 async function selfSignCert(opts: {
   subject: CertSubject;
@@ -275,7 +289,7 @@ async function selfSignCert(opts: {
     subject: opts.subject,
     sans: opts.sans,
     keys: opts.keys,
-    issuerKeys: opts.keys,  // self-signed
+    issuerKeys: opts.keys, // self-signed
     issuerCert: null,
     notAfterDays: opts.notAfterDays,
     isCa: opts.isCa,
@@ -321,9 +335,9 @@ async function buildAndSignCert(_opts: {
   // In a Fortune 500 deployment, you'd use HashiCorp Vault PKI or cert-manager.
   throw new Error(
     "[mTLS] Inline X.509 generation is not implemented in this build. " +
-    "Use one of: (1) HashiCorp Vault PKI engine, (2) cert-manager, " +
-    "(3) 'zenith mtls:gen-dev' which shells out to openssl. " +
-    "See docs/architecture-decisions/ADR-002-mtls.md",
+      "Use one of: (1) HashiCorp Vault PKI engine, (2) cert-manager, " +
+      "(3) 'zenith mtls:gen-dev' which shells out to openssl. " +
+      "See docs/architecture-decisions/ADR-002-mtls.md",
   );
 }
 
@@ -342,10 +356,10 @@ export async function verifyPeerSpkiPin(
   allowedPins: string[],
 ): Promise<{ valid: boolean; computedPin: string; matchedPin?: string }> {
   if (allowedPins.length === 0) {
-    return { valid: true, computedPin: "" };  // pinning disabled
+    return { valid: true, computedPin: "" }; // pinning disabled
   }
   const computed = await computeSpkiPin(peerCertPem);
-  const matched = allowedPins.find(p => p === computed);
+  const matched = allowedPins.find((p) => p === computed);
   return { valid: !!matched, computedPin: computed, matchedPin: matched };
 }
 
@@ -361,9 +375,9 @@ export function verifyPeerSpkiPinSync(
   allowedPins: string[],
 ): { valid: boolean; computedPin: string; matchedPin?: string } {
   if (allowedPins.length === 0) {
-    return { valid: true, computedPin: "" };  // pinning disabled
+    return { valid: true, computedPin: "" }; // pinning disabled
   }
   const computed = computeSpkiPinSync(spkiDer);
-  const matched = allowedPins.find(p => p === computed);
+  const matched = allowedPins.find((p) => p === computed);
   return { valid: !!matched, computedPin: computed, matchedPin: matched };
 }

@@ -26,7 +26,7 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { claimDue, isLeased } from "../../core/outbox.ts";
 import { ZenithError, ZenithErrorCode, ZenithErrors } from "../../core/errors.ts";
 
@@ -87,7 +87,8 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
     tags: ["uses:metric-registry"],
     state: [],
     runtimes: ["deno"],
-    summary: "Durable job queue on _Job: survives restarts, shared by every instance without duplicates (core/outbox.ts), priorities, delays, idempotency keys, exponential retries and a dead-letter state.",
+    summary:
+      "Durable job queue on _Job: survives restarts, shared by every instance without duplicates (core/outbox.ts), priorities, delays, idempotency keys, exponential retries and a dead-letter state.",
     create: (deps: Record<string, any>) => {
       const db = deps.traits["db"];
       const clock = options.now ?? Date.now;
@@ -102,7 +103,10 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
       };
 
       /** Estado visible: `running` si está pendiente con concesión en vigor. */
-      const view = (j: Job): Job => ({ ...j, status: j.status === "pending" && isLeased(j, clock()) ? "running" : j.status });
+      const view = (j: Job): Job => ({
+        ...j,
+        status: j.status === "pending" && isLeased(j, clock()) ? "running" : j.status,
+      });
 
       const finish = async (job: Job, patch: Partial<Job>) =>
         await db.update(JOB_CLASS, { objectId: job.objectId }, { ...patch, leaseUntil: null });
@@ -114,16 +118,42 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
         try {
           const result = await worker(job.data);
           count(job, "completed", clock() - started);
-          return view(await finish(job, { status: "completed", attempts, result: result ?? null, finishedAt: iso(clock()), nextAttemptAt: null, lastError: undefined }));
+          return view(
+            await finish(job, {
+              status: "completed",
+              attempts,
+              result: result ?? null,
+              finishedAt: iso(clock()),
+              nextAttemptAt: null,
+              lastError: undefined,
+            }),
+          );
         } catch (e) {
           const lastError = (e as Error)?.message ?? String(e);
           const dead = attempts >= job.maxAttempts;
           count(job, dead ? "failed" : "retry", clock() - started);
           if (dead) {
-            console.warn(`[queue] job ${job.jobId} (${job.type}) failed after ${attempts} attempts: ${lastError}`);
-            return view(await finish(job, { status: "failed", attempts, lastError, finishedAt: iso(clock()), nextAttemptAt: null }));
+            console.warn(
+              `[queue] job ${job.jobId} (${job.type}) failed after ${attempts} attempts: ${lastError}`,
+            );
+            return view(
+              await finish(job, {
+                status: "failed",
+                attempts,
+                lastError,
+                finishedAt: iso(clock()),
+                nextAttemptAt: null,
+              }),
+            );
           }
-          return view(await finish(job, { status: "pending", attempts, lastError, nextAttemptAt: iso(clock() + backoffMs(attempts, random)) }));
+          return view(
+            await finish(job, {
+              status: "pending",
+              attempts,
+              lastError,
+              nextAttemptAt: iso(clock() + backoffMs(attempts, random)),
+            }),
+          );
         }
       };
 
@@ -133,7 +163,9 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
           now: clock(),
           limit,
           leaseMs,
-          order: (a, b) => (b.priority ?? 0) - (a.priority ?? 0) || String(a.nextAttemptAt ?? "").localeCompare(String(b.nextAttemptAt ?? "")),
+          order: (a, b) =>
+            (b.priority ?? 0) - (a.priority ?? 0) ||
+            String(a.nextAttemptAt ?? "").localeCompare(String(b.nextAttemptAt ?? "")),
           accept: (j) => workers.has(j.type),
         });
         return await Promise.all(claimed.map(run));
@@ -145,30 +177,46 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
       /** Backlog gauges for dashboards and alerts (every 30 s with the worker). */
       const reportBacklog = async () => {
         if (!metrics) return;
-        for (const status of ["pending", "failed"]) metrics.gauge("zenith_jobs", (await db.find(JOB_CLASS, { status })).length, { status });
+        for (const status of ["pending", "failed"]) {
+          metrics.gauge("zenith_jobs", (await db.find(JOB_CLASS, { status })).length, { status });
+        }
       };
 
       const traitApi = {
         registerWorker: (jobType: string, handler: (data: any) => unknown | Promise<unknown>) => {
-          if (typeof jobType !== "string" || !jobType || typeof handler !== "function") throw new TypeError("registerWorker(type, handler)");
+          if (typeof jobType !== "string" || !jobType || typeof handler !== "function") {
+            throw new TypeError("registerWorker(type, handler)");
+          }
           workers.set(jobType, handler);
         },
 
         enqueue: async (type: string, data: unknown, opts: EnqueueOptions = {}): Promise<Job> => {
-          if (typeof type !== "string" || !type || type.length > 200) throw bad("type: 1 to 200 characters.");
+          if (typeof type !== "string" || !type || type.length > 200) {
+            throw bad("type: 1 to 200 characters.");
+          }
           const maxAttempts = opts.maxAttempts ?? 3;
-          if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 100) throw bad("maxAttempts: 1 to 100.");
+          if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 100) {
+            throw bad("maxAttempts: 1 to 100.");
+          }
           const delayMs = opts.delayMs ?? 0;
           if (!Number.isFinite(delayMs) || delayMs < 0) throw bad("delayMs: 0 or more.");
           if (opts.idempotencyKey !== undefined) {
-            if (typeof opts.idempotencyKey !== "string" || opts.idempotencyKey.length > 200) throw bad("idempotencyKey: up to 200 characters.");
+            if (typeof opts.idempotencyKey !== "string" || opts.idempotencyKey.length > 200) {
+              throw bad("idempotencyKey: up to 200 characters.");
+            }
             const [existing] = await db.find(JOB_CLASS, { idempotencyKey: opts.idempotencyKey });
             if (existing) return view(existing);
           }
           const job = await db.create(JOB_CLASS, {
-            jobId: crypto.randomUUID(), type, data: data ?? null, status: "pending",
+            jobId: crypto.randomUUID(),
+            type,
+            data: data ?? null,
+            status: "pending",
             priority: Number.isFinite(opts.priority) ? opts.priority : 0,
-            attempts: 0, maxAttempts, nextAttemptAt: iso(clock() + delayMs), leaseUntil: null,
+            attempts: 0,
+            maxAttempts,
+            nextAttemptAt: iso(clock() + delayMs),
+            leaseUntil: null,
             ...(opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : {}),
           });
           return view(job);
@@ -187,15 +235,25 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
           const stored = status === "running" ? "pending" : status;
           const rows: Job[] = await db.find(JOB_CLASS, stored ? { status: stored } : {});
           return rows.map(view).filter((j) => !status || j.status === status)
-            .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""))).slice(0, limit);
+            .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")))
+            .slice(0, limit);
         },
 
         /** Vuelve a encolar un trabajo fallido (cola de mensajes muertos) con sus intentos a cero. */
         retry: async (jobId: string): Promise<Job> => {
           const [j] = await db.find(JOB_CLASS, { jobId });
           if (!j) throw ZenithErrors.notFound(JOB_CLASS, jobId);
-          if (j.status !== "failed") throw bad(`Job ${jobId} is ${j.status}; only failed jobs can be retried.`);
-          return view(await db.update(JOB_CLASS, { objectId: j.objectId }, { status: "pending", attempts: 0, nextAttemptAt: iso(clock()), leaseUntil: null }));
+          if (j.status !== "failed") {
+            throw bad(`Job ${jobId} is ${j.status}; only failed jobs can be retried.`);
+          }
+          return view(
+            await db.update(JOB_CLASS, { objectId: j.objectId }, {
+              status: "pending",
+              attempts: 0,
+              nextAttemptAt: iso(clock()),
+              leaseUntil: null,
+            }),
+          );
         },
 
         startBackground() {
@@ -228,13 +286,21 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
         },
       };
 
-      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      const json = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
       const queue_routes = [
         {
           method: "POST" as const,
           path: "/queue/enqueue",
           access: "master" as const,
-          _openapi: { summary: "Enqueue a background job: { type, data, priority?, maxAttempts?, delayMs?, idempotencyKey? }", tags: ["Queue"] },
+          _openapi: {
+            summary:
+              "Enqueue a background job: { type, data, priority?, maxAttempts?, delayMs?, idempotencyKey? }",
+            tags: ["Queue"],
+          },
           handler: async (req: Request) => {
             let b: any;
             try {
@@ -242,17 +308,30 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
             } catch {
               throw bad("Invalid JSON body.");
             }
-            return json(await traitApi.enqueue(b?.type, b?.data, { priority: b?.priority, maxAttempts: b?.maxAttempts, delayMs: b?.delayMs, idempotencyKey: b?.idempotencyKey }), 201);
+            return json(
+              await traitApi.enqueue(b?.type, b?.data, {
+                priority: b?.priority,
+                maxAttempts: b?.maxAttempts,
+                delayMs: b?.delayMs,
+                idempotencyKey: b?.idempotencyKey,
+              }),
+              201,
+            );
           },
         },
         {
           method: "GET" as const,
           path: "/queue/jobs",
           access: "master" as const,
-          _openapi: { summary: "List jobs (?status=pending|running|completed|failed)", tags: ["Queue"] },
+          _openapi: {
+            summary: "List jobs (?status=pending|running|completed|failed)",
+            tags: ["Queue"],
+          },
           handler: async (req: Request) => {
             const status = new URL(req.url).searchParams.get("status") as JobStatus | null;
-            if (status && !["pending", "running", "completed", "failed"].includes(status)) throw bad("status: pending, running, completed or failed.");
+            if (status && !["pending", "running", "completed", "failed"].includes(status)) {
+              throw bad("status: pending, running, completed or failed.");
+            }
             return json({ jobs: await traitApi.list(status ?? undefined) });
           },
         },
@@ -261,7 +340,8 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
           path: "/queue/jobs/:jobId/retry",
           access: "master" as const,
           _openapi: { summary: "Requeue a failed job (dead-letter)", tags: ["Queue"] },
-          handler: async (_req: Request, ctx: any) => json(await traitApi.retry(String(ctx?.params?.jobId ?? ""))),
+          handler: async (_req: Request, ctx: any) =>
+            json(await traitApi.retry(String(ctx?.params?.jobId ?? ""))),
         },
       ];
 

@@ -5,7 +5,8 @@ import { WorkspaceTrait } from "../../src/traits/workspace/workspace.trait.ts";
 /** In-memory db with the subset of the adapter the trait uses. */
 function fakeDb() {
   const rows: Record<string, Record<string, any>[]> = {};
-  const matches = (r: Record<string, any>, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) => r[k] === v);
+  const matches = (r: Record<string, any>, where: Record<string, unknown>) =>
+    Object.entries(where).every(([k, v]) => r[k] === v);
   return {
     rows,
     create: async (c: string, o: Record<string, any>) => {
@@ -13,7 +14,8 @@ function fakeDb() {
       (rows[c] ??= []).push(row);
       return { ...row };
     },
-    find: async (c: string, where: Record<string, unknown>) => (rows[c] ?? []).filter((r) => matches(r, where)).map((r) => ({ ...r })),
+    find: async (c: string, where: Record<string, unknown>) =>
+      (rows[c] ?? []).filter((r) => matches(r, where)).map((r) => ({ ...r })),
     read: async (c: string, id: string) => (rows[c] ?? []).find((r) => r.objectId === id) ?? null,
     update: async (c: string, where: Record<string, unknown>, patch: Record<string, unknown>) => {
       for (const r of (rows[c] ?? []).filter((x) => matches(x, where))) Object.assign(r, patch);
@@ -48,7 +50,12 @@ Deno.test("workspace: only the right token accepts an invitation, and only once"
   const member = await api.acceptInvitation(token, "u1");
   assertEquals(member.role, "admin");
   assertEquals(member.workspaceId, "ws1");
-  await assertRejects(() => api.acceptInvitation(token, "u2"), Error, undefined, "already accepted");
+  await assertRejects(
+    () => api.acceptInvitation(token, "u2"),
+    Error,
+    undefined,
+    "already accepted",
+  );
 });
 
 Deno.test("workspace: API keys are not served here (one system: /zen/api-keys, ADR-015)", () => {

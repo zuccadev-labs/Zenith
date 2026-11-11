@@ -17,8 +17,8 @@
 
 import {
   MANIFEST_VERSION,
-  type PluginAuthor,
   type PluginArtifact,
+  type PluginAuthor,
   type PluginPermission,
   type PluginSignature,
   type SignedPluginManifest,

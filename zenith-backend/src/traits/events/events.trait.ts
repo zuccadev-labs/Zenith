@@ -20,7 +20,8 @@ export const EventStreamingTrait = createTraitDescriptor({
   consumes: ["db", "events"],
   state: ["eventSubscribers", "eventLog"],
   runtimes: ["deno"],
-  summary: "Event store on top of the core event bus: persists every event in _Event, keeps the last 10 000 for replay, /events/emit and /events/replay.",
+  summary:
+    "Event store on top of the core event bus: persists every event in _Event, keeps the last 10 000 for replay, /events/emit and /events/replay.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
@@ -37,10 +38,14 @@ export const EventStreamingTrait = createTraitDescriptor({
     const traitApi: any = {
       eventLog,
       emit: (eventName: string, payload: any) => bus.emit(eventName, payload),
-      replay: async (filter: { eventName?: string; fromTimestamp?: number; toTimestamp?: number } = {}) => {
+      replay: async (
+        filter: { eventName?: string; fromTimestamp?: number; toTimestamp?: number } = {},
+      ) => {
         let events = eventLog;
         if (filter.eventName) events = events.filter((e) => e.event === filter.eventName);
-        if (filter.fromTimestamp) events = events.filter((e) => e.timestamp >= filter.fromTimestamp!);
+        if (filter.fromTimestamp) {
+          events = events.filter((e) => e.timestamp >= filter.fromTimestamp!);
+        }
         if (filter.toTimestamp) events = events.filter((e) => e.timestamp <= filter.toTimestamp!);
         return events;
       },
@@ -54,7 +59,10 @@ export const EventStreamingTrait = createTraitDescriptor({
         handler: async (req: Request) => {
           const body = await req.json() as { event: string; payload: any };
           await traitApi.emit(body.event, body.payload);
-          return new Response(JSON.stringify({ emitted: true }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ emitted: true }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -64,11 +72,20 @@ export const EventStreamingTrait = createTraitDescriptor({
         handler: async (req: Request) => {
           const url = new URL(req.url);
           const filter: any = {};
-          if (url.searchParams.get("eventName")) filter.eventName = url.searchParams.get("eventName");
-          if (url.searchParams.get("from")) filter.fromTimestamp = parseInt(url.searchParams.get("from")!, 10);
-          if (url.searchParams.get("to")) filter.toTimestamp = parseInt(url.searchParams.get("to")!, 10);
+          if (url.searchParams.get("eventName")) {
+            filter.eventName = url.searchParams.get("eventName");
+          }
+          if (url.searchParams.get("from")) {
+            filter.fromTimestamp = parseInt(url.searchParams.get("from")!, 10);
+          }
+          if (url.searchParams.get("to")) {
+            filter.toTimestamp = parseInt(url.searchParams.get("to")!, 10);
+          }
           const events = await traitApi.replay(filter);
-          return new Response(JSON.stringify({ events }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ events }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

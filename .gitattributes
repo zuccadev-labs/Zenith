@@ -1,0 +1,8 @@
+# LF everywhere: the repo had LF and CRLF files mixed (it was edited from Windows and Linux).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.so binary
+*.dll binary

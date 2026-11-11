@@ -23,9 +23,16 @@ export interface CloudFunctionService {
   /** Carga cloud code desde un archivo .ts via `import()` dinámico */
   loadCloudCode: (cloudCodePath: string) => Promise<void>;
   /** Define una función cloud programáticamente */
-  define: (name: string, fn: (request: Record<string, unknown>) => unknown) => { name: string; registeredAt: string };
+  define: (
+    name: string,
+    fn: (request: Record<string, unknown>) => unknown,
+  ) => { name: string; registeredAt: string };
   /** Ejecuta una función cloud por nombre */
-  run: (name: string, params: Record<string, unknown>, context?: Record<string, unknown>) => Promise<unknown>;
+  run: (
+    name: string,
+    params: Record<string, unknown>,
+    context?: Record<string, unknown>,
+  ) => Promise<unknown>;
   /** Lista todas las funciones cloud registradas */
   listFunctions: () => string[];
 }
@@ -69,7 +76,10 @@ export interface BillingMeteringService {
  */
 export interface RealtimePubSubService {
   /** Maneja la conexión WebSocket de LiveQuery */
-  handleWebSocket: (socket: WebSocket, authPayload: { appId: string; sessionToken: string | undefined }) => void;
+  handleWebSocket: (
+    socket: WebSocket,
+    authPayload: { appId: string; sessionToken: string | undefined },
+  ) => void;
 }
 
 /**
@@ -146,7 +156,11 @@ export interface MediaService {
   /** Configura el modo E2EE (strict_sframe | hop_by_hop) */
   setE2EEMode: (mode: string) => void;
   /** Maneja WebSocket de streaming de medios */
-  handleWebSocket: (socket: WebSocket, roomId: string, authPayload: { appId: string; sessionToken: string | undefined }) => void;
+  handleWebSocket: (
+    socket: WebSocket,
+    roomId: string,
+    authPayload: { appId: string; sessionToken: string | undefined },
+  ) => void;
 }
 
 /**
@@ -155,11 +169,19 @@ export interface MediaService {
  */
 export interface GrpcService {
   /** Inicia el servidor gRPC en el puerto especificado */
-  startServer: (port: number, services?: Record<string, unknown>) => Promise<{ port: number; secure: boolean }>;
+  startServer: (
+    port: number,
+    services?: Record<string, unknown>,
+  ) => Promise<{ port: number; secure: boolean }>;
   /** Detiene el servidor gRPC */
   stopServer: () => Promise<void>;
   /** Llama a un servicio gRPC remoto */
-  callService: (address: string, serviceName: string, methodName: string, request: unknown) => Promise<unknown>;
+  callService: (
+    address: string,
+    serviceName: string,
+    methodName: string,
+    request: unknown,
+  ) => Promise<unknown>;
 }
 
 /**
@@ -216,7 +238,11 @@ export interface EngineAPI {
   /** Obtiene el handler HTTP del engine (router principal) */
   getHandler: (config: ZenithConfig) => ((req: Request) => Promise<Response>) | null;
   /** Rutas dinámicas registradas por los traits */
-  routes?: { method: string; path: string; handler: (req: Request, ctx: unknown) => Promise<Response> | Response }[];
+  routes?: {
+    method: string;
+    path: string;
+    handler: (req: Request, ctx: unknown) => Promise<Response> | Response;
+  }[];
 
   /** Index signature para servicios adicionales (plugins, traits custom) */
   [key: string]: unknown;

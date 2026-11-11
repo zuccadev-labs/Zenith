@@ -230,18 +230,32 @@ Deno.test("access - API keys need the route's scope", async () => {
     .on("POST", "/each", () => new Response("e"), "user", "per-operation")
     .dispatch();
   assertEquals((await d(new Request("http://x/read"), apiKey(["data:read"]))).status, 200);
-  assertEquals((await d(new Request("http://x/write", { method: "POST" }), apiKey(["data:read"]))).status, 403);
-  assertEquals((await d(new Request("http://x/write", { method: "POST" }), apiKey(["data:*"]))).status, 200);
-  assertEquals((await d(new Request("http://x/each", { method: "POST" }), apiKey([]))).status, 200, "the handler checks");
+  assertEquals(
+    (await d(new Request("http://x/write", { method: "POST" }), apiKey(["data:read"]))).status,
+    403,
+  );
+  assertEquals(
+    (await d(new Request("http://x/write", { method: "POST" }), apiKey(["data:*"]))).status,
+    200,
+  );
+  assertEquals(
+    (await d(new Request("http://x/each", { method: "POST" }), apiKey([]))).status,
+    200,
+    "the handler checks",
+  );
   // Sessions are not limited by key scopes.
   assertEquals((await d(new Request("http://x/write", { method: "POST" }), user)).status, 200);
 });
 
 Deno.test("access - trait routes default to master and may declare their access", async () => {
-  const d = buildDynamicRouter({ traits: { t_routes: [
-    { method: "GET", path: "/closed", handler: () => new Response("c") },
-    { method: "GET", path: "/open", access: "public", handler: () => new Response("o") },
-  ] } }).dispatch();
+  const d = buildDynamicRouter({
+    traits: {
+      t_routes: [
+        { method: "GET", path: "/closed", handler: () => new Response("c") },
+        { method: "GET", path: "/open", access: "public", handler: () => new Response("o") },
+      ],
+    },
+  }).dispatch();
   assertEquals((await d(new Request("http://x/closed"), anon)).status, 401);
   assertEquals((await d(new Request("http://x/open"), anon)).status, 200);
   assertEquals((await d(new Request("http://x/health"), anon)).status, 200);

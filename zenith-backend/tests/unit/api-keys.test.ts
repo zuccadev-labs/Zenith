@@ -21,17 +21,17 @@ import {
 } from "@std/assert";
 import {
   ApiKeyManager,
-  InMemoryStore,
-  PerKeyRateLimiter,
   buildKey,
   DEFAULT_SCOPES,
   extractAndVerifyKey,
   hasAllScopes,
   hasAnyScope,
   hasScope,
+  InMemoryStore,
   normalizeScopes,
   parseExpiresIn,
   parseKey,
+  PerKeyRateLimiter,
   requireScope,
 } from "../../src/security/api-keys/mod.ts";
 import type { ApiKeyRecord } from "../../src/security/api-keys/types.ts";
@@ -70,10 +70,10 @@ Deno.test("api-keys - parseKey accepts all 3 prefixes and 2 envs", () => {
 Deno.test("api-keys - parseKey rejects malformed keys", () => {
   assertEquals(parseKey("garbage"), null);
   assertEquals(parseKey("sk_live_short"), null);
-  assertEquals(parseKey("xx_live_aB3xY9zK_qR7vN2pT8mE4wK6hJ1cV0sZ"), null);  // bad prefix
-  assertEquals(parseKey("sk_xx_aB3xY9zK_qR7vN2pT8mE4wK6hJ1cV0sZ"), null);    // bad env
-  assertEquals(parseKey("sk_live_aB3xY9z_qR7vN2pT8mE4wK6hJ1cV0sZ"), null);   // id too short
-  assertEquals(parseKey("sk_live_aB3xY9zK_short"), null);                     // secret too short
+  assertEquals(parseKey("xx_live_aB3xY9zK_qR7vN2pT8mE4wK6hJ1cV0sZ"), null); // bad prefix
+  assertEquals(parseKey("sk_xx_aB3xY9zK_qR7vN2pT8mE4wK6hJ1cV0sZ"), null); // bad env
+  assertEquals(parseKey("sk_live_aB3xY9z_qR7vN2pT8mE4wK6hJ1cV0sZ"), null); // id too short
+  assertEquals(parseKey("sk_live_aB3xY9zK_short"), null); // secret too short
   assertEquals(parseKey(""), null);
 });
 
@@ -110,12 +110,12 @@ Deno.test("api-keys - create produces a unique id and a PHC hash", async () => {
     createdBy: "test",
   });
 
-  assertNotEquals(a.record.id, b.record.id);                    // ids únicos
-  assertStringIncludes(a.hash, "$argon2id$");                  // Argon2id PHC
-  assertStringIncludes(a.hash, "$v=19$");                      // versión 0x13
-  assertStringIncludes(a.hash, "$m=65536,t=3,p=4$");           // parámetros OWASP
-  assertEquals(a.record.hash, undefined);                      // hash omitido en el record público
-  assertEquals(a.plaintext.includes(a.record.id), true);       // id presente en plaintext
+  assertNotEquals(a.record.id, b.record.id); // ids únicos
+  assertStringIncludes(a.hash, "$argon2id$"); // Argon2id PHC
+  assertStringIncludes(a.hash, "$v=19$"); // versión 0x13
+  assertStringIncludes(a.hash, "$m=65536,t=3,p=4$"); // parámetros OWASP
+  assertEquals(a.record.hash, undefined); // hash omitido en el record público
+  assertEquals(a.plaintext.includes(a.record.id), true); // id presente en plaintext
 });
 
 Deno.test("api-keys - create with expiresIn shorthand", async () => {
@@ -131,8 +131,8 @@ Deno.test("api-keys - create with expiresIn shorthand", async () => {
     expiresIn: "90d",
   });
   const expiresAt = new Date(record.expiresAt!).getTime();
-  const expectedMin = before + 89 * 24 * 60 * 60 * 1000;  // 89 días
-  const expectedMax = before + 91 * 24 * 60 * 60 * 1000;  // 91 días
+  const expectedMin = before + 89 * 24 * 60 * 60 * 1000; // 89 días
+  const expectedMax = before + 91 * 24 * 60 * 60 * 1000; // 91 días
   assertEquals(expiresAt >= expectedMin, true);
   assertEquals(expiresAt <= expectedMax, true);
 });
@@ -268,7 +268,7 @@ Deno.test("api-keys - rotate: new key works, old key has grace period", async ()
   });
   const { plaintext: newKey, record: newRec } = await manager.rotate(oldRec.id, {
     createdBy: "admin",
-    gracePeriodMs: 60_000,  // 1 minuto
+    gracePeriodMs: 60_000, // 1 minuto
   });
 
   // La nueva key funciona
@@ -297,7 +297,7 @@ Deno.test("api-keys - rotate: after grace period, old key is rejected", async ()
     createdBy: "test",
   });
   await manager.rotate(oldRec.id, { createdBy: "admin", gracePeriodMs: 50 });
-  await new Promise(r => setTimeout(r, 100));
+  await new Promise((r) => setTimeout(r, 100));
   const result = await manager.verify(oldKey);
   assertEquals(result.valid, false);
   if (!result.valid) assertEquals(result.reason, "rotated_grace_over");
@@ -359,7 +359,7 @@ Deno.test("api-keys - rate limiter allows up to N requests per minute", async ()
   assertEquals(limiter.check(record), true);
   assertEquals(limiter.check(record), true);
   assertEquals(limiter.check(record), true);
-  assertEquals(limiter.check(record), false);  // 4ta request rechazada
+  assertEquals(limiter.check(record), false); // 4ta request rechazada
   assertEquals(limiter.check(record), false);
 });
 

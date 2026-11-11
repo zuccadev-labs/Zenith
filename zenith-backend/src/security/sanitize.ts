@@ -7,13 +7,28 @@
  */
 
 /** Campos que nunca salen hacia un tercero, en cualquier nivel: credenciales y secretos de objetos Parse. */
-const SENSITIVE_KEYS = new Set(["sessionToken", "password", "_hashed_password", "authData", "_auth_data", "tokenHash", "keyHash", "hash", "secret", "secrets", "_perishable_token", "_email_verify_token"]);
+const SENSITIVE_KEYS = new Set([
+  "sessionToken",
+  "password",
+  "_hashed_password",
+  "authData",
+  "_auth_data",
+  "tokenHash",
+  "keyHash",
+  "hash",
+  "secret",
+  "secrets",
+  "_perishable_token",
+  "_email_verify_token",
+]);
 
 /** Copia de `data` sin los campos sensibles (objetos y listas anidados incluidos). */
 export function sanitizePayload(data: unknown, depth = 0): unknown {
   if (depth > 20 || data === null || typeof data !== "object") return data;
   if (Array.isArray(data)) return data.map((v) => sanitizePayload(v, depth + 1));
   return Object.fromEntries(
-    Object.entries(data as Record<string, unknown>).filter(([k]) => !SENSITIVE_KEYS.has(k)).map(([k, v]) => [k, sanitizePayload(v, depth + 1)]),
+    Object.entries(data as Record<string, unknown>).filter(([k]) => !SENSITIVE_KEYS.has(k)).map((
+      [k, v],
+    ) => [k, sanitizePayload(v, depth + 1)]),
   );
 }

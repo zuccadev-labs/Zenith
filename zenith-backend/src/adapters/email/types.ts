@@ -1,6 +1,6 @@
 /**
  * @module @zenith/adapters/email/types
- * 
+ *
  * Interfaz estándar para el envío de correos electrónicos en Zenith.
  * Siguiendo la arquitectura de adaptadores, el usuario puede inyectar
  * Mailgun, AWS SES, Resend, o un servidor propio como Postal.

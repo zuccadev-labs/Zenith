@@ -1,10 +1,18 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { PrometheusRemoteWriter, serializeToJson, type LoggerLike } from "../../src/observability/prometheus-remote-write.ts";
+import {
+  type LoggerLike,
+  PrometheusRemoteWriter,
+  serializeToJson,
+} from "../../src/observability/prometheus-remote-write.ts";
 import type { TimeSeries } from "../../src/observability/metric-registry.ts";
 
 const silent: LoggerLike = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
 
-function makeTs(name: string, value: number, extra: Array<{ name: string; value: string }> = []): TimeSeries {
+function makeTs(
+  name: string,
+  value: number,
+  extra: Array<{ name: string; value: string }> = [],
+): TimeSeries {
   return {
     labels: [{ name: "__name__", value: name }, ...extra],
     value,
@@ -12,21 +20,30 @@ function makeTs(name: string, value: number, extra: Array<{ name: string; value:
 }
 
 Deno.test("remote_write: requires HTTPS", () => {
-  assertThrows(() => new PrometheusRemoteWriter({ endpoint: "http://prom:9090", logger: silent }), Error, "HTTPS");
+  assertThrows(
+    () => new PrometheusRemoteWriter({ endpoint: "http://prom:9090", logger: silent }),
+    Error,
+    "HTTPS",
+  );
 });
 
 Deno.test("remote_write: rejects invalid URL", () => {
-  assertThrows(() => new PrometheusRemoteWriter({ endpoint: "not-a-url", logger: silent }), Error, "invalid endpoint");
+  assertThrows(
+    () => new PrometheusRemoteWriter({ endpoint: "not-a-url", logger: silent }),
+    Error,
+    "invalid endpoint",
+  );
 });
 
 Deno.test("remote_write: rejects both auth methods", () => {
   assertThrows(
-    () => new PrometheusRemoteWriter({
-      endpoint: "https://prom:9090",
-      bearerToken: "x",
-      basicAuth: { username: "u", password: "p" },
-      logger: silent,
-    }),
+    () =>
+      new PrometheusRemoteWriter({
+        endpoint: "https://prom:9090",
+        bearerToken: "x",
+        basicAuth: { username: "u", password: "p" },
+        logger: silent,
+      }),
     Error,
     "mutually exclusive",
   );

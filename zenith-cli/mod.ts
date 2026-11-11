@@ -9,6 +9,6 @@
 import { main } from "./zen.ts";
 
 export { main, VERSION } from "./zen.ts";
-export { commandTable, COMMANDS, helpText } from "./commands/registry.ts";
+export { COMMANDS, commandTable, helpText } from "./commands/registry.ts";
 
 if (import.meta.main) Deno.exit(await main(Deno.args, "zenith"));

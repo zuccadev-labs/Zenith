@@ -1,7 +1,7 @@
 /**
  * @module @zenith/core/types
  * Tipos compartidos del núcleo de Zenith.
- * 
+ *
  * Todos los tipos son inmutables (readonly) por diseño.
  * Ningún Trait debe importar tipos de otros Traits directamente —
  * deben usar estos tipos compartidos del core para mantener el desacoplamiento.
@@ -41,7 +41,7 @@ export interface ZenithConfig {
    * Without it the user routes answer 503 and every request is anonymous.
    */
   readonly engineAuth?: import("../traits/auth/engine-auth.ts").EngineAuthConfig;
-  
+
   /**
    * Configuración de Logs y Observabilidad (Parse Parity)
    */
@@ -65,13 +65,13 @@ export interface ZenithConfig {
     readonly classNames: string[];
     readonly enableRecording?: boolean;
   };
-  
+
   /**
    * Secret Key used to authenticate internal ZeroMQ cluster RPC calls.
    * If set, only nodes knowing this secret can execute cross-app queries.
    */
   readonly clusterSecret?: string;
-  
+
   /**
    * Clave API dedicada exclusivamente a la administración de Webhooks Remotos.
    * Grado Militar: Previene que un atacante con Master Key abuse de SSRF vía Webhooks.
@@ -83,7 +83,7 @@ export interface ZenithConfig {
    * Required for node-to-node RPC Federation.
    */
   readonly zmqPort?: number;
-  
+
   /**
    * Topología del Nodo (Enterprise Architecture Phase 11)
    * Permite instanciar un servidor especializado o un monolito.
@@ -91,14 +91,14 @@ export interface ZenithConfig {
    */
   readonly topology?: Array<"http" | "grpc" | "zeromq" | "runner" | "ai" | "graphql">;
   readonly databaseURI?: string; // mongodb://, scylla://, surreal://, etc.
-  
+
   /**
    * Configuración Multi-Proveedor para Inteligencia Artificial (Fase 12)
    */
   readonly aiConfig?: {
     readonly defaultProvider: "openai" | "anthropic" | "gemini" | "ollama" | "custom";
     readonly defaultModel: string;
-    readonly ollamaUrl?: string;     // Default: http://localhost:11434
+    readonly ollamaUrl?: string; // Default: http://localhost:11434
     readonly openAIApiKey?: string;
     readonly anthropicApiKey?: string;
     readonly geminiApiKey?: string;
@@ -111,36 +111,36 @@ export interface ZenithConfig {
    * en instancias de pura infraestructura.
    */
   readonly features?: {
-    readonly saas?: boolean;      // Activa BillingTrait (Facturación y Pagos)
-    readonly ai?: boolean;        // Activa AITrait (Agentes LLM y Tokens)
+    readonly saas?: boolean; // Activa BillingTrait (Facturación y Pagos)
+    readonly ai?: boolean; // Activa AITrait (Agentes LLM y Tokens)
     readonly ecommerce?: boolean; // Activa OpenSearchTrait (Búsqueda B2C y Productos)
-    readonly gdpr?: boolean;      // Activa SegmentationTrait (Derecho al olvido, Data Portability)
-    
+    readonly gdpr?: boolean; // Activa SegmentationTrait (Derecho al olvido, Data Portability)
+
     // Fase 20: El Titán Distribuido
-    readonly edge?: boolean;       // Activa EdgeTrait (WebAssembly Sandboxing)
-    readonly events?: boolean;     // Activa EventStreamingTrait (Kafka / CQRS)
-    readonly web3?: boolean;       // Activa Web3Trait (Logins Crypto e IPFS)
+    readonly edge?: boolean; // Activa EdgeTrait (WebAssembly Sandboxing)
+    readonly events?: boolean; // Activa EventStreamingTrait (Kafka / CQRS)
+    readonly web3?: boolean; // Activa Web3Trait (Logins Crypto e IPFS)
     readonly federation?: boolean; // Activa FederationTrait (Replicación Activo-Activo CRDT)
-    readonly graph?: boolean;      // Activa GraphAdapter (Neo4j para relaciones complejas)
-    
+    readonly graph?: boolean; // Activa GraphAdapter (Neo4j para relaciones complejas)
+
     // Fase 21: Military-Grade E2EE Media & Signaling
     readonly e2ee_media?: boolean; // Activa E2EEKeysTrait y SFrameSignalingTrait
     readonly e2ee_mode?: "strict_sframe" | "hop_by_hop"; // "strict_sframe" (Zero-Knowledge) o "hop_by_hop" (estándar SFU)
 
     // Phase 3.A: features adicionales detectados en mod.ts
-    readonly vectordb?: boolean;    // Activa VectorDBTrait (Qdrant, Milvus, Weaviate)
-    readonly iot?: boolean;         // Activa IoTTrait (MQTT, CoAP, device shadow)
-    readonly agents?: boolean;      // Activa AgentOrchestratorTrait (multi-agent workflows)
-    readonly timeseries?: boolean;  // Activa TimeSeriesTrait (InfluxDB, TimescaleDB, Scylla)
-    readonly workflow?: boolean;    // Activa WorkflowTrait (BPMN, state machines, cron)
+    readonly vectordb?: boolean; // Activa VectorDBTrait (Qdrant, Milvus, Weaviate)
+    readonly iot?: boolean; // Activa IoTTrait (MQTT, CoAP, device shadow)
+    readonly agents?: boolean; // Activa AgentOrchestratorTrait (multi-agent workflows)
+    readonly timeseries?: boolean; // Activa TimeSeriesTrait (InfluxDB, TimescaleDB, Scylla)
+    readonly workflow?: boolean; // Activa WorkflowTrait (BPMN, state machines, cron)
     readonly multiTenant?: boolean; // Activa TenantTrait (row-level isolation, tenant routing)
-    readonly compliance?: boolean;  // Activa ComplianceTrait (SOC2, HIPAA, GDPR reporting)
+    readonly compliance?: boolean; // Activa ComplianceTrait (SOC2, HIPAA, GDPR reporting)
 
     // Activos salvo que se pongan a false
-    readonly cache?: boolean;       // CacheTrait
-    readonly queue?: boolean;       // JobQueueTrait
-    readonly resilience?: boolean;  // CircuitBreakerTrait
-    readonly push?: boolean;        // PushTrait (desactivado por defecto)
+    readonly cache?: boolean; // CacheTrait
+    readonly queue?: boolean; // JobQueueTrait
+    readonly resilience?: boolean; // CircuitBreakerTrait
+    readonly push?: boolean; // PushTrait (desactivado por defecto)
 
     /**
      * Cualquier otra pieza del catálogo (`src/traits/catalog.ts`) por su id: `crm: false`,
@@ -266,7 +266,12 @@ export interface DatabaseAdapter {
    * Actualiza atómicamente solo si el documento cumple las condiciones (igualdad o `$gte`).
    * Devuelve null si no se aplicó. Opcional: no todos los motores pueden garantizarlo.
    */
-  updateIf?(collection: string, objectId: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>): Promise<ZenithObject | null>;
+  updateIf?(
+    collection: string,
+    objectId: string,
+    conditions: Record<string, unknown>,
+    data: Partial<ZenithObject>,
+  ): Promise<ZenithObject | null>;
   listClasses?(): Promise<string[]>;
   delete(collection: string, objectId: string): Promise<void>;
   disconnect(): Promise<void>;
@@ -277,10 +282,19 @@ export interface StorageAdapter {
   download(path: string): Promise<Uint8Array>;
   delete: (path: string) => Promise<void>;
   getSignedUrl: (path: string, expiresIn?: number) => Promise<string>;
-  
+
   startResumableUpload?: (path: string, contentType: string) => Promise<string>;
-  uploadChunk?: (path: string, uploadId: string, partNumber: number, data: Uint8Array) => Promise<string>;
-  completeResumableUpload?: (path: string, uploadId: string, parts: { PartNumber: number, ETag: string }[]) => Promise<void>;
+  uploadChunk?: (
+    path: string,
+    uploadId: string,
+    partNumber: number,
+    data: Uint8Array,
+  ) => Promise<string>;
+  completeResumableUpload?: (
+    path: string,
+    uploadId: string,
+    parts: { PartNumber: number; ETag: string }[],
+  ) => Promise<void>;
 }
 
 export interface AuthAdapter {
@@ -303,8 +317,17 @@ export interface MailAdapter {
 export interface SearchAdapter {
   connect(uri: string): Promise<void>;
   indexDocument(index: string, id: string, document: any): Promise<void>;
-  search(index: string, query: Record<string, any>, options?: { limit?: number; skip?: number }): Promise<any[]>;
-  vectorSearch(index: string, vectorField: string, vector: number[], limit?: number): Promise<any[]>;
+  search(
+    index: string,
+    query: Record<string, any>,
+    options?: { limit?: number; skip?: number },
+  ): Promise<any[]>;
+  vectorSearch(
+    index: string,
+    vectorField: string,
+    vector: number[],
+    limit?: number,
+  ): Promise<any[]>;
   deleteDocument(index: string, id: string): Promise<void>;
   disconnect(): Promise<void>;
 }
@@ -347,7 +370,11 @@ export interface ZenVaultAdapter {
   kvDelete(path: string, versions?: number[]): Promise<void>;
 
   // PKI
-  pkiIssue(role: string, commonName: string, opts?: { altNames?: string[]; ipSans?: string[]; ttl?: string }): Promise<unknown>;
+  pkiIssue(
+    role: string,
+    commonName: string,
+    opts?: { altNames?: string[]; ipSans?: string[]; ttl?: string },
+  ): Promise<unknown>;
 
   // Transit
   transitEncrypt(keyName: string, plaintext: string): Promise<string>;

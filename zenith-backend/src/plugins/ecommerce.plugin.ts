@@ -10,7 +10,12 @@
  *   installEcommercePlugin(Zen);
  */
 import { ZenithErrors } from "../core/errors.ts";
-import { COUNTRY_RULE_SCHEMA, computeTotals, findCountryRule, validateCountryRule } from "./ecommerce-country.ts";
+import {
+  computeTotals,
+  COUNTRY_RULE_SCHEMA,
+  findCountryRule,
+  validateCountryRule,
+} from "./ecommerce-country.ts";
 
 /** Largo mínimo del sessionId de invitado: funciona como secreto del carrito. */
 const MIN_GUEST_SESSION_LENGTH = 16;
@@ -18,7 +23,9 @@ const MIN_GUEST_SESSION_LENGTH = 16;
 /** Identidad de quien llama. Sin master, el userId sale de la sesión y nunca de los params. */
 function resolveActor(request: any): { userId?: string; sessionId?: string; master: boolean } {
   const master = !!request.master;
-  const sessionId = typeof request.params.sessionId === "string" ? request.params.sessionId : undefined;
+  const sessionId = typeof request.params.sessionId === "string"
+    ? request.params.sessionId
+    : undefined;
   return {
     userId: (master ? request.params.userId : undefined) ?? request.user?.objectId,
     sessionId,
@@ -27,7 +34,10 @@ function resolveActor(request: any): { userId?: string; sessionId?: string; mast
 }
 
 /** Rechaza por defecto: si el carrito no tiene un dueño identificable, solo pasa master. */
-function assertCartAccess(cart: any, actor: { userId?: string; sessionId?: string; master: boolean }): void {
+function assertCartAccess(
+  cart: any,
+  actor: { userId?: string; sessionId?: string; master: boolean },
+): void {
   if (actor.master) return;
   if (cart.ownerId) {
     if (cart.ownerId === actor.userId) return;
@@ -43,7 +53,9 @@ function cartSubtotal(items: any[]): number {
 
 async function releaseStock(Zen: any, items: any[]): Promise<void> {
   for (const item of items) {
-    await Zen.DB.update("Product", item.productId, { stockQty: { __op: "Increment", amount: item.qty } });
+    await Zen.DB.update("Product", item.productId, {
+      stockQty: { __op: "Increment", amount: item.qty },
+    });
   }
 }
 
@@ -56,11 +68,16 @@ async function reserveStock(Zen: any, items: any[]): Promise<void> {
   try {
     for (const item of items) {
       const updated = await Zen.DB.updateIf(
-        "Product", item.productId,
+        "Product",
+        item.productId,
         { stockQty: { $gte: item.qty } },
         { stockQty: { __op: "Increment", amount: -item.qty } },
       );
-      if (!updated) throw ZenithErrors.invalidRequest(`Insufficient stock for '${item.productName ?? item.productId}'.`);
+      if (!updated) {
+        throw ZenithErrors.invalidRequest(
+          `Insufficient stock for '${item.productName ?? item.productId}'.`,
+        );
+      }
       reserved.push(item);
     }
   } catch (err) {
@@ -75,75 +92,75 @@ export function installEcommercePlugin(Zen: any) {
   // ─── 1. Schemas ────────────────────────────────────────────────────────
 
   Zen.Cloud.defineSchema?.("Catalog", {
-    name:          { type: "String",  required: true },
-    slug:          { type: "String",  required: true },
-    description:   { type: "String" },
-    isActive:      { type: "Boolean", defaultValue: true },
+    name: { type: "String", required: true },
+    slug: { type: "String", required: true },
+    description: { type: "String" },
+    isActive: { type: "Boolean", defaultValue: true },
     parentCatalog: { type: "Pointer", targetClass: "Catalog" },
   });
 
   Zen.Cloud.defineSchema?.("ProductListing", {
-    product:       { type: "Pointer", targetClass: "Product",  required: true },
-    catalog:       { type: "Pointer", targetClass: "Catalog",  required: true },
-    isActive:      { type: "Boolean", defaultValue: true },
-    position:      { type: "Number",  defaultValue: 0 },
+    product: { type: "Pointer", targetClass: "Product", required: true },
+    catalog: { type: "Pointer", targetClass: "Catalog", required: true },
+    isActive: { type: "Boolean", defaultValue: true },
+    position: { type: "Number", defaultValue: 0 },
     featuredImage: { type: "String" },
-    images:        { type: "Array",   defaultValue: [] },
-    tags:          { type: "Array",   defaultValue: [] },
+    images: { type: "Array", defaultValue: [] },
+    tags: { type: "Array", defaultValue: [] },
   });
 
   Zen.Cloud.defineSchema?.("Cart", {
-    user:      { type: "Pointer", targetClass: "_User" },
-    ownerId:   { type: "String" }, // objectId del dueño, comparable en cualquier adapter
+    user: { type: "Pointer", targetClass: "_User" },
+    ownerId: { type: "String" }, // objectId del dueño, comparable en cualquier adapter
     sessionId: { type: "String" }, // Para guests sin cuenta
-    items:     { type: "Array",  defaultValue: [] }, // [{product, qty, unitPrice, subtotal}]
-    total:     { type: "Number", defaultValue: 0 },
-    discount:  { type: "Number", defaultValue: 0 },
-    currency:  { type: "String", defaultValue: "USD" },
-    status:    { type: "String", defaultValue: "active" }, // active|checkout|abandoned|completed
+    items: { type: "Array", defaultValue: [] }, // [{product, qty, unitPrice, subtotal}]
+    total: { type: "Number", defaultValue: 0 },
+    discount: { type: "Number", defaultValue: 0 },
+    currency: { type: "String", defaultValue: "USD" },
+    status: { type: "String", defaultValue: "active" }, // active|checkout|abandoned|completed
     discountCode: { type: "String" },
   });
 
   Zen.Cloud.defineSchema?.("Order", {
-    cart:            { type: "Pointer", targetClass: "Cart" },
-    user:            { type: "Pointer", targetClass: "_User" },
-    ownerId:         { type: "String" },
-    status:          { type: "String",  defaultValue: "pending" }, // pending|paid|processing|shipped|delivered|refunded|cancelled
-    paymentMethod:   { type: "String",  required: true },
-    paymentRef:      { type: "String" },
-    shippingAddress: { type: "Object",  required: true },
-    billingAddress:  { type: "Object" },
-    subtotal:        { type: "Number",  defaultValue: 0 },
-    shipping:        { type: "Number",  defaultValue: 0 },
-    tax:             { type: "Number",  defaultValue: 0 },
-    discount:        { type: "Number",  defaultValue: 0 },
-    total:           { type: "Number",  defaultValue: 0 },
-    currency:        { type: "String",  defaultValue: "USD" },
-    paidAt:          { type: "Date" },
-    shippedAt:       { type: "Date" },
-    deliveredAt:     { type: "Date" },
-    trackingNumber:  { type: "String" },
-    items:           { type: "Array",   defaultValue: [] }, // Snapshot de los items al momento del pago
+    cart: { type: "Pointer", targetClass: "Cart" },
+    user: { type: "Pointer", targetClass: "_User" },
+    ownerId: { type: "String" },
+    status: { type: "String", defaultValue: "pending" }, // pending|paid|processing|shipped|delivered|refunded|cancelled
+    paymentMethod: { type: "String", required: true },
+    paymentRef: { type: "String" },
+    shippingAddress: { type: "Object", required: true },
+    billingAddress: { type: "Object" },
+    subtotal: { type: "Number", defaultValue: 0 },
+    shipping: { type: "Number", defaultValue: 0 },
+    tax: { type: "Number", defaultValue: 0 },
+    discount: { type: "Number", defaultValue: 0 },
+    total: { type: "Number", defaultValue: 0 },
+    currency: { type: "String", defaultValue: "USD" },
+    paidAt: { type: "Date" },
+    shippedAt: { type: "Date" },
+    deliveredAt: { type: "Date" },
+    trackingNumber: { type: "String" },
+    items: { type: "Array", defaultValue: [] }, // Snapshot de los items al momento del pago
   });
 
   Zen.Cloud.defineSchema?.("Discount", {
-    code:           { type: "String",  required: true },
-    type:           { type: "String",  required: true }, // percentage|fixed|free_shipping
-    value:          { type: "Number",  required: true },
-    minOrderAmount: { type: "Number",  defaultValue: 0 },
-    maxUses:        { type: "Number" }, // undefined = unlimited
-    usedCount:      { type: "Number",  defaultValue: 0 },
-    validFrom:      { type: "Date",    required: true },
-    validUntil:     { type: "Date" },
-    isActive:       { type: "Boolean", defaultValue: true },
+    code: { type: "String", required: true },
+    type: { type: "String", required: true }, // percentage|fixed|free_shipping
+    value: { type: "Number", required: true },
+    minOrderAmount: { type: "Number", defaultValue: 0 },
+    maxUses: { type: "Number" }, // undefined = unlimited
+    usedCount: { type: "Number", defaultValue: 0 },
+    validFrom: { type: "Date", required: true },
+    validUntil: { type: "Date" },
+    isActive: { type: "Boolean", defaultValue: true },
   });
 
   Zen.Cloud.defineSchema?.("Review", {
-    product:    { type: "Pointer", targetClass: "Product",  required: true },
-    user:       { type: "Pointer", targetClass: "_User",    required: true },
-    rating:     { type: "Number",  required: true }, // 1-5
-    title:      { type: "String" },
-    body:       { type: "String" },
+    product: { type: "Pointer", targetClass: "Product", required: true },
+    user: { type: "Pointer", targetClass: "_User", required: true },
+    rating: { type: "Number", required: true }, // 1-5
+    title: { type: "String" },
+    body: { type: "String" },
     isVerified: { type: "Boolean", defaultValue: false },
     isApproved: { type: "Boolean", defaultValue: false },
   });
@@ -160,7 +177,9 @@ export function installEcommercePlugin(Zen: any) {
     const { userId, sessionId } = resolveActor(request);
 
     if (!productId) throw ZenithErrors.invalidRequest("productId is required.");
-    if (!Number.isInteger(qty) || qty <= 0) throw ZenithErrors.invalidRequest("qty must be a positive integer.");
+    if (!Number.isInteger(qty) || qty <= 0) {
+      throw ZenithErrors.invalidRequest("qty must be a positive integer.");
+    }
 
     const product = await Zen.DB.findOne("Product", { where: { objectId: productId } });
     if (!product) throw ZenithErrors.notFound(`Product ${productId} not found.`);
@@ -168,23 +187,33 @@ export function installEcommercePlugin(Zen: any) {
     // Buscar carrito activo
     const cartWhere: any = { status: "active" };
     if (userId) cartWhere.ownerId = userId;
-    else if (sessionId && sessionId.length >= MIN_GUEST_SESSION_LENGTH) cartWhere.sessionId = sessionId;
-    else throw ZenithErrors.unauthorized(`A session or a sessionId of at least ${MIN_GUEST_SESSION_LENGTH} characters is required.`);
+    else if (sessionId && sessionId.length >= MIN_GUEST_SESSION_LENGTH) {
+      cartWhere.sessionId = sessionId;
+    } else {throw ZenithErrors.unauthorized(
+        `A session or a sessionId of at least ${MIN_GUEST_SESSION_LENGTH} characters is required.`,
+      );}
 
     let cart = await Zen.DB.findOne("Cart", { where: cartWhere });
 
     if (!cart) {
       cart = await Zen.DB.insert("Cart", {
-        user:      userId ? { __type: "Pointer", className: "_User", objectId: userId } : undefined,
-        ownerId:   userId,
+        user: userId ? { __type: "Pointer", className: "_User", objectId: userId } : undefined,
+        ownerId: userId,
         sessionId: !userId ? sessionId : undefined,
-        items: [], total: 0, discount: 0, currency: product.currency ?? "USD", status: "active",
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        items: [],
+        total: 0,
+        discount: 0,
+        currency: product.currency ?? "USD",
+        status: "active",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
 
     if ((product.currency ?? "USD") !== (cart.currency ?? "USD")) {
-      throw ZenithErrors.invalidRequest(`Product currency does not match cart currency '${cart.currency}'.`);
+      throw ZenithErrors.invalidRequest(
+        `Product currency does not match cart currency '${cart.currency}'.`,
+      );
     }
 
     // Verificar si el item ya está en el carrito
@@ -198,11 +227,16 @@ export function installEcommercePlugin(Zen: any) {
 
     if (existingIndex >= 0) {
       items[existingIndex].qty += qty;
-      items[existingIndex].subtotal = parseFloat((items[existingIndex].qty * items[existingIndex].unitPrice).toFixed(2));
+      items[existingIndex].subtotal = parseFloat(
+        (items[existingIndex].qty * items[existingIndex].unitPrice).toFixed(2),
+      );
     } else {
       items.push({
-        productId, productName: product.name, sku: product.sku,
-        qty, unitPrice: product.salePrice,
+        productId,
+        productName: product.name,
+        sku: product.sku,
+        qty,
+        unitPrice: product.salePrice,
         subtotal: parseFloat((qty * product.salePrice).toFixed(2)),
       });
     }
@@ -210,7 +244,11 @@ export function installEcommercePlugin(Zen: any) {
     const total = parseFloat(items.reduce((s: number, i: any) => s + i.subtotal, 0).toFixed(2));
     const finalTotal = parseFloat(Math.max(0, total - (cart.discount ?? 0)).toFixed(2));
 
-    await Zen.DB.update("Cart", cart.objectId, { items, total: finalTotal, updatedAt: new Date().toISOString() });
+    await Zen.DB.update("Cart", cart.objectId, {
+      items,
+      total: finalTotal,
+      updatedAt: new Date().toISOString(),
+    });
     return { cartId: cart.objectId, items, total: finalTotal };
   });
 
@@ -219,18 +257,26 @@ export function installEcommercePlugin(Zen: any) {
    */
   Zen.Cloud.define("store_removeFromCart", async (request: any) => {
     const { cartId, productId } = request.params;
-    if (!cartId || !productId) throw ZenithErrors.invalidRequest("cartId and productId are required.");
+    if (!cartId || !productId) {
+      throw ZenithErrors.invalidRequest("cartId and productId are required.");
+    }
 
     const cart = await Zen.DB.findOne("Cart", { where: { objectId: cartId } });
     if (!cart) throw ZenithErrors.notFound(`Cart ${cartId} not found.`);
     assertCartAccess(cart, resolveActor(request));
-    if (cart.status !== "active") throw ZenithErrors.invalidRequest(`Cart status is '${cart.status}'. Cannot modify.`);
+    if (cart.status !== "active") {
+      throw ZenithErrors.invalidRequest(`Cart status is '${cart.status}'. Cannot modify.`);
+    }
 
     const items = (cart.items ?? []).filter((i: any) => i.productId !== productId);
     const total = parseFloat(items.reduce((s: number, i: any) => s + i.subtotal, 0).toFixed(2));
     const finalTotal = parseFloat(Math.max(0, total - (cart.discount ?? 0)).toFixed(2));
 
-    await Zen.DB.update("Cart", cartId, { items, total: finalTotal, updatedAt: new Date().toISOString() });
+    await Zen.DB.update("Cart", cartId, {
+      items,
+      total: finalTotal,
+      updatedAt: new Date().toISOString(),
+    });
     return { cartId, items, total: finalTotal };
   });
 
@@ -247,7 +293,9 @@ export function installEcommercePlugin(Zen: any) {
     const cart = await Zen.DB.findOne("Cart", { where: { objectId: cartId } });
     if (!cart) throw ZenithErrors.notFound(`Cart ${cartId} not found.`);
     assertCartAccess(cart, resolveActor(request));
-    if (cart.status !== "active") throw ZenithErrors.invalidRequest(`Cart status is '${cart.status}'. Cannot checkout.`);
+    if (cart.status !== "active") {
+      throw ZenithErrors.invalidRequest(`Cart status is '${cart.status}'. Cannot checkout.`);
+    }
     if (!cart.items?.length) throw ZenithErrors.invalidRequest("Cart is empty.");
 
     // Validar stock de todos los items
@@ -255,14 +303,18 @@ export function installEcommercePlugin(Zen: any) {
       const product = await Zen.DB.findOne("Product", { where: { objectId: item.productId } });
       if (!product) throw ZenithErrors.notFound(`Product ${item.productId} not found.`);
       if (product.stockQty < item.qty) {
-        throw ZenithErrors.invalidRequest(`Insufficient stock for '${product.name}'. Available: ${product.stockQty}, Requested: ${item.qty}`);
+        throw ZenithErrors.invalidRequest(
+          `Insufficient stock for '${product.name}'. Available: ${product.stockQty}, Requested: ${item.qty}`,
+        );
       }
     }
 
     const rule = await findCountryRule(Zen, shippingAddress);
     const currency = cart.currency ?? "USD";
     if (rule.currency !== currency) {
-      throw ZenithErrors.invalidRequest(`Cart is in ${currency}, but '${rule.code}' sells in ${rule.currency}.`);
+      throw ZenithErrors.invalidRequest(
+        `Cart is in ${currency}, but '${rule.code}' sells in ${rule.currency}.`,
+      );
     }
     const { subtotal, tax, shipping, discount, total } = computeTotals({
       subtotal: cartSubtotal(cart.items),
@@ -272,7 +324,9 @@ export function installEcommercePlugin(Zen: any) {
     });
 
     // Solo una llamada gana el carrito, aunque lleguen dos a la vez
-    const claimed = await Zen.DB.updateIf("Cart", cartId, { status: "active" }, { status: "checkout" });
+    const claimed = await Zen.DB.updateIf("Cart", cartId, { status: "active" }, {
+      status: "checkout",
+    });
     if (!claimed) throw ZenithErrors.invalidRequest("Cart is already being checked out.");
 
     let stockReserved = false;
@@ -281,29 +335,41 @@ export function installEcommercePlugin(Zen: any) {
       stockReserved = true;
 
       const order = await Zen.DB.insert("Order", {
-        cart:            { __type: "Pointer", className: "Cart",  objectId: cartId },
-        user:            cart.user,
-        ownerId:         cart.ownerId,
-        status:          "pending",
-        paymentMethod, paymentRef,
-        shippingAddress, billingAddress: shippingAddress,
-        subtotal, tax, shipping, discount, total,
+        cart: { __type: "Pointer", className: "Cart", objectId: cartId },
+        user: cart.user,
+        ownerId: cart.ownerId,
+        status: "pending",
+        paymentMethod,
+        paymentRef,
+        shippingAddress,
+        billingAddress: shippingAddress,
+        subtotal,
+        tax,
+        shipping,
+        discount,
+        total,
         countryCode: rule.code,
         taxName: rule.taxName,
         taxRate: rule.taxRate,
         taxIncluded: !!rule.taxIncluded,
         currency,
-        items:    cart.items, // Snapshot
+        items: cart.items, // Snapshot
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
-      await Zen.DB.update("Cart", cartId, { status: "completed", updatedAt: new Date().toISOString() });
+      await Zen.DB.update("Cart", cartId, {
+        status: "completed",
+        updatedAt: new Date().toISOString(),
+      });
 
       return { order, total };
     } catch (err) {
       if (stockReserved) await releaseStock(Zen, cart.items);
-      await Zen.DB.update("Cart", cartId, { status: "active", updatedAt: new Date().toISOString() });
+      await Zen.DB.update("Cart", cartId, {
+        status: "active",
+        updatedAt: new Date().toISOString(),
+      });
       throw err;
     }
   });
@@ -318,9 +384,13 @@ export function installEcommercePlugin(Zen: any) {
     const cart = await Zen.DB.findOne("Cart", { where: { objectId: cartId } });
     if (!cart) throw ZenithErrors.notFound(`Cart ${cartId} not found.`);
     assertCartAccess(cart, resolveActor(request));
-    if (cart.status !== "active") throw ZenithErrors.invalidRequest(`Cart status is '${cart.status}'. Cannot modify.`);
+    if (cart.status !== "active") {
+      throw ZenithErrors.invalidRequest(`Cart status is '${cart.status}'. Cannot modify.`);
+    }
 
-    const discount = await Zen.DB.findOne("Discount", { where: { code: code.toUpperCase(), isActive: true } });
+    const discount = await Zen.DB.findOne("Discount", {
+      where: { code: code.toUpperCase(), isActive: true },
+    });
     if (!discount) throw ZenithErrors.notFound(`Discount code '${code}' not found or inactive.`);
 
     const now = new Date();
@@ -356,7 +426,7 @@ export function installEcommercePlugin(Zen: any) {
     // Reaplicar el mismo código en el mismo carrito no consume otro uso
     if (cart.discountCode !== code) {
       await Zen.DB.update("Discount", discount.objectId, {
-        usedCount: { __op: "Increment", amount: 1 }
+        usedCount: { __op: "Increment", amount: 1 },
       });
     }
 
@@ -380,7 +450,9 @@ export function installEcommercePlugin(Zen: any) {
    */
   Zen.Cloud.define("store_quote", async (request: any) => {
     const { cartId, shippingAddress } = request.params;
-    if (!cartId || !shippingAddress) throw ZenithErrors.invalidRequest("cartId and shippingAddress are required.");
+    if (!cartId || !shippingAddress) {
+      throw ZenithErrors.invalidRequest("cartId and shippingAddress are required.");
+    }
 
     const cart = await Zen.DB.findOne("Cart", { where: { objectId: cartId } });
     if (!cart) throw ZenithErrors.notFound(`Cart ${cartId} not found.`);
@@ -388,7 +460,12 @@ export function installEcommercePlugin(Zen: any) {
 
     const rule = await findCountryRule(Zen, shippingAddress);
     return {
-      ...computeTotals({ subtotal: cartSubtotal(cart.items ?? []), discount: cart.discount ?? 0, freeShipping: !!cart.freeShipping, rule }),
+      ...computeTotals({
+        subtotal: cartSubtotal(cart.items ?? []),
+        discount: cart.discount ?? 0,
+        freeShipping: !!cart.freeShipping,
+        rule,
+      }),
       currency: rule.currency,
       countryCode: rule.code,
       taxName: rule.taxName,
@@ -399,7 +476,8 @@ export function installEcommercePlugin(Zen: any) {
    * Búsqueda de productos en catálogo con filtros.
    */
   Zen.Cloud.define("store_searchProducts", async (request: any) => {
-    const { query, category, minPrice, maxPrice, inStock, _catalogSlug, limit = 20, skip = 0 } = request.params;
+    const { query, category, minPrice, maxPrice, inStock, _catalogSlug, limit = 20, skip = 0 } =
+      request.params;
 
     const where: any = {};
     if (category) where.category = category;
@@ -436,7 +514,8 @@ export function installEcommercePlugin(Zen: any) {
     const orders = await Zen.DB.find("Order", {
       where: { ownerId: userId },
       order: "-createdAt",
-      limit, skip,
+      limit,
+      skip,
     });
 
     return { orders, count: orders.length };
@@ -471,7 +550,7 @@ export function installEcommercePlugin(Zen: any) {
 
   /** Al pagar una Order, crear StockMovements para cada item */
   Zen.Cloud.afterSave("Order", async (request: any) => {
-    const obj      = request.object;
+    const obj = request.object;
     const original = request.original;
 
     if (obj.status === "paid" && original?.status !== "paid") {
@@ -482,9 +561,9 @@ export function installEcommercePlugin(Zen: any) {
         if (!product) continue;
 
         await Zen.DB.insert("StockMovement", {
-          product:   { __type: "Pointer", className: "Product", objectId: item.productId },
-          quantity:  item.qty,
-          reason:    "sale",
+          product: { __type: "Pointer", className: "Product", objectId: item.productId },
+          quantity: item.qty,
+          reason: "sale",
           reference: obj.objectId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -498,9 +577,9 @@ export function installEcommercePlugin(Zen: any) {
       await releaseStock(Zen, obj.items ?? []);
       for (const item of (obj.items ?? [])) {
         await Zen.DB.insert("StockMovement", {
-          product:   { __type: "Pointer", className: "Product", objectId: item.productId },
-          quantity:  item.qty,
-          reason:    "order_cancelled",
+          product: { __type: "Pointer", className: "Product", objectId: item.productId },
+          quantity: item.qty,
+          reason: "order_cancelled",
           reference: obj.objectId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -538,5 +617,7 @@ export function installEcommercePlugin(Zen: any) {
     }
   });
 
-  console.log("[Ecommerce Plugin] ✅ E-Commerce Core installed: 7 schemas, 9 functions, 2 triggers.");
+  console.log(
+    "[Ecommerce Plugin] ✅ E-Commerce Core installed: 7 schemas, 9 functions, 2 triggers.",
+  );
 }

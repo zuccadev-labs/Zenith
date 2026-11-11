@@ -9,7 +9,7 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithPush",
@@ -17,18 +17,35 @@ export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
   consumes: ["db"],
   state: ["installations", "pushChannels"],
   runtimes: ["deno"],
-  summary: "Push notifications: device installation registry, channel-based subscriptions, FCM/APNs adapter, Parse Server-compatible /push endpoint, scheduled delivery.",
+  summary:
+    "Push notifications: device installation registry, channel-based subscriptions, FCM/APNs adapter, Parse Server-compatible /push endpoint, scheduled delivery.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
     const traitApi: any = {
-      installations: new Map<string, { installationId: string; deviceToken: string; pushType: "fcm" | "apns"; channels: string[] }>(),
+      installations: new Map<
+        string,
+        {
+          installationId: string;
+          deviceToken: string;
+          pushType: "fcm" | "apns";
+          channels: string[];
+        }
+      >(),
       channels: new Map<string, Set<string>>(),
 
-      registerInstallation: async (installationId: string, deviceToken: string, pushType: "fcm" | "apns", channels: string[] = []) => {
+      registerInstallation: async (
+        installationId: string,
+        deviceToken: string,
+        pushType: "fcm" | "apns",
+        channels: string[] = [],
+      ) => {
         const inst = { installationId, deviceToken, pushType, channels };
         traitApi.installations.set(installationId, inst);
-        await db.upsert("_Installation", { installationId }, { ...inst, createdAt: new Date().toISOString() });
+        await db.upsert("_Installation", { installationId }, {
+          ...inst,
+          createdAt: new Date().toISOString(),
+        });
         for (const ch of channels) {
           if (!traitApi.channels.has(ch)) traitApi.channels.set(ch, new Set());
           traitApi.channels.get(ch)!.add(installationId);
@@ -67,9 +84,18 @@ export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
         for (const instId of targets) {
           const inst = traitApi.installations.get(instId);
           if (!inst) continue;
-          deliveryLog.push({ installationId: instId, pushType: inst.pushType, deviceToken: inst.deviceToken.slice(0, 8) + "...", payload: data.data });
+          deliveryLog.push({
+            installationId: instId,
+            pushType: inst.pushType,
+            deviceToken: inst.deviceToken.slice(0, 8) + "...",
+            payload: data.data,
+          });
         }
-        await db.create("_PushDelivery", { targetCount: targets.length, payload: data.data, sentAt: new Date().toISOString() });
+        await db.create("_PushDelivery", {
+          targetCount: targets.length,
+          payload: data.data,
+          sentAt: new Date().toISOString(),
+        });
         return { sent: targets.length, deliveryLog };
       },
     };
@@ -80,9 +106,22 @@ export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
         path: "/installations",
         _openapi: { summary: "Register a device installation" },
         handler: async (req: Request) => {
-          const body = await req.json() as { installationId: string; deviceToken: string; pushType: "fcm" | "apns"; channels?: string[] };
-          const inst = await traitApi.registerInstallation(body.installationId, body.deviceToken, body.pushType, body.channels);
-          return new Response(JSON.stringify(inst), { status: 201, headers: { "content-type": "application/json" } });
+          const body = await req.json() as {
+            installationId: string;
+            deviceToken: string;
+            pushType: "fcm" | "apns";
+            channels?: string[];
+          };
+          const inst = await traitApi.registerInstallation(
+            body.installationId,
+            body.deviceToken,
+            body.pushType,
+            body.channels,
+          );
+          return new Response(JSON.stringify(inst), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -92,7 +131,10 @@ export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
         handler: async (req: Request) => {
           const body = await req.json();
           const result = await traitApi.send(body);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

@@ -17,7 +17,8 @@ export const ACLTrait = createTraitDescriptor({
   consumes: ["db"],
   state: ["roleCache"],
   runtimes: ["deno"],
-  summary: "Parse Server-compatible ACL (Access Control List) and CLP (Class-Level Permissions) enforcement. Role inheritance, public read/write, per-user grants, master key bypass.",
+  summary:
+    "Parse Server-compatible ACL (Access Control List) and CLP (Class-Level Permissions) enforcement. Role inheritance, public read/write, per-user grants, master key bypass.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
@@ -68,7 +69,9 @@ export const ACLTrait = createTraitDescriptor({
 
       resolveRoles: async (userId: string): Promise<string[]> => {
         if (traitApi.roleCache.has(userId)) return Array.from(traitApi.roleCache.get(userId)!);
-        const roles = await db.find("_Role", { users: { __type: "Pointer", className: "_User", objectId: userId } });
+        const roles = await db.find("_Role", {
+          users: { __type: "Pointer", className: "_User", objectId: userId },
+        });
         const roleNames: string[] = [];
         for (const role of roles) {
           roleNames.push(role.name);
@@ -86,7 +89,11 @@ export const ACLTrait = createTraitDescriptor({
       },
 
       createRole: async (name: string, acl: any = { "*": { r: true } }, roles: string[] = []) => {
-        const role = await db.create("_Role", { name, ACL: acl, roles: roles.map((r) => ({ __type: "Pointer", className: "_Role", objectId: r })) });
+        const role = await db.create("_Role", {
+          name,
+          ACL: acl,
+          roles: roles.map((r) => ({ __type: "Pointer", className: "_Role", objectId: r })),
+        });
         traitApi.clearCache();
         return role;
       },
@@ -110,12 +117,25 @@ export const ACLTrait = createTraitDescriptor({
         path: "/roles",
         _openapi: {
           summary: "Create a new role",
-          requestBody: { content: { "application/json": { schema: { type: "object", properties: { name: { type: "string" }, ACL: { type: "object" } }, required: ["name"] } } } },
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { name: { type: "string" }, ACL: { type: "object" } },
+                  required: ["name"],
+                },
+              },
+            },
+          },
         },
         handler: async (req: Request) => {
           const body = await req.json() as { name: string; ACL?: any };
           const role = await traitApi.createRole(body.name, body.ACL);
-          return new Response(JSON.stringify(role), { status: 201, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(role), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -124,7 +144,10 @@ export const ACLTrait = createTraitDescriptor({
         _openapi: { summary: "List all roles" },
         handler: async () => {
           const roles = await db.find("_Role", {});
-          return new Response(JSON.stringify({ results: roles }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ results: roles }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -132,14 +155,20 @@ export const ACLTrait = createTraitDescriptor({
         path: "/roles/:roleName/users/:userId",
         _openapi: {
           summary: "Add a user to a role",
-          parameters: [{ name: "roleName", in: "path", required: true, schema: { type: "string" } }, { name: "userId", in: "path", required: true, schema: { type: "string" } }],
+          parameters: [
+            { name: "roleName", in: "path", required: true, schema: { type: "string" } },
+            { name: "userId", in: "path", required: true, schema: { type: "string" } },
+          ],
         },
         handler: async (req: Request) => {
           const parts = new URL(req.url).pathname.split("/");
           const roleName = decodeURIComponent(parts[2]);
           const userId = parts[4];
           await traitApi.addUserToRole(roleName, userId);
-          return new Response(JSON.stringify({ success: true }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ success: true }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

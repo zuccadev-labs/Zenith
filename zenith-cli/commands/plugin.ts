@@ -29,12 +29,12 @@ import {
   generateKeyPair,
   loadMergedTrustStore,
   parseManifest,
+  type PluginPermission,
   projectTrustPath,
   revokeKey,
   saveTrustStore,
   sha256OfFile,
   signPlugin,
-  type PluginPermission,
   validatePublicKey,
   verifyPlugin,
 } from "@zuccadev-labs/zenith/plugin-signing";
@@ -96,8 +96,14 @@ async function cmdKeygen(args: string[]): Promise<void> {
   const pubPath = `${dir}/${authorId}.pub`;
   const privPath = `${dir}/${authorId}.priv`;
 
-  await Deno.writeTextFile(pubPath, `# Zenith Ed25519 public key\n# keyId: ${keyId}\n# alg: Ed25519\n${kp.publicKey}\n`);
-  await Deno.writeTextFile(privPath, `# Zenith Ed25519 private key (PKCS8)\n# keyId: ${keyId}\n# KEEP SECRET \u2014 do not commit\n${kp.privateKey}\n`);
+  await Deno.writeTextFile(
+    pubPath,
+    `# Zenith Ed25519 public key\n# keyId: ${keyId}\n# alg: Ed25519\n${kp.publicKey}\n`,
+  );
+  await Deno.writeTextFile(
+    privPath,
+    `# Zenith Ed25519 private key (PKCS8)\n# keyId: ${keyId}\n# KEEP SECRET \u2014 do not commit\n${kp.privateKey}\n`,
+  );
 
   // Permisos 600 en la privada (Unix only; Windows lo ignora silenciosamente)
   if (Deno.build.os !== "windows") {
@@ -154,7 +160,9 @@ async function cmdSign(args: string[]): Promise<void> {
   const permissions = permissionsStr.split(",").map((p) => p.trim()) as PluginPermission[];
 
   const privB64 = await readPrivateKey(authorId, flags);
-  const { buildKeyId: _b, importPublicRaw: _i, ...rest } = await import("@zuccadev-labs/zenith/plugin-signing");
+  const { buildKeyId: _b, importPublicRaw: _i, ...rest } = await import(
+    "@zuccadev-labs/zenith/plugin-signing"
+  );
   // Necesitamos la pub key para construir el keyId. Asumimos que la p\u00fablica est\u00e1 al lado.
   const pubPath = `${KEYS_DIR}/${authorId}.pub`;
   let pubB64: string;

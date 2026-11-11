@@ -33,66 +33,60 @@
 
 export {
   MANIFEST_VERSION,
-  type PluginAuthor,
   type PluginArtifact,
+  type PluginAuthor,
   type PluginPermission,
   type PluginSignature,
   type SignedPluginManifest,
   type TrustedAuthorKey,
   type TrustStore,
-  type VerificationResult,
   type VerificationFailure,
+  type VerificationResult,
   type VerifyOptions,
 } from "./types.ts";
 
-export {
-  canonicalJson,
-  stableStringify,
-} from "./canonical.ts";
+export { canonicalJson, stableStringify } from "./canonical.ts";
 
 export {
-  type KeyPairRaw,
-  generateKeyPair,
-  importPublicRaw,
-  importPrivateRaw,
-  exportPublicRaw,
+  buildKeyId,
   exportPrivateRaw,
-  sign,
-  verify,
+  exportPublicRaw,
   fingerprint,
   fingerprintShort,
-  buildKeyId,
+  generateKeyPair,
+  importPrivateRaw,
+  importPublicRaw,
   isValidKeyId,
+  type KeyPairRaw,
+  sign,
+  verify,
 } from "./keys.ts";
 
 export {
-  buildPluginArtifact,
-  sha256OfFile,
-  signPlugin,
-  verifyPluginSignature,
-  parseManifest,
-  validateManifest,
   type BuildArtifactOptions,
+  buildPluginArtifact,
+  parseManifest,
+  sha256OfFile,
   type SignOptions,
+  signPlugin,
+  validateManifest,
+  verifyPluginSignature,
   type VerifySignatureOptions,
 } from "./manifest.ts";
 
 export {
-  globalTrustPath,
-  projectTrustPath,
+  addKey,
   emptyTrustStore,
-  loadTrustStore,
-  loadMergedTrustStore,
-  saveTrustStore,
   findKey,
   findKeysByAuthor,
-  addKey,
-  revokeKey,
+  globalTrustPath,
+  loadMergedTrustStore,
+  loadTrustStore,
+  projectTrustPath,
   removeKey,
+  revokeKey,
+  saveTrustStore,
   validateTrustStore,
 } from "./trust-store.ts";
 
-export {
-  verifyPlugin,
-  validatePublicKey,
-} from "./verifier.ts";
+export { validatePublicKey, verifyPlugin } from "./verifier.ts";

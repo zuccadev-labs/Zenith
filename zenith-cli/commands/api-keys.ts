@@ -42,7 +42,18 @@ const graceHours = (v: string | undefined): number => {
 
 export async function run(argv: string[]): Promise<void> {
   const args = parseArgs(argv, {
-    string: ["prefix", "env", "scopes", "name", "expires", "rpm", "id", "reason", "grace", "allowed-ips"],
+    string: [
+      "prefix",
+      "env",
+      "scopes",
+      "name",
+      "expires",
+      "rpm",
+      "id",
+      "reason",
+      "grace",
+      "allowed-ips",
+    ],
     boolean: ["help", "json"],
     alias: { help: "h" },
   });
@@ -56,9 +67,17 @@ export async function run(argv: string[]): Promise<void> {
       if (args.json) return void console.log(JSON.stringify(results, null, 2));
       if (!results.length) return void console.log(`La app ${cfg.appId} no tiene API keys.`);
       for (const k of results) {
-        const status = k.revokedAt ? "REVOCADA" : k.expiresAt && new Date(k.expiresAt) < new Date() ? "EXPIRADA" : "activa";
+        const status = k.revokedAt
+          ? "REVOCADA"
+          : k.expiresAt && new Date(k.expiresAt) < new Date()
+          ? "EXPIRADA"
+          : "activa";
         const ips = k.allowedIps?.length ? `  IP: ${k.allowedIps.join(",")}` : "";
-        console.log(`${k.id}  ${k.prefix}_${k.env}  ${status.padEnd(8)}  ${k.name}  [${k.scopes.join(",")}]${ips}  último uso: ${k.lastUsedAt ?? "nunca"}`);
+        console.log(
+          `${k.id}  ${k.prefix}_${k.env}  ${status.padEnd(8)}  ${k.name}  [${
+            k.scopes.join(",")
+          }]${ips}  último uso: ${k.lastUsedAt ?? "nunca"}`,
+        );
       }
       return;
     }
@@ -69,26 +88,49 @@ export async function run(argv: string[]): Promise<void> {
         name: args.name,
         prefix: args.prefix ?? "sk",
         env: args.env ?? "live",
-        scopes: args.scopes ? args.scopes.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        scopes: args.scopes
+          ? args.scopes.split(",").map((s) => s.trim()).filter(Boolean)
+          : undefined,
         expiresIn: args.expires,
         requestsPerMinute: rpm,
-        allowedIps: args["allowed-ips"] ? args["allowed-ips"].split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        allowedIps: args["allowed-ips"]
+          ? args["allowed-ips"].split(",").map((s) => s.trim()).filter(Boolean)
+          : undefined,
       });
-      console.log(`✅ Clave ${res.record.id} (${res.record.prefix}_${res.record.env}) para ${res.record.appId}`);
-      console.log(`   Permisos: ${res.record.scopes.join(", ")}  ·  Expira: ${res.record.expiresAt ?? "nunca"}`);
-      if (res.record.allowedIps?.length) console.log(`   Solo desde: ${res.record.allowedIps.join(", ")}`);
+      console.log(
+        `✅ Clave ${res.record.id} (${res.record.prefix}_${res.record.env}) para ${res.record.appId}`,
+      );
+      console.log(
+        `   Permisos: ${res.record.scopes.join(", ")}  ·  Expira: ${
+          res.record.expiresAt ?? "nunca"
+        }`,
+      );
+      if (res.record.allowedIps?.length) {
+        console.log(`   Solo desde: ${res.record.allowedIps.join(", ")}`);
+      }
       console.log(`\n🔐 Guárdala ahora, no se vuelve a mostrar:\n   ${res.key}\n`);
       return;
     }
     case "revoke": {
       if (!args.id) throw new Error("--id es obligatorio.");
-      await zenApiCall(cfg, "POST", `/zen/api-keys/${encodeURIComponent(args.id)}/revoke`, { reason: args.reason ?? "manual" });
+      await zenApiCall(cfg, "POST", `/zen/api-keys/${encodeURIComponent(args.id)}/revoke`, {
+        reason: args.reason ?? "manual",
+      });
       return void console.log(`✅ Clave ${args.id} revocada.`);
     }
     case "rotate": {
       if (!args.id) throw new Error("--id es obligatorio.");
-      const res = await zenApiCall(cfg, "POST", `/zen/api-keys/${encodeURIComponent(args.id)}/rotate`, { graceHours: graceHours(args.grace) });
-      console.log(`✅ Nueva clave ${res.record.id}; la anterior (${res.previous}) sigue válida ${args.grace ?? "24h"}.`);
+      const res = await zenApiCall(
+        cfg,
+        "POST",
+        `/zen/api-keys/${encodeURIComponent(args.id)}/rotate`,
+        { graceHours: graceHours(args.grace) },
+      );
+      console.log(
+        `✅ Nueva clave ${res.record.id}; la anterior (${res.previous}) sigue válida ${
+          args.grace ?? "24h"
+        }.`,
+      );
       console.log(`\n🔐 Guárdala ahora, no se vuelve a mostrar:\n   ${res.key}\n`);
       return;
     }

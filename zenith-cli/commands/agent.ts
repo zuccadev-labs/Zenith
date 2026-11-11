@@ -30,7 +30,11 @@ const id = (v: unknown) => {
 };
 
 export async function run(argv: string[]): Promise<void> {
-  const args = parseArgs(argv, { string: ["input", "session"], boolean: ["help", "json"], alias: { help: "h" } });
+  const args = parseArgs(argv, {
+    string: ["input", "session"],
+    boolean: ["help", "json"],
+    alias: { help: "h" },
+  });
   const [sub, agent] = args._.map(String);
   if (!sub || args.help) return void console.log(HELP);
   const cfg = await loadZenConfig();
@@ -45,18 +49,28 @@ export async function run(argv: string[]): Promise<void> {
       return printJson(await zenApiCall(cfg, "GET", `/zen/agents/${id(agent)}`));
     case "run": {
       if (!args.input) throw new Error("--input es obligatorio.");
-      const res = await zenApiCall(cfg, "POST", `/zen/agents/${id(agent)}/run`, { input: args.input, sessionId: args.session });
+      const res = await zenApiCall(cfg, "POST", `/zen/agents/${id(agent)}/run`, {
+        input: args.input,
+        sessionId: args.session,
+      });
       if (args.json) return printJson(res);
       return void console.log(res.finalAnswer ?? JSON.stringify(res));
     }
     case "chat": {
       const session = await zenApiCall(cfg, "POST", `/zen/agents/${id(agent)}/sessions`);
-      console.log(`💬 Sesión ${session.objectId} con ${agent}. Escribe y pulsa Enter; Ctrl-D para salir.`);
-      const lines = Deno.stdin.readable.pipeThrough(new TextDecoderStream()).pipeThrough(new TextLineStream());
+      console.log(
+        `💬 Sesión ${session.objectId} con ${agent}. Escribe y pulsa Enter; Ctrl-D para salir.`,
+      );
+      const lines = Deno.stdin.readable.pipeThrough(new TextDecoderStream()).pipeThrough(
+        new TextLineStream(),
+      );
       await Deno.stdout.write(new TextEncoder().encode("> "));
       for await (const line of lines) {
         if (line.trim()) {
-          const res = await zenApiCall(cfg, "POST", `/zen/agents/${id(agent)}/run`, { input: line, sessionId: session.objectId });
+          const res = await zenApiCall(cfg, "POST", `/zen/agents/${id(agent)}/run`, {
+            input: line,
+            sessionId: session.objectId,
+          });
           console.log(res.finalAnswer ?? JSON.stringify(res));
         }
         await Deno.stdout.write(new TextEncoder().encode("> "));

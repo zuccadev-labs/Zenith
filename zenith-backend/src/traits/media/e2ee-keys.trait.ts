@@ -18,15 +18,22 @@ export const E2EEKeysTrait = createTraitDescriptor({
   consumes: ["db"],
   state: ["keyServer"],
   runtimes: ["deno"],
-  summary: "End-to-end encryption key server: ephemeral key distribution for WebRTC insertable streams, MLS-like ratchet key updates, per-user key pairs, signed pre-keys.",
+  summary:
+    "End-to-end encryption key server: ephemeral key distribution for WebRTC insertable streams, MLS-like ratchet key updates, per-user key pairs, signed pre-keys.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
     const traitApi: any = {
       keyServer: { type: "mls-lite", rotationPolicy: "per-session" },
 
-      generateKeyPair: async (userId: string): Promise<{ keyId: string; publicKey: string; createdAt: string }> => {
-        const keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+      generateKeyPair: async (
+        userId: string,
+      ): Promise<{ keyId: string; publicKey: string; createdAt: string }> => {
+        const keyPair = await crypto.subtle.generateKey(
+          { name: "ECDSA", namedCurve: "P-256" },
+          true,
+          ["sign", "verify"],
+        );
         const publicKeyBuf = await crypto.subtle.exportKey("spki", keyPair.publicKey);
         const publicKey = btoa(String.fromCharCode(...new Uint8Array(publicKeyBuf)));
         const keyId = crypto.randomUUID();
@@ -61,18 +68,32 @@ export const E2EEKeysTrait = createTraitDescriptor({
         handler: async (req: Request, ctx: any) => {
           const userId = ctx?.user?.objectId || "anonymous";
           const kp = await traitApi.generateKeyPair(userId);
-          return new Response(JSON.stringify(kp), { status: 201, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(kp), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/e2ee/keys/:userId",
-        _openapi: { summary: "Get public key for a user", parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Get public key for a user",
+          parameters: [{ name: "userId", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const userId = new URL(req.url).pathname.split("/")[3];
           const pk = await traitApi.getPublicKey(userId);
-          if (!pk) return new Response(JSON.stringify({ error: "no key found" }), { status: 404, headers: { "content-type": "application/json" } });
-          return new Response(JSON.stringify({ userId, publicKey: pk }), { status: 200, headers: { "content-type": "application/json" } });
+          if (!pk) {
+            return new Response(JSON.stringify({ error: "no key found" }), {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          return new Response(JSON.stringify({ userId, publicKey: pk }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

@@ -16,11 +16,22 @@ import { installEcommercePlugin } from "../../src/plugins/ecommerce.plugin.ts";
 const GUEST = "guest-session-0123456789";
 const OTHER_GUEST = "guest-session-9876543210";
 const CHECKOUT = { shippingAddress: { city: "Prueba", country: "XX" }, paymentMethod: "card" };
-const RULE = { objectId: "r1", code: "XX", currency: "USD", decimals: 2, taxRate: 10, shippingFlat: 5, freeShippingFrom: 100, isActive: true };
+const RULE = {
+  objectId: "r1",
+  code: "XX",
+  currency: "USD",
+  decimals: 2,
+  taxRate: 10,
+  shippingFlat: 5,
+  freeShippingFrom: 100,
+  isActive: true,
+};
 
 function matches(doc: any, where: any = {}): boolean {
   return Object.entries<any>(where).every(([key, value]) =>
-    value && typeof value === "object" && "$gte" in value ? doc[key] >= value.$gte : doc[key] === value
+    value && typeof value === "object" && "$gte" in value
+      ? doc[key] >= value.$gte
+      : doc[key] === value
   );
 }
 
@@ -34,7 +45,9 @@ function setup(stock = 5) {
   const table = (name: string) => (tables[name] ??= []);
   const apply = (doc: any, patch: any) => {
     for (const [key, value] of Object.entries<any>(patch)) {
-      doc[key] = value?.__op === "Increment" ? (doc[key] ?? 0) + value.amount : structuredClone(value);
+      doc[key] = value?.__op === "Increment"
+        ? (doc[key] ?? 0) + value.amount
+        : structuredClone(value);
     }
     return structuredClone(doc);
   };
@@ -84,7 +97,13 @@ function setup(stock = 5) {
   installEcommercePlugin(Zen);
   console.log = log;
 
-  table("Product").push({ objectId: "p1", name: "Teclado", sku: "T1", salePrice: 10, stockQty: stock });
+  table("Product").push({
+    objectId: "p1",
+    name: "Teclado",
+    sku: "T1",
+    salePrice: 10,
+    stockQty: stock,
+  });
   table("StoreCountryRule").push({ ...RULE });
 
   const call = (name: string, params: any, auth: { user?: string; master?: boolean } = {}) =>
@@ -100,7 +119,9 @@ function setup(stock = 5) {
     triggers,
     stock: () => table("Product")[0].stockQty,
     cart: (id: string) => table("Cart").find((c) => c.objectId === id),
-    failInsert: (name?: string) => { failInsertOn = name; },
+    failInsert: (name?: string) => {
+      failInsertOn = name;
+    },
   };
 }
 
@@ -119,13 +140,17 @@ Deno.test("addToCart - sin sesión ni sessionId se rechaza", async () => {
 Deno.test("addToCart - un userId en params no suplanta a otro usuario", async () => {
   const t = setup();
   await assertStatus(t.call("store_addToCart", { productId: "p1", userId: "victima" }), 401);
-  const { cartId } = await t.call("store_addToCart", { productId: "p1", userId: "victima" }, { user: "atacante" });
+  const { cartId } = await t.call("store_addToCart", { productId: "p1", userId: "victima" }, {
+    user: "atacante",
+  });
   assertEquals(t.cart(cartId).ownerId, "atacante");
 });
 
 Deno.test("addToCart - master puede actuar en nombre de un usuario", async () => {
   const t = setup();
-  const { cartId } = await t.call("store_addToCart", { productId: "p1", userId: "u1" }, { master: true });
+  const { cartId } = await t.call("store_addToCart", { productId: "p1", userId: "u1" }, {
+    master: true,
+  });
   assertEquals(t.cart(cartId).ownerId, "u1");
 });
 
@@ -137,7 +162,10 @@ Deno.test("addToCart - rechaza un sessionId corto de invitado", async () => {
 Deno.test("addToCart - rechaza cantidades no enteras o negativas", async () => {
   const t = setup();
   for (const qty of [0, -1, 1.5, "2"]) {
-    await assertRejects(() => t.call("store_addToCart", { productId: "p1", qty }, { user: "u1" }), ZenithError);
+    await assertRejects(
+      () => t.call("store_addToCart", { productId: "p1", qty }, { user: "u1" }),
+      ZenithError,
+    );
   }
 });
 
@@ -158,7 +186,10 @@ Deno.test("carrito de usuario - otro usuario no puede modificarlo ni pagarlo", a
 Deno.test("carrito de invitado - exige el mismo sessionId", async () => {
   const t = setup();
   const { cartId } = await t.call("store_addToCart", { productId: "p1", sessionId: GUEST });
-  await assertStatus(t.call("store_checkout", { cartId, sessionId: OTHER_GUEST, ...CHECKOUT }), 403);
+  await assertStatus(
+    t.call("store_checkout", { cartId, sessionId: OTHER_GUEST, ...CHECKOUT }),
+    403,
+  );
   await assertStatus(t.call("store_checkout", { cartId, ...CHECKOUT }), 403);
   await assertStatus(t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "alguien" }), 403);
   const { order } = await t.call("store_checkout", { cartId, sessionId: GUEST, ...CHECKOUT });
@@ -168,9 +199,17 @@ Deno.test("carrito de invitado - exige el mismo sessionId", async () => {
 Deno.test("carrito sin dueño identificable - solo master accede", async () => {
   const t = setup();
   t.tables.Cart = [{ objectId: "c9", status: "active", items: [], user: { _id: "u1" } }];
-  await assertStatus(t.call("store_removeFromCart", { cartId: "c9", productId: "p1" }, { user: "u1" }), 403);
-  await assertStatus(t.call("store_removeFromCart", { cartId: "c9", productId: "p1", sessionId: GUEST }), 403);
-  const result = await t.call("store_removeFromCart", { cartId: "c9", productId: "p1" }, { master: true });
+  await assertStatus(
+    t.call("store_removeFromCart", { cartId: "c9", productId: "p1" }, { user: "u1" }),
+    403,
+  );
+  await assertStatus(
+    t.call("store_removeFromCart", { cartId: "c9", productId: "p1", sessionId: GUEST }),
+    403,
+  );
+  const result = await t.call("store_removeFromCart", { cartId: "c9", productId: "p1" }, {
+    master: true,
+  });
   assertEquals(result.cartId, "c9");
 });
 
@@ -182,7 +221,10 @@ Deno.test("getOrdersByUser - solo devuelve las órdenes propias", async () => {
   await assertStatus(t.call("store_getOrdersByUser", { userId: "u1" }, { user: "u2" }), 403);
   assertEquals((await t.call("store_getOrdersByUser", {}, { user: "u1" })).count, 1);
   assertEquals((await t.call("store_getOrdersByUser", {}, { user: "u2" })).count, 0);
-  assertEquals((await t.call("store_getOrdersByUser", { userId: "u1" }, { master: true })).count, 1);
+  assertEquals(
+    (await t.call("store_getOrdersByUser", { userId: "u1" }, { master: true })).count,
+    1,
+  );
 });
 
 // ─── Stock ───────────────────────────────────────
@@ -190,7 +232,10 @@ Deno.test("getOrdersByUser - solo devuelve las órdenes propias", async () => {
 Deno.test("addToCart - cuenta lo que ya está en el carrito", async () => {
   const t = setup(3);
   await t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" });
-  await assertRejects(() => t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" }), ZenithError);
+  await assertRejects(
+    () => t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" }),
+    ZenithError,
+  );
   const { items } = await t.call("store_addToCart", { productId: "p1", qty: 1 }, { user: "u1" });
   assertEquals(items[0].qty, 3);
 });
@@ -216,7 +261,10 @@ Deno.test("checkout - si el stock se agotó, no crea orden y deja el carrito act
   const t = setup(2);
   const { cartId } = await t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" });
   t.tables.Product[0].stockQty = 1;
-  await assertRejects(() => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }), ZenithError);
+  await assertRejects(
+    () => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }),
+    ZenithError,
+  );
   assertEquals(t.stock(), 1);
   assertEquals(t.cart(cartId).status, "active");
   assertEquals(t.tables.Order ?? [], []);
@@ -226,7 +274,11 @@ Deno.test("checkout - si falla crear la orden, devuelve el stock", async () => {
   const t = setup(5);
   const { cartId } = await t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" });
   t.failInsert("Order");
-  await assertRejects(() => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }), Error, "insert failed");
+  await assertRejects(
+    () => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }),
+    Error,
+    "insert failed",
+  );
   assertEquals(t.stock(), 5);
   assertEquals(t.cart(cartId).status, "active");
 });
@@ -237,7 +289,10 @@ Deno.test("checkout - revierte los items ya reservados si otro no alcanza", asyn
   await t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" });
   const { cartId } = await t.call("store_addToCart", { productId: "p2", qty: 1 }, { user: "u1" });
   t.tables.Product[1].stockQty = 0;
-  await assertRejects(() => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }), ZenithError);
+  await assertRejects(
+    () => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }),
+    ZenithError,
+  );
   assertEquals(t.tables.Product[0].stockQty, 5);
   assertEquals(t.tables.Product[1].stockQty, 0);
 });
@@ -246,7 +301,9 @@ Deno.test("checkout concurrente - la última unidad se vende exactamente una vez
   const t = setup(1);
   const users = ["u1", "u2", "u3", "u4"];
   const carts: string[] = [];
-  for (const user of users) carts.push((await t.call("store_addToCart", { productId: "p1" }, { user })).cartId);
+  for (const user of users) {
+    carts.push((await t.call("store_addToCart", { productId: "p1" }, { user })).cartId);
+  }
   const results = await Promise.allSettled(
     users.map((user, i) => t.call("store_checkout", { cartId: carts[i], ...CHECKOUT }, { user })),
   );
@@ -259,7 +316,10 @@ Deno.test("checkout concurrente - el mismo carrito crea una sola orden", async (
   const t = setup(10);
   const { cartId } = await t.call("store_addToCart", { productId: "p1", qty: 2 }, { user: "u1" });
   const results = await Promise.allSettled(
-    Array.from({ length: 5 }, () => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" })),
+    Array.from(
+      { length: 5 },
+      () => t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" }),
+    ),
   );
   assertEquals(results.filter((r) => r.status === "fulfilled").length, 1);
   assertEquals(t.tables.Order.length, 1);
@@ -271,7 +331,14 @@ Deno.test("checkout concurrente - el mismo carrito crea una sola orden", async (
 
 Deno.test("applyDiscount - reaplicar el código no consume otro uso", async () => {
   const t = setup();
-  t.tables.Discount = [{ objectId: "d1", code: "PROMO", type: "fixed", value: 1, isActive: true, usedCount: 0 }];
+  t.tables.Discount = [{
+    objectId: "d1",
+    code: "PROMO",
+    type: "fixed",
+    value: 1,
+    isActive: true,
+    usedCount: 0,
+  }];
   const { cartId } = await t.call("store_addToCart", { productId: "p1" }, { user: "u1" });
   await t.call("store_applyDiscount", { cartId, code: "PROMO" }, { user: "u1" });
   await t.call("store_applyDiscount", { cartId, code: "PROMO" }, { user: "u1" });
@@ -311,12 +378,22 @@ Deno.test("store_quote - la subdivisión tiene prioridad y exige ser dueño", as
   const address = { country: "XX", region: "XX-A" };
   const quote = await t.call("store_quote", { cartId, shippingAddress: address }, { user: "u1" });
   assertEquals([quote.tax, quote.countryCode], [2, "XX-A"]);
-  await assertStatus(t.call("store_quote", { cartId, shippingAddress: address }, { user: "u2" }), 403);
+  await assertStatus(
+    t.call("store_quote", { cartId, shippingAddress: address }, { user: "u2" }),
+    403,
+  );
 });
 
 Deno.test("cupón de envío gratis - anula el envío de la regla", async () => {
   const t = setup();
-  t.tables.Discount = [{ objectId: "d1", code: "ENVIO", type: "free_shipping", value: 0, isActive: true, usedCount: 0 }];
+  t.tables.Discount = [{
+    objectId: "d1",
+    code: "ENVIO",
+    type: "free_shipping",
+    value: 0,
+    isActive: true,
+    usedCount: 0,
+  }];
   const { cartId } = await t.call("store_addToCart", { productId: "p1" }, { user: "u1" });
   await t.call("store_applyDiscount", { cartId, code: "ENVIO" }, { user: "u1" });
   const { order } = await t.call("store_checkout", { cartId, ...CHECKOUT }, { user: "u1" });
@@ -327,7 +404,10 @@ Deno.test("store_setCountryRule - solo con Master Key y con datos válidos", asy
   const t = setup();
   const rule = { code: "yy", currency: "usd", taxRate: 5, shippingFlat: 1 };
   await assertStatus(t.call("store_setCountryRule", rule, { user: "u1" }), 403);
-  await assertRejects(() => t.call("store_setCountryRule", { ...rule, taxRate: 150 }, { master: true }), ZenithError);
+  await assertRejects(
+    () => t.call("store_setCountryRule", { ...rule, taxRate: 150 }, { master: true }),
+    ZenithError,
+  );
   const created = await t.call("store_setCountryRule", rule, { master: true });
   assertEquals([created.code, created.currency], ["YY", "USD"]);
 });
@@ -354,7 +434,10 @@ Deno.test("cancelar orden - no devuelve stock si ya se envió", async () => {
   const t = setup(5);
   const order = await paidOrder(t);
   const shipped = { ...order, status: "shipped" };
-  await t.triggers.get("afterSave:Order")!({ object: { ...order, status: "cancelled" }, original: shipped });
+  await t.triggers.get("afterSave:Order")!({
+    object: { ...order, status: "cancelled" },
+    original: shipped,
+  });
   assertEquals(t.stock(), 3);
 });
 
@@ -362,14 +445,24 @@ Deno.test("cancelar orden - no devuelve stock si ya se envió", async () => {
 
 Deno.test("computeTotals - precio con impuesto incluido lo desglosa sin sumarlo", () => {
   const totals = computeTotals({
-    subtotal: 110, discount: 0, freeShipping: false,
+    subtotal: 110,
+    discount: 0,
+    freeShipping: false,
     rule: { code: "XX", currency: "USD", taxRate: 10, taxIncluded: true, shippingFlat: 0 },
   });
   assertEquals([totals.tax, totals.total], [10, 110]);
 });
 
 Deno.test("computeTotals - respeta envío gravado, envío gratis y decimales", () => {
-  const rule = { code: "XX", currency: "CLP", decimals: 0, taxRate: 19, taxableShipping: true, shippingFlat: 1000, freeShippingFrom: 50000 };
+  const rule = {
+    code: "XX",
+    currency: "CLP",
+    decimals: 0,
+    taxRate: 19,
+    taxableShipping: true,
+    shippingFlat: 1000,
+    freeShippingFrom: 50000,
+  };
   const low = computeTotals({ subtotal: 10000, discount: 0, freeShipping: false, rule });
   assertEquals([low.shipping, low.tax, low.total], [1000, 2090, 13090]);
   const high = computeTotals({ subtotal: 50000, discount: 0, freeShipping: false, rule });

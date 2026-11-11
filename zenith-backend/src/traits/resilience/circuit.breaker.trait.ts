@@ -10,7 +10,7 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCircuitBreaker",
@@ -18,19 +18,43 @@ export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
   consumes: [],
   state: ["breakers"],
   runtimes: ["deno"],
-  summary: "Circuit breaker pattern: fail-fast when downstream services are unhealthy, automatic recovery probes, configurable thresholds, fallback handlers.",
+  summary:
+    "Circuit breaker pattern: fail-fast when downstream services are unhealthy, automatic recovery probes, configurable thresholds, fallback handlers.",
   create: (deps: Record<string, any>) => {
     const traitApi: any = {
-      breakers: new Map<string, { state: "closed" | "open" | "half-open"; failureCount: number; successCount: number; lastFailure?: number; threshold: number; resetTimeoutMs: number }>(),
+      breakers: new Map<
+        string,
+        {
+          state: "closed" | "open" | "half-open";
+          failureCount: number;
+          successCount: number;
+          lastFailure?: number;
+          threshold: number;
+          resetTimeoutMs: number;
+        }
+      >(),
 
-      getOrCreate: (name: string, options: { threshold?: number; resetTimeoutMs?: number } = {}) => {
+      getOrCreate: (
+        name: string,
+        options: { threshold?: number; resetTimeoutMs?: number } = {},
+      ) => {
         if (!traitApi.breakers.has(name)) {
-          traitApi.breakers.set(name, { state: "closed", failureCount: 0, successCount: 0, threshold: options.threshold || 5, resetTimeoutMs: options.resetTimeoutMs || 30000 });
+          traitApi.breakers.set(name, {
+            state: "closed",
+            failureCount: 0,
+            successCount: 0,
+            threshold: options.threshold || 5,
+            resetTimeoutMs: options.resetTimeoutMs || 30000,
+          });
         }
         return traitApi.breakers.get(name)!;
       },
 
-      execute: async <T>(name: string, fn: () => Promise<T>, options: { threshold?: number; resetTimeoutMs?: number; fallback?: (e: Error) => T } = {}): Promise<T> => {
+      execute: async <T>(
+        name: string,
+        fn: () => Promise<T>,
+        options: { threshold?: number; resetTimeoutMs?: number; fallback?: (e: Error) => T } = {},
+      ): Promise<T> => {
         const breaker = traitApi.getOrCreate(name, options);
         if (breaker.state === "open") {
           if (Date.now() - (breaker.lastFailure || 0) > breaker.resetTimeoutMs) {
@@ -60,7 +84,9 @@ export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
 
       getState: (name: string) => {
         const b = traitApi.breakers.get(name);
-        return b ? { state: b.state, failureCount: b.failureCount, successCount: b.successCount } : null;
+        return b
+          ? { state: b.state, failureCount: b.failureCount, successCount: b.successCount }
+          : null;
       },
     };
 

@@ -15,7 +15,11 @@
 import { assertEquals, assertThrows } from "@std/assert";
 
 // Helper: ejecutar main de un módulo con args limpios
-async function withEnv<T>(vars: Record<string, string | undefined>, mode: "dev" | "prod", fn: () => Promise<T>): Promise<T> {
+async function withEnv<T>(
+  vars: Record<string, string | undefined>,
+  mode: "dev" | "prod",
+  fn: () => Promise<T>,
+): Promise<T> {
   // Limpia y setea vars
   for (const k of Object.keys(vars)) {
     if (vars[k] === undefined) Deno.env.delete(k);

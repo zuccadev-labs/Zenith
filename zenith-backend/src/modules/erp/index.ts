@@ -12,5 +12,7 @@
  * Stub para compatibilidad hacia atrás.
  */
 export function initERPModule(_Zen: any): void {
-  console.warn("[ERPModule] DEPRECADO: initERPModule() es un no-op. Los schemas y triggers ERP se registran automáticamente vía ZenithERPTrait.");
+  console.warn(
+    "[ERPModule] DEPRECADO: initERPModule() es un no-op. Los schemas y triggers ERP se registran automáticamente vía ZenithERPTrait.",
+  );
 }

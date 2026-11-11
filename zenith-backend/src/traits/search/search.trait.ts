@@ -14,19 +14,25 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
-import { jsonRes, errRes, parseFilterParam, applyFilter, sortResults } from "../../core/trait-utils.ts";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
+import {
+  applyFilter,
+  errRes,
+  jsonRes,
+  parseFilterParam,
+  sortResults,
+} from "../../core/trait-utils.ts";
 
 /** Configuración de qué campos se indexan por clase */
 const SEARCH_INDEX: Record<string, string[]> = {
-  Contact:    ["name", "email", "phone", "company", "title", "notes"],
-  Lead:       ["stage", "currency"],
-  Deal:       ["title", "pipeline", "stage"],
-  Account:    ["name", "email", "industry", "website"],
-  Product:    ["name", "sku", "description", "category"],
-  Note:       ["title", "bodyText"],
-  Task:       ["title", "body"],
-  Employee:   ["name", "email", "role", "department"],
+  Contact: ["name", "email", "phone", "company", "title", "notes"],
+  Lead: ["stage", "currency"],
+  Deal: ["title", "pipeline", "stage"],
+  Account: ["name", "email", "industry", "website"],
+  Product: ["name", "sku", "description", "category"],
+  Note: ["title", "bodyText"],
+  Task: ["title", "body"],
+  Employee: ["name", "email", "role", "department"],
 };
 
 export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
@@ -37,10 +43,11 @@ export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
   state: [],
   runtimes: ["deno"],
 
-  summary: "Global full-text search across CRM/ERP records. Advanced filter engine (eq/neq/gt/lt/in/like/ilike). Optional AI semantic search via VectorDB.",
+  summary:
+    "Global full-text search across CRM/ERP records. Advanced filter engine (eq/neq/gt/lt/in/like/ilike). Optional AI semantic search via VectorDB.",
 
   create: (deps: Record<string, any>) => {
-    const db       = deps.traits["db"];
+    const db = deps.traits["db"];
     const vectordb = deps.traits["vectordb"];
 
     const api = {
@@ -48,9 +55,16 @@ export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
        * Búsqueda full-text en memoria (fallback cuando no hay VectorDB).
        * Para producción con VectorDB, usa semantic search con embeddings.
        */
-      async search(q: string, types?: string[], limit = 20, filter?: string): Promise<{ results: any[]; total: number }> {
-        const term    = (q ?? "").toLowerCase().trim();
-        const targets = types?.length ? types.filter(t => SEARCH_INDEX[t]) : Object.keys(SEARCH_INDEX);
+      async search(
+        q: string,
+        types?: string[],
+        limit = 20,
+        filter?: string,
+      ): Promise<{ results: any[]; total: number }> {
+        const term = (q ?? "").toLowerCase().trim();
+        const targets = types?.length
+          ? types.filter((t) => SEARCH_INDEX[t])
+          : Object.keys(SEARCH_INDEX);
         const filterGroup = parseFilterParam(filter);
 
         const hits: Array<{ _type: string; _score: number; [key: string]: any }> = [];
@@ -64,13 +78,16 @@ export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
             if (filterGroup && !applyFilter(record, filterGroup)) continue;
 
             // Calcular relevancia por coincidencia de campos
-            if (!term) { hits.push({ ...record, _type: className, _score: 1 }); continue; }
+            if (!term) {
+              hits.push({ ...record, _type: className, _score: 1 });
+              continue;
+            }
             let score = 0;
             for (const field of fields) {
               const val = String(record[field] ?? "").toLowerCase();
-              if (val === term)           score += 100;   // exacto
+              if (val === term) score += 100; // exacto
               else if (val.startsWith(term)) score += 60; // prefijo
-              else if (val.includes(term))   score += 30; // contiene
+              else if (val.includes(term)) score += 30; // contiene
             }
             if (score > 0) hits.push({ ...record, _type: className, _score: score });
           }
@@ -87,28 +104,41 @@ export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
       async semanticSearch(q: string, types?: string[], limit = 10): Promise<any> {
         if (!vectordb) return api.search(q, types, limit);
         try {
-          return await vectordb.search("crm_insights", q, { topK: limit, filter: types ? { _type: { $in: types } } : undefined });
+          return await vectordb.search("crm_insights", q, {
+            topK: limit,
+            filter: types ? { _type: { $in: types } } : undefined,
+          });
         } catch {
           return api.search(q, types, limit);
         }
       },
 
       /** Sugiere completions para el searchbox (primeros 5 matches exactos de name/title/email) */
-      async suggest(q: string): Promise<{ suggestions: Array<{ label: string; type: string; objectId: string }> }> {
+      async suggest(
+        q: string,
+      ): Promise<{ suggestions: Array<{ label: string; type: string; objectId: string }> }> {
         if (!q || q.length < 2) return { suggestions: [] };
         const term = q.toLowerCase();
         const suggestions: Array<{ label: string; type: string; objectId: string }> = [];
-        const quickFields: Record<string, string> = { Contact: "name", Deal: "title", Lead: "stage", Account: "name", Product: "name" };
+        const quickFields: Record<string, string> = {
+          Contact: "name",
+          Deal: "title",
+          Lead: "stage",
+          Account: "name",
+          Product: "name",
+        };
 
-        await Promise.all(Object.entries(quickFields).map(async ([cls, field]) => {
-          const records = await db.find(cls, {}).catch(() => []);
-          for (const r of records) {
-            const val = String(r[field] ?? "").toLowerCase();
-            if (val.startsWith(term) && suggestions.length < 10) {
-              suggestions.push({ label: r[field], type: cls, objectId: r.objectId });
+        await Promise.all(
+          Object.entries(quickFields).map(async ([cls, field]) => {
+            const records = await db.find(cls, {}).catch(() => []);
+            for (const r of records) {
+              const val = String(r[field] ?? "").toLowerCase();
+              if (val.startsWith(term) && suggestions.length < 10) {
+                suggestions.push({ label: r[field], type: cls, objectId: r.objectId });
+              }
             }
-          }
-        }));
+          }),
+        );
 
         return { suggestions: suggestions.slice(0, 5) };
       },
@@ -122,26 +152,53 @@ export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
           summary: "Full-text search global (CRM/ERP/Notes/Tasks)",
           tags: ["Search"],
           parameters: [
-            { name: "q",      in: "query", description: "Término de búsqueda",                       schema: { type: "string" } },
-            { name: "types",  in: "query", description: "Tipos a buscar ej: Contact,Deal,Note",     schema: { type: "string" } },
-            { name: "limit",  in: "query", description: "Máximo de resultados (default 20)",        schema: { type: "integer" } },
-            { name: "filter", in: "query", description: "FilterGroup JSON para filtros avanzados",   schema: { type: "string" } },
-            { name: "mode",   in: "query", description: "text|semantic (default: text)",            schema: { type: "string" } },
+            {
+              name: "q",
+              in: "query",
+              description: "Término de búsqueda",
+              schema: { type: "string" },
+            },
+            {
+              name: "types",
+              in: "query",
+              description: "Tipos a buscar ej: Contact,Deal,Note",
+              schema: { type: "string" },
+            },
+            {
+              name: "limit",
+              in: "query",
+              description: "Máximo de resultados (default 20)",
+              schema: { type: "integer" },
+            },
+            {
+              name: "filter",
+              in: "query",
+              description: "FilterGroup JSON para filtros avanzados",
+              schema: { type: "string" },
+            },
+            {
+              name: "mode",
+              in: "query",
+              description: "text|semantic (default: text)",
+              schema: { type: "string" },
+            },
           ],
         },
         handler: async (req: Request, ctx: any) => {
           try {
-            const url    = new URL(req.url);
-            const q      = url.searchParams.get("q") ?? "";
-            const types  = url.searchParams.get("types")?.split(",").filter(Boolean);
-            const limit  = parseInt(url.searchParams.get("limit") ?? "20", 10);
+            const url = new URL(req.url);
+            const q = url.searchParams.get("q") ?? "";
+            const types = url.searchParams.get("types")?.split(",").filter(Boolean);
+            const limit = parseInt(url.searchParams.get("limit") ?? "20", 10);
             const filter = url.searchParams.get("filter") ?? undefined;
-            const mode   = url.searchParams.get("mode") ?? "text";
+            const mode = url.searchParams.get("mode") ?? "text";
             const result = mode === "semantic"
               ? await api.semanticSearch(q, types, limit)
               : await api.search(q, types, limit, filter);
             return jsonRes(result);
-          } catch(e) { return errRes(e); }
+          } catch (e) {
+            return errRes(e);
+          }
         },
       },
       {
@@ -152,7 +209,9 @@ export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
           try {
             const q = new URL(req.url).searchParams.get("q") ?? "";
             return jsonRes(await api.suggest(q));
-          } catch(e) { return errRes(e); }
+          } catch (e) {
+            return errRes(e);
+          }
         },
       },
     ];

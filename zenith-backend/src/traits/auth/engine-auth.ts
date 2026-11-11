@@ -23,8 +23,14 @@
  * e-mail verification, MFA.
  */
 
-import { openFeature, type Feature } from "@zuccadev-labs/zutool-ffi";
-import { fromBase64Url as unb64u, randomBytes, sha256Hex as sha256, toBase64Url as b64u, toHex as hex } from "../../core/crypto.ts";
+import { type Feature, openFeature } from "@zuccadev-labs/zutool-ffi";
+import {
+  fromBase64Url as unb64u,
+  randomBytes,
+  sha256Hex as sha256,
+  toBase64Url as b64u,
+  toHex as hex,
+} from "../../core/crypto.ts";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -49,11 +55,22 @@ export interface EngineAuthConfig {
 
 /** The subset of `database-crud` the facade needs. `updateIf` is required: it is the lease. */
 export interface AuthCrud {
-  find(collection: string, query: { where?: Record<string, unknown>; limit?: number }): Promise<Record<string, unknown>[]>;
-  findOne(collection: string, query: { where?: Record<string, unknown> }): Promise<Record<string, unknown> | null>;
+  find(
+    collection: string,
+    query: { where?: Record<string, unknown>; limit?: number },
+  ): Promise<Record<string, unknown>[]>;
+  findOne(
+    collection: string,
+    query: { where?: Record<string, unknown> },
+  ): Promise<Record<string, unknown> | null>;
   insert(collection: string, data: Record<string, unknown>): Promise<Record<string, unknown>>;
   update(collection: string, objectId: string, data: Record<string, unknown>): Promise<unknown>;
-  updateIf?(collection: string, objectId: string, conditions: Record<string, unknown>, data: Record<string, unknown>): Promise<unknown | null>;
+  updateIf?(
+    collection: string,
+    objectId: string,
+    conditions: Record<string, unknown>,
+    data: Record<string, unknown>,
+  ): Promise<unknown | null>;
   delete(collection: string, objectId: string): Promise<void>;
 }
 
@@ -108,8 +125,19 @@ const HANDLE = /^r:[0-9a-f]{64}$/;
 
 /** Fields a client may never set on its own profile at sign-up. */
 const RESERVED = new Set([
-  "objectId", "createdAt", "updatedAt", "className", "ACL", "_id",
-  "username", "password", "email", "emailVerified", "sessionToken", "authData", "authSub",
+  "objectId",
+  "createdAt",
+  "updatedAt",
+  "className",
+  "ACL",
+  "_id",
+  "username",
+  "password",
+  "email",
+  "emailVerified",
+  "sessionToken",
+  "authData",
+  "authSub",
 ]);
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
@@ -119,23 +147,43 @@ const nowS = () => Math.floor(Date.now() / 1000);
 const looksLikeJwt = (t: string) => t.startsWith("eyJ") && t.split(".").length === 3;
 
 /** engine-auth error codes → Parse codes. Messages come from engine-auth and are user-facing. */
-function fromEngine(status: number, body: { error?: string; error_description?: string }): ParseError {
+function fromEngine(
+  status: number,
+  body: { error?: string; error_description?: string },
+): ParseError {
   const msg = body.error_description ?? body.error ?? `engine-auth answered ${status}`;
   switch (body.error) {
     case "invalid_credentials":
       return new ParseError(P.OBJECT_NOT_FOUND, "Invalid username/password.", 404);
     case "account_exists":
-      return new ParseError(P.USERNAME_TAKEN, "Account already exists for this username or email.", 400);
+      return new ParseError(
+        P.USERNAME_TAKEN,
+        "Account already exists for this username or email.",
+        400,
+      );
     case "slow_down":
       return new ParseError(P.CONNECTION_FAILED, msg, 429);
     case "signup_closed":
       return new ParseError(P.OTHER_CAUSE, msg, 403);
-    case "too_short": case "too_long": case "contextual": case "repetitive": case "empty_password": case "breached":
+    case "too_short":
+    case "too_long":
+    case "contextual":
+    case "repetitive":
+    case "empty_password":
+    case "breached":
       return new ParseError(P.VALIDATION_ERROR, msg, 400);
     case "invalid_request":
-      return new ParseError(/e-mail/i.test(msg) ? P.INVALID_EMAIL_ADDRESS : P.VALIDATION_ERROR, msg, 400);
+      return new ParseError(
+        /e-mail/i.test(msg) ? P.INVALID_EMAIL_ADDRESS : P.VALIDATION_ERROR,
+        msg,
+        400,
+      );
     default:
-      return new ParseError(P.INTERNAL_SERVER_ERROR, status >= 500 ? "The authentication service failed." : msg, status >= 500 ? 502 : 400);
+      return new ParseError(
+        P.INTERNAL_SERVER_ERROR,
+        status >= 500 ? "The authentication service failed." : msg,
+        status >= 500 ? 502 : 400,
+      );
   }
 }
 
@@ -169,7 +217,11 @@ type SessionDoc = {
 type Tokens = { access_token: string; refresh_token: string; expires_in: number };
 
 export class EngineAuthFacade {
-  readonly #cfg: Required<Pick<EngineAuthConfig, "issuer" | "clientId" | "audience" | "provider" | "sessionLength">> & { url: string };
+  readonly #cfg:
+    & Required<
+      Pick<EngineAuthConfig, "issuer" | "clientId" | "audience" | "provider" | "sessionLength">
+    >
+    & { url: string };
   readonly #db: AuthCrud & { updateIf: NonNullable<AuthCrud["updateIf"]> };
   readonly #fetch: typeof fetch;
   readonly #ffi: Pick<Feature, "call">;
@@ -185,7 +237,9 @@ export class EngineAuthFacade {
       if (!cfg?.[k]) throw new Error(`engineAuth.${k} is required`);
     }
     if (typeof db?.updateIf !== "function") {
-      throw new Error("engine-auth sessions need a database adapter with conditional updates (database-crud.updateIf)");
+      throw new Error(
+        "engine-auth sessions need a database adapter with conditional updates (database-crud.updateIf)",
+      );
     }
     let raw: Uint8Array;
     try {
@@ -193,7 +247,9 @@ export class EngineAuthFacade {
     } catch {
       throw new Error("engineAuth.sessionKey must be base64 or base64url");
     }
-    if (raw.length !== 32) throw new Error(`engineAuth.sessionKey must decode to 32 bytes (got ${raw.length})`);
+    if (raw.length !== 32) {
+      throw new Error(`engineAuth.sessionKey must decode to 32 bytes (got ${raw.length})`);
+    }
     this.#rawKey = raw;
     this.#cfg = {
       issuer: cfg.issuer,
@@ -217,30 +273,53 @@ export class EngineAuthFacade {
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const username = typeof body.username === "string" ? body.username.trim() : "";
     if (!password) throw new ParseError(P.PASSWORD_MISSING, "A password is required.");
-    if (!email) throw new ParseError(P.EMAIL_MISSING, "An email is required (engine-auth accounts are reached by email).");
+    if (!email) {
+      throw new ParseError(
+        P.EMAIL_MISSING,
+        "An email is required (engine-auth accounts are reached by email).",
+      );
+    }
     const tokens = await this.#engine<Tokens>("/api/signup", {
-      clientId: this.#cfg.clientId, email, password, audience: [this.#cfg.audience],
+      clientId: this.#cfg.clientId,
+      email,
+      password,
+      audience: [this.#cfg.audience],
       ...(username ? { username } : {}),
       ...(typeof body.name === "string" ? { name: body.name } : {}),
     }, ip);
     const id = this.#verifyOrThrow(tokens.access_token);
     const extra = Object.fromEntries(Object.entries(body).filter(([k]) => !RESERVED.has(k)));
-    const profile = await this.#ensureProfile(id.sub, { username: username || email, email: email.toLowerCase(), ...extra });
+    const profile = await this.#ensureProfile(id.sub, {
+      username: username || email,
+      email: email.toLowerCase(),
+      ...extra,
+    });
     const sessionToken = await this.#createSession(id, tokens, "signup", installationId);
     return { objectId: profile.objectId, createdAt: profile.createdAt, sessionToken };
   }
 
   /** Parse `POST /login` (`username` or `email`, and `password`). */
   async logIn(body: Record<string, unknown>, ip: string, installationId?: string) {
-    const login = typeof body.username === "string" && body.username ? body.username : typeof body.email === "string" ? body.email : "";
+    const login = typeof body.username === "string" && body.username
+      ? body.username
+      : typeof body.email === "string"
+      ? body.email
+      : "";
     const password = typeof body.password === "string" ? body.password : "";
     if (!login) throw new ParseError(P.USERNAME_MISSING, "A username or email is required.");
     if (!password) throw new ParseError(P.PASSWORD_MISSING, "A password is required.");
     const tokens = await this.#engine<Tokens>("/api/login", {
-      clientId: this.#cfg.clientId, login, password, provider: this.#cfg.provider, audience: [this.#cfg.audience],
+      clientId: this.#cfg.clientId,
+      login,
+      password,
+      provider: this.#cfg.provider,
+      audience: [this.#cfg.audience],
     }, ip);
     const id = this.#verifyOrThrow(tokens.access_token);
-    const profile = await this.#ensureProfile(id.sub, login.includes("@") ? { email: login.toLowerCase(), username: login } : { username: login });
+    const profile = await this.#ensureProfile(
+      id.sub,
+      login.includes("@") ? { email: login.toLowerCase(), username: login } : { username: login },
+    );
     const sessionToken = await this.#createSession(id, tokens, "login", installationId);
     return { ...this.#public(profile), sessionToken };
   }
@@ -275,13 +354,22 @@ export class EngineAuthFacade {
    */
   async verifySession(token: string): Promise<(Identity & { userId: string }) | null> {
     if (!token) return null;
-    const id = looksLikeJwt(token) ? await this.#verifyBearer(token) : HANDLE.test(token) ? await this.#verifyHandle(token) : null;
+    const id = looksLikeJwt(token)
+      ? await this.#verifyBearer(token)
+      : HANDLE.test(token)
+      ? await this.#verifyHandle(token)
+      : null;
     return id ? { ...id, userId: id.sub } : null;
   }
 
   // ── Sessions ────────────────────────────────────────────────────────────────
 
-  async #createSession(id: Identity, t: Tokens, action: string, installationId?: string): Promise<string> {
+  async #createSession(
+    id: Identity,
+    t: Tokens,
+    action: string,
+    installationId?: string,
+  ): Promise<string> {
     const token = `r:${hex(randomBytes(32))}`;
     const hash = await sha256(token);
     const exp = this.#exp(t.access_token);
@@ -297,7 +385,10 @@ export class EngineAuthFacade {
       clientId: id.clientId,
       leaseUntil: 0,
       expiresAt: Date.now() + this.#cfg.sessionLength * 1000,
-      createdWith: { action, authProvider: this.#cfg.provider === "local" ? "password" : this.#cfg.provider },
+      createdWith: {
+        action,
+        authProvider: this.#cfg.provider === "local" ? "password" : this.#cfg.provider,
+      },
       restricted: false,
       ...(installationId ? { installationId } : {}),
     });
@@ -309,7 +400,15 @@ export class EngineAuthFacade {
   }
 
   #identityOf(d: SessionDoc): Identity {
-    return { sub: d.sub, roles: [], groups: d.groups ?? [], scope: d.scope ?? "", clientId: d.clientId ?? "", sessionId: d.sid, via: "session" };
+    return {
+      sub: d.sub,
+      roles: [],
+      groups: d.groups ?? [],
+      scope: d.scope ?? "",
+      clientId: d.clientId ?? "",
+      sessionId: d.sid,
+      via: "session",
+    };
   }
 
   async #verifyHandle(token: string): Promise<Identity | null> {
@@ -336,13 +435,20 @@ export class EngineAuthFacade {
   /** Refreshes the engine-auth tokens behind a session; exactly one instance does it at a time. */
   async #refresh(doc: SessionDoc, hash: string): Promise<SessionDoc | null> {
     const lease = Date.now() + LEASE_MS;
-    const won = await this.#db.updateIf(SESSIONS, doc.objectId, { tokenHash: hash, leaseUntil: { $lt: Date.now() } }, { leaseUntil: lease });
+    const won = await this.#db.updateIf(SESSIONS, doc.objectId, {
+      tokenHash: hash,
+      leaseUntil: { $lt: Date.now() },
+    }, { leaseUntil: lease });
     if (!won) return await this.#awaitRefresh(hash);
 
     let tokens: Tokens;
     try {
       const refresh = await this.#open(doc.refresh, hash);
-      tokens = await this.#form<Tokens>("/oauth/token", { grant_type: "refresh_token", client_id: this.#cfg.clientId, refresh_token: refresh });
+      tokens = await this.#form<Tokens>("/oauth/token", {
+        grant_type: "refresh_token",
+        client_id: this.#cfg.clientId,
+        refresh_token: refresh,
+      });
     } catch (e) {
       if (e instanceof ParseError && e.status === 400) {
         // invalid_grant: the session ended in engine-auth (logout elsewhere, disabled account, reuse).
@@ -413,14 +519,25 @@ export class EngineAuthFacade {
 
   #verifyOrThrow(token: string): Identity {
     const id = this.#verify(token);
-    if (!id) throw new ParseError(P.INTERNAL_SERVER_ERROR, "engine-auth returned a token Zenith cannot verify (check issuer, audience and JWKS).", 502);
+    if (!id) {
+      throw new ParseError(
+        P.INTERNAL_SERVER_ERROR,
+        "engine-auth returned a token Zenith cannot verify (check issuer, audience and JWKS).",
+        502,
+      );
+    }
     return id;
   }
 
   /** Identity, or the refusal code. */
   #check(token: string): Identity | string {
     if (!this.#jwks) return "no_jwks";
-    const c = this.#ffi.call<Record<string, unknown>>("auth.verify", { token, jwks: this.#jwks, issuer: this.#cfg.issuer, audience: this.#cfg.audience });
+    const c = this.#ffi.call<Record<string, unknown>>("auth.verify", {
+      token,
+      jwks: this.#jwks,
+      issuer: this.#cfg.issuer,
+      audience: this.#cfg.audience,
+    });
     const refused = c.refused as { code?: string } | undefined;
     if (refused) return refused.code ?? "refused";
     const act = c.act as { sub?: string } | undefined;
@@ -450,7 +567,10 @@ export class EngineAuthFacade {
     const age = Date.now() - this.#jwksAt;
     if (this.#jwks && (force ? age < JWKS_MIN_REFETCH_MS : age < JWKS_TTL_MS)) return false;
     try {
-      const r = await this.#fetch(`${this.#cfg.url}/.well-known/jwks.json`, { redirect: "error", signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
+      const r = await this.#fetch(`${this.#cfg.url}/.well-known/jwks.json`, {
+        redirect: "error",
+        signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+      });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
       if (!Array.isArray(j?.keys)) throw new Error("not a JWK set");
@@ -480,7 +600,11 @@ export class EngineAuthFacade {
   }
 
   async #form<T = unknown>(path: string, form: Record<string, string>): Promise<T> {
-    const r = await this.#call(path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(form) });
+    const r = await this.#call(path, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(form),
+    });
     if (path === "/oauth/token") {
       await this.#loadJwks(false);
       const t = r as unknown as Tokens;
@@ -492,9 +616,17 @@ export class EngineAuthFacade {
   async #call(path: string, init: RequestInit): Promise<Record<string, unknown>> {
     let r: Response;
     try {
-      r = await this.#fetch(`${this.#cfg.url}${path}`, { ...init, redirect: "error", signal: AbortSignal.timeout(HTTP_TIMEOUT_MS) });
+      r = await this.#fetch(`${this.#cfg.url}${path}`, {
+        ...init,
+        redirect: "error",
+        signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+      });
     } catch (e) {
-      throw new ParseError(P.CONNECTION_FAILED, `The authentication service is unreachable (${(e as Error).message}).`, 503);
+      throw new ParseError(
+        P.CONNECTION_FAILED,
+        `The authentication service is unreachable (${(e as Error).message}).`,
+        503,
+      );
     }
     const text = await r.text();
     let body: Record<string, unknown> = {};
@@ -508,10 +640,19 @@ export class EngineAuthFacade {
   // ── Profiles ────────────────────────────────────────────────────────────────
 
   /** The `_User` profile of a subject, created on first sight (accounts from LDAP/OIDC/CLI too). */
-  async #ensureProfile(sub: string, seed: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async #ensureProfile(
+    sub: string,
+    seed: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     const found = await this.#db.findOne(USERS, { where: { objectId: sub } });
     if (found) return found;
-    const doc = { objectId: sub, emailVerified: false, ...seed, createdAt: new Date(), updatedAt: new Date() };
+    const doc = {
+      objectId: sub,
+      emailVerified: false,
+      ...seed,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
     try {
       await this.#db.insert(USERS, doc);
     } catch (e) {
@@ -524,20 +665,35 @@ export class EngineAuthFacade {
   }
 
   #public(p: Record<string, unknown>) {
-    const { passwordHash: _h, _id, authData: _a, ...safe } = p as Record<string, unknown> & { passwordHash?: unknown; authData?: unknown };
+    const { passwordHash: _h, _id, authData: _a, ...safe } = p as Record<string, unknown> & {
+      passwordHash?: unknown;
+      authData?: unknown;
+    };
     return safe;
   }
 
   // ── Sealing (AES-256-GCM, bound to the session) ─────────────────────────────
 
   async #aes(): Promise<CryptoKey> {
-    this.#key ??= await crypto.subtle.importKey("raw", this.#rawKey as Uint8Array<ArrayBuffer>, "AES-GCM", false, ["encrypt", "decrypt"]);
+    this.#key ??= await crypto.subtle.importKey(
+      "raw",
+      this.#rawKey as Uint8Array<ArrayBuffer>,
+      "AES-GCM",
+      false,
+      ["encrypt", "decrypt"],
+    );
     return this.#key;
   }
 
   async #seal(plain: string, hash: string): Promise<string> {
     const iv = randomBytes(12);
-    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(hash) }, await this.#aes(), enc.encode(plain)));
+    const ct = new Uint8Array(
+      await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv, additionalData: enc.encode(hash) },
+        await this.#aes(),
+        enc.encode(plain),
+      ),
+    );
     const out = new Uint8Array(12 + ct.length);
     out.set(iv);
     out.set(ct, 12);
@@ -547,7 +703,11 @@ export class EngineAuthFacade {
   async #open(sealed: string, hash: string): Promise<string> {
     if (!sealed?.startsWith("v1.")) throw new Error("unknown seal format");
     const b = unb64u(sealed.slice(3));
-    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.slice(0, 12), additionalData: enc.encode(hash) }, await this.#aes(), b.slice(12));
+    const pt = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: b.slice(0, 12), additionalData: enc.encode(hash) },
+      await this.#aes(),
+      b.slice(12),
+    );
     return new TextDecoder().decode(pt);
   }
 }
@@ -555,7 +715,10 @@ export class EngineAuthFacade {
 // ─── HTTP (Parse Server routes) ───────────────────────────────────────────────
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
 
 const fail = (e: unknown) => {
   if (e instanceof ParseError) return json({ code: e.code, error: e.message }, e.status);
@@ -564,7 +727,10 @@ const fail = (e: unknown) => {
 };
 
 const notYet = (what: string) => async () =>
-  json({ code: P.OTHER_CAUSE, error: `${what} is not available yet: engine-auth does not offer it so far.` }, 501);
+  json({
+    code: P.OTHER_CAUSE,
+    error: `${what} is not available yet: engine-auth does not offer it so far.`,
+  }, 501);
 
 type Ctx = { sessionToken?: string; clientIp?: string; installationId?: string };
 
@@ -577,18 +743,24 @@ async function readJson(req: Request): Promise<Record<string, unknown>> {
 }
 
 const tokenOf = (req: Request, ctx: Ctx) =>
-  ctx.sessionToken ?? req.headers.get("x-parse-session-token") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  ctx.sessionToken ?? req.headers.get("x-parse-session-token") ??
+    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
 
 /** Parse Server-compatible routes, all backed by `facade()` (resolved per request: it is configured after composition). */
 export function userRoutes(facade: () => EngineAuthFacade) {
   // Only a real address is forwarded to engine-auth (the pipeline says "unknown" when it has none).
-  const ip = (ctx: Ctx) => (ctx.clientIp && /^[0-9A-Fa-f:.]+$/.test(ctx.clientIp) ? ctx.clientIp : "0.0.0.0");
+  const ip = (
+    ctx: Ctx,
+  ) => (ctx.clientIp && /^[0-9A-Fa-f:.]+$/.test(ctx.clientIp) ? ctx.clientIp : "0.0.0.0");
   return [
     {
       access: "public" as const,
       method: "POST" as const,
       path: "/users",
-      _openapi: { summary: "Sign up (engine-auth account + Parse profile)", tags: ["User Management"] },
+      _openapi: {
+        summary: "Sign up (engine-auth account + Parse profile)",
+        tags: ["User Management"],
+      },
       handler: async (req: Request, ctx: Ctx) => {
         try {
           return json(await facade().signUp(await readJson(req), ip(ctx), ctx.installationId), 201);
@@ -615,14 +787,24 @@ export function userRoutes(facade: () => EngineAuthFacade) {
       access: "public" as const,
       method: "GET" as const,
       path: "/login",
-      _openapi: { summary: "Refused: send the credentials with POST /login", tags: ["User Management"] },
-      handler: async () => json({ code: P.OTHER_CAUSE, error: "Use POST /login: credentials are never accepted in the URL." }, 405),
+      _openapi: {
+        summary: "Refused: send the credentials with POST /login",
+        tags: ["User Management"],
+      },
+      handler: async () =>
+        json({
+          code: P.OTHER_CAUSE,
+          error: "Use POST /login: credentials are never accepted in the URL.",
+        }, 405),
     },
     {
       access: "public" as const,
       method: "POST" as const,
       path: "/logout",
-      _openapi: { summary: "Log out (ends the engine-auth session too)", tags: ["User Management"] },
+      _openapi: {
+        summary: "Log out (ends the engine-auth session too)",
+        tags: ["User Management"],
+      },
       handler: async (req: Request, ctx: Ctx) => {
         try {
           await facade().logOut(tokenOf(req, ctx));
@@ -645,7 +827,19 @@ export function userRoutes(facade: () => EngineAuthFacade) {
         }
       },
     },
-    { access: "public" as const, method: "POST" as const, path: "/requestPasswordReset", _openapi: { summary: "Not available yet (501)" }, handler: notYet("Password reset") },
-    { access: "public" as const, method: "POST" as const, path: "/verificationEmailRequest", _openapi: { summary: "Not available yet (501)" }, handler: notYet("E-mail verification") },
+    {
+      access: "public" as const,
+      method: "POST" as const,
+      path: "/requestPasswordReset",
+      _openapi: { summary: "Not available yet (501)" },
+      handler: notYet("Password reset"),
+    },
+    {
+      access: "public" as const,
+      method: "POST" as const,
+      path: "/verificationEmailRequest",
+      _openapi: { summary: "Not available yet (501)" },
+      handler: notYet("E-mail verification"),
+    },
   ];
 }

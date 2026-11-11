@@ -18,18 +18,41 @@ export const ShellApiTrait = createTraitDescriptor({
   consumes: ["telemetry"],
   state: ["execHistory", "maxHistory"],
   runtimes: ["deno"],
-  summary: "Shell command execution trait for system-administration endpoints. Sandboxed via Deno permissions, command whitelist, audit trail, SoD (separation of duties) checks.",
+  summary:
+    "Shell command execution trait for system-administration endpoints. Sandboxed via Deno permissions, command whitelist, audit trail, SoD (separation of duties) checks.",
   create: (deps: Record<string, any>) => {
     const telemetry = deps.traits["telemetry"];
 
     const ALLOWED_COMMANDS = new Set([
-      "ls", "pwd", "echo", "cat", "head", "tail", "grep", "wc",
-      "ps", "df", "du", "free", "uptime", "date", "whoami", "id",
-      "uname", "hostname", "env", "which", "whereis", "stat", "file",
+      "ls",
+      "pwd",
+      "echo",
+      "cat",
+      "head",
+      "tail",
+      "grep",
+      "wc",
+      "ps",
+      "df",
+      "du",
+      "free",
+      "uptime",
+      "date",
+      "whoami",
+      "id",
+      "uname",
+      "hostname",
+      "env",
+      "which",
+      "whereis",
+      "stat",
+      "file",
     ]);
 
     const traitApi: any = {
-      execHistory: [] as Array<{ command: string; output: string; exitCode: number; timestamp: number; userId: string }>,
+      execHistory: [] as Array<
+        { command: string; output: string; exitCode: number; timestamp: number; userId: string }
+      >,
       maxHistory: 100,
 
       isAllowed: (command: string): boolean => {
@@ -37,17 +60,33 @@ export const ShellApiTrait = createTraitDescriptor({
         return ALLOWED_COMMANDS.has(baseCmd);
       },
 
-      execute: async (command: string, options: { userId?: string; timeout?: number } = {}): Promise<{ output: string; exitCode: number; durationMs: number; allowed: boolean }> => {
+      execute: async (
+        command: string,
+        options: { userId?: string; timeout?: number } = {},
+      ): Promise<{ output: string; exitCode: number; durationMs: number; allowed: boolean }> => {
         const start = Date.now();
         const userId = options.userId || "anonymous";
         const timeout = options.timeout || 10000;
         const allowed = traitApi.isAllowed(command);
         if (!allowed) {
-          const record = { command, output: "PERMISSION DENIED: command not in whitelist", exitCode: 126, timestamp: start, userId };
+          const record = {
+            command,
+            output: "PERMISSION DENIED: command not in whitelist",
+            exitCode: 126,
+            timestamp: start,
+            userId,
+          };
           traitApi.execHistory.push(record);
           if (traitApi.execHistory.length > traitApi.maxHistory) traitApi.execHistory.shift();
-          if (telemetry?.warn) telemetry.warn(`[Shell] DENIED command: ${command} (user: ${userId})`);
-          return { output: "PERMISSION DENIED", exitCode: 126, durationMs: Date.now() - start, allowed: false };
+          if (telemetry?.warn) {
+            telemetry.warn(`[Shell] DENIED command: ${command} (user: ${userId})`);
+          }
+          return {
+            output: "PERMISSION DENIED",
+            exitCode: 126,
+            durationMs: Date.now() - start,
+            allowed: false,
+          };
         }
         try {
           const cmd = new Deno.Command(command.trim().split(/\s+/)[0], {
@@ -60,22 +99,35 @@ export const ShellApiTrait = createTraitDescriptor({
           const record = { command, output, exitCode: code, timestamp: start, userId };
           traitApi.execHistory.push(record);
           if (traitApi.execHistory.length > traitApi.maxHistory) traitApi.execHistory.shift();
-          if (telemetry?.log) telemetry.log(`[Shell] ${userId}@localhost: ${command} (exit=${code}, ${Date.now() - start}ms)`);
+          if (telemetry?.log) {
+            telemetry.log(
+              `[Shell] ${userId}@localhost: ${command} (exit=${code}, ${Date.now() - start}ms)`,
+            );
+          }
           return { output, exitCode: code, durationMs: Date.now() - start, allowed: true };
         } catch (e: any) {
           const record = { command, output: e.message, exitCode: 127, timestamp: start, userId };
           traitApi.execHistory.push(record);
           if (traitApi.execHistory.length > traitApi.maxHistory) traitApi.execHistory.shift();
-          return { output: e.message, exitCode: 127, durationMs: Date.now() - start, allowed: false };
+          return {
+            output: e.message,
+            exitCode: 127,
+            durationMs: Date.now() - start,
+            allowed: false,
+          };
         }
       },
 
       getHistory: (userId?: string) => {
-        if (userId) return traitApi.execHistory.filter((r: { userId: string }) => r.userId === userId);
+        if (userId) {
+          return traitApi.execHistory.filter((r: { userId: string }) => r.userId === userId);
+        }
         return traitApi.execHistory;
       },
 
-      clearHistory: () => { traitApi.execHistory = []; },
+      clearHistory: () => {
+        traitApi.execHistory = [];
+      },
     };
 
     const shell_routes = [
@@ -84,13 +136,26 @@ export const ShellApiTrait = createTraitDescriptor({
         path: "/shell/exec",
         _openapi: {
           summary: "Execute a whitelisted shell command",
-          requestBody: { content: { "application/json": { schema: { type: "object", properties: { command: { type: "string" }, timeout: { type: "integer" } }, required: ["command"] } } } },
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { command: { type: "string" }, timeout: { type: "integer" } },
+                  required: ["command"],
+                },
+              },
+            },
+          },
         },
         handler: async (req: Request, ctx: any) => {
           const body = await req.json() as { command: string; timeout?: number };
           const userId = ctx?.user?.objectId || "anonymous";
           const result = await traitApi.execute(body.command, { userId, timeout: body.timeout });
-          return new Response(JSON.stringify(result), { status: result.allowed ? 200 : 403, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: result.allowed ? 200 : 403,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -100,7 +165,10 @@ export const ShellApiTrait = createTraitDescriptor({
         handler: async (req: Request, ctx: any) => {
           const userId = ctx?.user?.masterKey ? undefined : ctx?.user?.objectId;
           const history = traitApi.getHistory(userId);
-          return new Response(JSON.stringify({ history }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ history }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

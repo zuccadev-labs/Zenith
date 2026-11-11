@@ -18,7 +18,8 @@ export const MediaStreamTrait = createTraitDescriptor({
   consumes: ["db", "storage"],
   state: ["activeStreams"],
   runtimes: ["deno"],
-  summary: "Media streaming (HLS/DASH), live ingest endpoint, transcoding queue, bandwidth adaptation. Parse Server-compatible media file handling.",
+  summary:
+    "Media streaming (HLS/DASH), live ingest endpoint, transcoding queue, bandwidth adaptation. Parse Server-compatible media file handling.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const storage = deps.traits["storage"];
@@ -26,7 +27,10 @@ export const MediaStreamTrait = createTraitDescriptor({
     const traitApi: any = {
       activeStreams: new Map<string, { channelId: string; startedAt: number; viewers: number }>(),
 
-      startStream: async (channelId: string, options: { quality?: string; protocol?: "hls" | "dash" } = {}) => {
+      startStream: async (
+        channelId: string,
+        options: { quality?: string; protocol?: "hls" | "dash" } = {},
+      ) => {
         const stream = {
           channelId,
           quality: options.quality || "1080p",
@@ -71,31 +75,64 @@ https://cdn.zenith.example/streams/${channelId}/segment-1.ts
       {
         method: "POST" as const,
         path: "/streams/:channelId/start",
-        _openapi: { summary: "Start a live media stream", parameters: [{ name: "channelId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Start a live media stream",
+          parameters: [{
+            name: "channelId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          }],
+        },
         handler: async (req: Request) => {
           const channelId = new URL(req.url).pathname.split("/")[2];
           const body = await req.json().catch(() => ({}));
           const stream = await traitApi.startStream(channelId, body);
-          return new Response(JSON.stringify(stream), { status: 201, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(stream), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "POST" as const,
         path: "/streams/:channelId/stop",
-        _openapi: { summary: "Stop a live media stream", parameters: [{ name: "channelId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Stop a live media stream",
+          parameters: [{
+            name: "channelId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          }],
+        },
         handler: async (req: Request) => {
           const channelId = new URL(req.url).pathname.split("/")[2];
           const result = await traitApi.stopStream(channelId);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/streams/:channelId/manifest.m3u8",
-        _openapi: { summary: "Get HLS manifest for a stream", parameters: [{ name: "channelId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Get HLS manifest for a stream",
+          parameters: [{
+            name: "channelId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          }],
+        },
         handler: async (req: Request) => {
           const channelId = new URL(req.url).pathname.split("/")[2];
-          return new Response(traitApi.generateManifest(channelId), { status: 200, headers: { "content-type": "application/vnd.apple.mpegurl" } });
+          return new Response(traitApi.generateManifest(channelId), {
+            status: 200,
+            headers: { "content-type": "application/vnd.apple.mpegurl" },
+          });
         },
       },
     ];

@@ -20,7 +20,8 @@ export const RunnerTrait = createTraitDescriptor({
   tags: ["uses:shell"],
   state: ["activeRuns", "sandboxPool"],
   runtimes: ["deno"],
-  summary: "Code runner: sandboxed Deno worker pool for executing user-submitted scripts, custom logic functions, and cloud functions. Memory/CPU limits, timeout enforcement.",
+  summary:
+    "Code runner: sandboxed Deno worker pool for executing user-submitted scripts, custom logic functions, and cloud functions. Memory/CPU limits, timeout enforcement.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const shell = deps.traits["shell"];
@@ -29,18 +30,38 @@ export const RunnerTrait = createTraitDescriptor({
       activeRuns: new Map<string, { startedAt: number; worker: Worker | null }>(),
       sandboxPool: [] as Worker[],
 
-      runScript: async (code: string, options: { timeout?: number; memoryMb?: number } = {}): Promise<{ output: string; error?: string; durationMs: number }> => {
+      runScript: async (
+        code: string,
+        options: { timeout?: number; memoryMb?: number } = {},
+      ): Promise<{ output: string; error?: string; durationMs: number }> => {
         const start = Date.now();
         const timeout = options.timeout || 30000;
         const runId = crypto.randomUUID();
         try {
           const blob = new Blob([code], { type: "application/typescript" });
-          const worker = new Worker(URL.createObjectURL(blob), { type: "module", deno: { permissions: { read: false, write: false, net: false, env: false, run: false } } } as any);
+          const worker = new Worker(
+            URL.createObjectURL(blob),
+            {
+              type: "module",
+              deno: {
+                permissions: { read: false, write: false, net: false, env: false, run: false },
+              },
+            } as any,
+          );
           traitApi.activeRuns.set(runId, { startedAt: start, worker });
           const result = await new Promise<string>((resolve, reject) => {
-            const timer = setTimeout(() => { worker.terminate(); reject(new Error("timeout")); }, timeout);
-            worker.onmessage = (e: MessageEvent) => { clearTimeout(timer); resolve(String(e.data)); };
-            worker.onerror = (e: ErrorEvent) => { clearTimeout(timer); reject(new Error(e.message)); };
+            const timer = setTimeout(() => {
+              worker.terminate();
+              reject(new Error("timeout"));
+            }, timeout);
+            worker.onmessage = (e: MessageEvent) => {
+              clearTimeout(timer);
+              resolve(String(e.data));
+            };
+            worker.onerror = (e: ErrorEvent) => {
+              clearTimeout(timer);
+              reject(new Error(e.message));
+            };
           });
           worker.terminate();
           traitApi.activeRuns.delete(runId);
@@ -72,14 +93,21 @@ export const RunnerTrait = createTraitDescriptor({
         handler: async (req: Request) => {
           const body = await req.json() as { code: string; timeout?: number };
           const result = await traitApi.runScript(body.code, { timeout: body.timeout });
-          return new Response(JSON.stringify(result), { status: result.error ? 500 : 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: result.error ? 500 : 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/runner/active",
         _openapi: { summary: "List active script runs" },
-        handler: async () => new Response(JSON.stringify({ activeRuns: traitApi.listActive() }), { status: 200, headers: { "content-type": "application/json" } }),
+        handler: async () =>
+          new Response(JSON.stringify({ activeRuns: traitApi.listActive() }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
       },
     ];
 

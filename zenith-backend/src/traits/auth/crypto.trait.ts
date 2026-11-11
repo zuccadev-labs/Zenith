@@ -19,7 +19,8 @@ export const CryptoTrait = createTraitDescriptor({
   consumes: [],
   state: ["cryptoKeys"],
   runtimes: ["deno"],
-  summary: "Argon2id password hashing, HMAC-SHA256 signing, AES-256-GCM symmetric encryption (Fortune 500-grade).",
+  summary:
+    "Argon2id password hashing, HMAC-SHA256 signing, AES-256-GCM symmetric encryption (Fortune 500-grade).",
   create: (deps: Record<string, any>) => {
     const traitApi: any = {
       hash: {
@@ -35,41 +36,65 @@ export const CryptoTrait = createTraitDescriptor({
         sha256: (input: string | Uint8Array): Promise<string> => sha256Hex(input),
         sha512: async (input: string | Uint8Array): Promise<string> => {
           const data = typeof input === "string" ? new TextEncoder().encode(input) : input;
-          const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+          const buffer = data.buffer.slice(
+            data.byteOffset,
+            data.byteOffset + data.byteLength,
+          ) as ArrayBuffer;
           return toHex(await crypto.subtle.digest("SHA-512", buffer));
         },
       },
       hmac: {
-        sign: async (key: string, message: string, algorithm: "SHA-256" | "SHA-512" = "SHA-256"): Promise<string> => {
+        sign: async (
+          key: string,
+          message: string,
+          algorithm: "SHA-256" | "SHA-512" = "SHA-256",
+        ): Promise<string> => {
           const cryptoKey = await crypto.subtle.importKey(
             "raw",
             new TextEncoder().encode(key),
             { name: "HMAC", hash: algorithm },
             false,
-            ["sign"]
+            ["sign"],
           );
-          return toHex(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message)));
+          return toHex(
+            await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message)),
+          );
         },
-        verify: async (key: string, message: string, signature: string, algorithm: "SHA-256" | "SHA-512" = "SHA-256"): Promise<boolean> => {
+        verify: async (
+          key: string,
+          message: string,
+          signature: string,
+          algorithm: "SHA-256" | "SHA-512" = "SHA-256",
+        ): Promise<boolean> => {
           const cryptoKey = await crypto.subtle.importKey(
             "raw",
             new TextEncoder().encode(key),
             { name: "HMAC", hash: algorithm },
             false,
-            ["verify"]
+            ["verify"],
           );
-          const sigBytes = new Uint8Array(signature.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-          return await crypto.subtle.verify("HMAC", cryptoKey, sigBytes, new TextEncoder().encode(message));
+          const sigBytes = new Uint8Array(
+            signature.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)),
+          );
+          return await crypto.subtle.verify(
+            "HMAC",
+            cryptoKey,
+            sigBytes,
+            new TextEncoder().encode(message),
+          );
         },
       },
       encrypt: {
-        aes256gcm: async (plaintext: string, keyBase64: string): Promise<{ iv: string; ciphertext: string; tag: string }> => {
+        aes256gcm: async (
+          plaintext: string,
+          keyBase64: string,
+        ): Promise<{ iv: string; ciphertext: string; tag: string }> => {
           const key = await crypto.subtle.importKey(
             "raw",
-            Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0)),
+            Uint8Array.from(atob(keyBase64), (c) => c.charCodeAt(0)),
             { name: "AES-GCM" },
             false,
-            ["encrypt"]
+            ["encrypt"],
           );
           const iv = crypto.getRandomValues(new Uint8Array(12));
           const encoded = new TextEncoder().encode(plaintext);
@@ -81,26 +106,41 @@ export const CryptoTrait = createTraitDescriptor({
             tag: btoa(String.fromCharCode(...ciphertext.slice(-16))),
           };
         },
-        aes256gcmDecrypt: async (ivBase64: string, ciphertextBase64: string, tagBase64: string, keyBase64: string): Promise<string> => {
+        aes256gcmDecrypt: async (
+          ivBase64: string,
+          ciphertextBase64: string,
+          tagBase64: string,
+          keyBase64: string,
+        ): Promise<string> => {
           const key = await crypto.subtle.importKey(
             "raw",
-            Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0)),
+            Uint8Array.from(atob(keyBase64), (c) => c.charCodeAt(0)),
             { name: "AES-GCM" },
             false,
-            ["decrypt"]
+            ["decrypt"],
           );
-          const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+          const iv = Uint8Array.from(atob(ivBase64), (c) => c.charCodeAt(0));
           const ciphertext = new Uint8Array([
-            ...Uint8Array.from(atob(ciphertextBase64), c => c.charCodeAt(0)),
-            ...Uint8Array.from(atob(tagBase64), c => c.charCodeAt(0)),
+            ...Uint8Array.from(atob(ciphertextBase64), (c) => c.charCodeAt(0)),
+            ...Uint8Array.from(atob(tagBase64), (c) => c.charCodeAt(0)),
           ]);
           const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
           return new TextDecoder().decode(pt);
         },
       },
       decrypt: {
-        aes256gcm: async (ivBase64: string, ciphertextBase64: string, tagBase64: string, keyBase64: string): Promise<string> => {
-          return traitApi.encrypt.aes256gcmDecrypt(ivBase64, ciphertextBase64, tagBase64, keyBase64);
+        aes256gcm: async (
+          ivBase64: string,
+          ciphertextBase64: string,
+          tagBase64: string,
+          keyBase64: string,
+        ): Promise<string> => {
+          return traitApi.encrypt.aes256gcmDecrypt(
+            ivBase64,
+            ciphertextBase64,
+            tagBase64,
+            keyBase64,
+          );
         },
       },
       random: {
@@ -119,13 +159,31 @@ export const CryptoTrait = createTraitDescriptor({
         path: "/crypto/hash",
         _openapi: {
           summary: "Hash password with Argon2id",
-          requestBody: { content: { "application/json": { schema: { type: "object", properties: { password: { type: "string" } }, required: ["password"] } } } },
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { password: { type: "string" } },
+                  required: ["password"],
+                },
+              },
+            },
+          },
         },
         handler: async (req: Request) => {
           const body = await req.json() as { password: string };
-          if (!body?.password) return new Response(JSON.stringify({ error: "password required" }), { status: 400, headers: { "content-type": "application/json" } });
+          if (!body?.password) {
+            return new Response(JSON.stringify({ error: "password required" }), {
+              status: 400,
+              headers: { "content-type": "application/json" },
+            });
+          }
           const hash = await traitApi.hash.argon2id(body.password);
-          return new Response(JSON.stringify({ hash }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ hash }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -133,13 +191,39 @@ export const CryptoTrait = createTraitDescriptor({
         path: "/crypto/hmac",
         _openapi: {
           summary: "Sign message with HMAC-SHA256/512",
-          requestBody: { content: { "application/json": { schema: { type: "object", properties: { key: { type: "string" }, message: { type: "string" }, algorithm: { type: "string", enum: ["SHA-256", "SHA-512"] } }, required: ["key", "message"] } } } },
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    key: { type: "string" },
+                    message: { type: "string" },
+                    algorithm: { type: "string", enum: ["SHA-256", "SHA-512"] },
+                  },
+                  required: ["key", "message"],
+                },
+              },
+            },
+          },
         },
         handler: async (req: Request) => {
-          const body = await req.json() as { key: string; message: string; algorithm?: "SHA-256" | "SHA-512" };
-          if (!body?.key || !body?.message) return new Response(JSON.stringify({ error: "key and message required" }), { status: 400, headers: { "content-type": "application/json" } });
+          const body = await req.json() as {
+            key: string;
+            message: string;
+            algorithm?: "SHA-256" | "SHA-512";
+          };
+          if (!body?.key || !body?.message) {
+            return new Response(JSON.stringify({ error: "key and message required" }), {
+              status: 400,
+              headers: { "content-type": "application/json" },
+            });
+          }
           const sig = await traitApi.hmac.sign(body.key, body.message, body.algorithm);
-          return new Response(JSON.stringify({ signature: sig }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ signature: sig }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

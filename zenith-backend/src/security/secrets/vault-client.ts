@@ -85,12 +85,14 @@ interface TokenInfo {
 // ── VaultClient ────────────────────────────────────────────────────────────
 
 export class VaultClient {
-  private readonly cfg: Required<Omit<VaultConfig, "token" | "namespace" | "logger" | "fetchImpl">> & {
-    token: string | null;
-    namespace: string | undefined;
-    logger: VaultLogger;
-    fetchImpl: typeof fetch;
-  };
+  private readonly cfg:
+    & Required<Omit<VaultConfig, "token" | "namespace" | "logger" | "fetchImpl">>
+    & {
+      token: string | null;
+      namespace: string | undefined;
+      logger: VaultLogger;
+      fetchImpl: typeof fetch;
+    };
   private tokenInfo: TokenInfo | null = null;
   private renewalTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -136,7 +138,11 @@ export class VaultClient {
    * @param jwtPath Path al SA token. Default: `/var/run/secrets/kubernetes.io/serviceaccount/token`
    * @param mountPath auth method mount path (default: `kubernetes`)
    */
-  async loginKubernetes(role: string, jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token", mountPath = "kubernetes"): Promise<TokenInfo> {
+  async loginKubernetes(
+    role: string,
+    jwtPath = "/var/run/secrets/kubernetes.io/serviceaccount/token",
+    mountPath = "kubernetes",
+  ): Promise<TokenInfo> {
     const jwt = await Deno.readTextFile(jwtPath);
     const body = { role, jwt };
     const res = await this.rawRequest("POST", `/v1/auth/${mountPath}/login`, body, false);
@@ -150,9 +156,18 @@ export class VaultClient {
   /**
    * Auth via Userpass.
    */
-  async loginUserpass(username: string, password: string, mountPath = "userpass"): Promise<TokenInfo> {
+  async loginUserpass(
+    username: string,
+    password: string,
+    mountPath = "userpass",
+  ): Promise<TokenInfo> {
     const body = { password };
-    const res = await this.rawRequest("PUT", `/v1/auth/${mountPath}/login/${encodeURIComponent(username)}`, body, false);
+    const res = await this.rawRequest(
+      "PUT",
+      `/v1/auth/${mountPath}/login/${encodeURIComponent(username)}`,
+      body,
+      false,
+    );
     this.setToken(res.auth.client_token);
     this.tokenInfo = this.parseTokenInfo(res.auth);
     this.scheduleRenewal();
@@ -204,7 +219,12 @@ export class VaultClient {
    * Escribe un secret en KV v2.
    */
   async kvPut(path: string, data: Record<string, unknown>): Promise<{ version: number }> {
-    const res = await this.rawRequest("POST", `/v1/${this.cfg.kvMountPath}/data/${path}`, { data }, true);
+    const res = await this.rawRequest(
+      "POST",
+      `/v1/${this.cfg.kvMountPath}/data/${path}`,
+      { data },
+      true,
+    );
     return { version: res.data.version };
   }
 
@@ -213,7 +233,12 @@ export class VaultClient {
    */
   async kvList(path: string): Promise<string[]> {
     try {
-      const res = await this.rawRequest("LIST", `/v1/${this.cfg.kvMountPath}/metadata/${path}`, undefined, true);
+      const res = await this.rawRequest(
+        "LIST",
+        `/v1/${this.cfg.kvMountPath}/metadata/${path}`,
+        undefined,
+        true,
+      );
       return res.data.keys as string[];
     } catch (e) {
       if ((e as { status?: number })?.status === 404) return [];
@@ -239,7 +264,11 @@ export class VaultClient {
    * @param ipSans SANs IP
    * @param ttl TTL del cert (ej. `"720h"`)
    */
-  async pkiIssue(role: string, commonName: string, opts: { altNames?: string[]; ipSans?: string[]; ttl?: string } = {}): Promise<PkiIssueResponse> {
+  async pkiIssue(
+    role: string,
+    commonName: string,
+    opts: { altNames?: string[]; ipSans?: string[]; ttl?: string } = {},
+  ): Promise<PkiIssueResponse> {
     const body = {
       common_name: commonName,
       alt_names: opts.altNames?.join(","),
@@ -247,7 +276,12 @@ export class VaultClient {
       ttl: opts.ttl ?? "720h",
       format: "pem",
     };
-    const res = await this.rawRequest("POST", `/v1/${this.cfg.pkiMountPath}/issue/${role}`, body, true);
+    const res = await this.rawRequest(
+      "POST",
+      `/v1/${this.cfg.pkiMountPath}/issue/${role}`,
+      body,
+      true,
+    );
     return res.data as PkiIssueResponse;
   }
 
@@ -357,7 +391,10 @@ export class VaultClient {
       const timeout = setTimeout(() => controller.abort(), this.cfg.timeoutMs);
       try {
         const init: RequestInit = { method, headers, signal: controller.signal };
-        if (body && (method === "POST" || method === "PUT" || method === "DELETE" || method === "LIST")) {
+        if (
+          body &&
+          (method === "POST" || method === "PUT" || method === "DELETE" || method === "LIST")
+        ) {
           init.body = JSON.stringify(body);
         }
         const res = await this.cfg.fetchImpl(url, init);
@@ -372,12 +409,16 @@ export class VaultClient {
         err.status = res.status;
         err.retryable = res.status === 429 || res.status >= 500;
         if (res.status === 403 || res.status === 404) {
-          try { err.errors = (JSON.parse(errBody).errors as string[]) ?? []; } catch { /* */ }
+          try {
+            err.errors = (JSON.parse(errBody).errors as string[]) ?? [];
+          } catch { /* */ }
         }
         throw err;
       } catch (e) {
         if ((e as Error).name === "AbortError") {
-          const err: Error & { retryable?: boolean } = new Error(`[vault] timeout after ${this.cfg.timeoutMs}ms`);
+          const err: Error & { retryable?: boolean } = new Error(
+            `[vault] timeout after ${this.cfg.timeoutMs}ms`,
+          );
           err.retryable = true;
           throw err;
         }
@@ -385,7 +426,11 @@ export class VaultClient {
         attempt++;
         if (!retryable || attempt > this.cfg.maxRetries) throw e;
         const backoff = Math.min(2 ** attempt * 250 + Math.random() * 250, MAX_BACKOFF_MS);
-        this.cfg.logger.warn("[vault] retrying after backoff", { attempt, backoffMs: backoff, status: (e as any).status });
+        this.cfg.logger.warn("[vault] retrying after backoff", {
+          attempt,
+          backoffMs: backoff,
+          status: (e as any).status,
+        });
         await sleep(backoff);
       } finally {
         clearTimeout(timeout);
@@ -407,20 +452,22 @@ export interface KvV2Response {
 }
 
 export interface PkiIssueResponse {
-  certificate: string;          // PEM-encoded leaf cert
-  issuing_ca: string;           // PEM CA chain
-  ca_chain: string[];           // PEM certs in chain
-  private_key: string;          // PEM private key
+  certificate: string; // PEM-encoded leaf cert
+  issuing_ca: string; // PEM CA chain
+  ca_chain: string[]; // PEM certs in chain
+  private_key: string; // PEM private key
   private_key_type: string;
   serial_number: string;
-  expiration: number;           // Unix seconds
+  expiration: number; // Unix seconds
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function validateHttpsUrl(url: string, field: string): void {
   let parsed: URL;
-  try { parsed = new URL(url); } catch {
+  try {
+    parsed = new URL(url);
+  } catch {
     throw new Error(`[vault] ${field} is not a valid URL: ${url}`);
   }
   if (parsed.protocol !== "https:") {

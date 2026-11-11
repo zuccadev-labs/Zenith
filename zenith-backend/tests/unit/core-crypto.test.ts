@@ -13,7 +13,10 @@ import {
 } from "../../src/core/crypto.ts";
 
 Deno.test("core/crypto: sha256Hex matches the FIPS 180-2 test vector", async () => {
-  assertEquals(await sha256Hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  assertEquals(
+    await sha256Hex("abc"),
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+  );
 });
 
 Deno.test("core/crypto: hmacSha256Hex matches RFC 4231 test case 2", async () => {
@@ -40,7 +43,8 @@ Deno.test("core/crypto: randomString uses only the alphabet and is not biased", 
   assertEquals(counts.size, alphabet.length);
   const expected = s.length / alphabet.length;
   const firstEight = [...alphabet.slice(0, 8)].reduce((n, c) => n + counts.get(c)!, 0) / 8;
-  const rest = [...alphabet.slice(8)].reduce((n, c) => n + counts.get(c)!, 0) / (alphabet.length - 8);
+  const rest = [...alphabet.slice(8)].reduce((n, c) => n + counts.get(c)!, 0) /
+    (alphabet.length - 8);
   assert(Math.abs(firstEight - rest) / expected < 0.06, `bias: ${firstEight} vs ${rest}`);
   assertThrows(() => randomString(4, "a"), RangeError);
 });

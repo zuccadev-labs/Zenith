@@ -39,7 +39,12 @@ function parseIPv6(input: string): bigint | null {
   if ([...h, ...r].some((g) => !/^[0-9a-fA-F]{1,4}$/.test(g))) return null;
   const known = h.length + r.length + tail.length;
   if (compressed ? known > 7 : known !== 8) return null;
-  const all = [...h.map((g) => parseInt(g, 16)), ...Array<number>(8 - known).fill(0), ...r.map((g) => parseInt(g, 16)), ...tail];
+  const all = [
+    ...h.map((g) => parseInt(g, 16)),
+    ...Array<number>(8 - known).fill(0),
+    ...r.map((g) => parseInt(g, 16)),
+    ...tail,
+  ];
   return all.reduce((n, g) => (n << 16n) | BigInt(g), 0n);
 }
 
@@ -74,7 +79,9 @@ export function ipAllowed(ip: string | undefined, allowlist: readonly string[]):
     const net = parseCidr(entry);
     if (!net || net.v !== parsed.v) continue;
     const width = net.v === 4 ? 32 : 128;
-    const mask = net.prefix === 0 ? 0n : ((1n << BigInt(net.prefix)) - 1n) << BigInt(width - net.prefix);
+    const mask = net.prefix === 0
+      ? 0n
+      : ((1n << BigInt(net.prefix)) - 1n) << BigInt(width - net.prefix);
     if ((parsed.bits & mask) === net.network) return true;
   }
   return false;
@@ -86,11 +93,33 @@ export function ipAllowed(ip: string | undefined, allowlist: readonly string[]):
  * (169.254.169.254, fd00:ec2::254) por estar en link-local y ULA.
  */
 export const NON_PUBLIC_RANGES: readonly string[] = [
-  "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
-  "192.0.0.0/24", "192.0.2.0/24", "192.88.99.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24",
-  "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4", "255.255.255.255/32",
-  "::/128", "::1/128", "64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "2001::/23", "2001:db8::/32",
-  "2002::/16", "fc00::/7", "fe80::/10", "ff00::/8",
+  "0.0.0.0/8",
+  "10.0.0.0/8",
+  "100.64.0.0/10",
+  "127.0.0.0/8",
+  "169.254.0.0/16",
+  "172.16.0.0/12",
+  "192.0.0.0/24",
+  "192.0.2.0/24",
+  "192.88.99.0/24",
+  "192.168.0.0/16",
+  "198.18.0.0/15",
+  "198.51.100.0/24",
+  "203.0.113.0/24",
+  "224.0.0.0/4",
+  "240.0.0.0/4",
+  "255.255.255.255/32",
+  "::/128",
+  "::1/128",
+  "64:ff9b::/96",
+  "64:ff9b:1::/48",
+  "100::/64",
+  "2001::/23",
+  "2001:db8::/32",
+  "2002::/16",
+  "fc00::/7",
+  "fe80::/10",
+  "ff00::/8",
 ];
 
 /** Si `ip` es una dirección de Internet pública. Una dirección inválida no lo es. */

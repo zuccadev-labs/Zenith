@@ -34,8 +34,8 @@
 class MockDB {
   private store = new Map<string, Map<string, any>>();
   readonly insertions: { className: string; data: any }[] = [];
-  readonly updates:    { className: string; id: string; data: any }[] = [];
-  readonly deletions:  { className: string; id: string }[] = [];
+  readonly updates: { className: string; id: string; data: any }[] = [];
+  readonly deletions: { className: string; id: string }[] = [];
 
   private getCollection(className: string): Map<string, any> {
     if (!this.store.has(className)) this.store.set(className, new Map());
@@ -55,7 +55,12 @@ class MockDB {
 
   insert(className: string, data: any): any {
     const id = data.objectId ?? crypto.randomUUID();
-    const record = { ...data, objectId: id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const record = {
+      ...data,
+      objectId: id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
     this.getCollection(className).set(id, record);
     this.insertions.push({ className, data: record });
     return record;
@@ -76,18 +81,21 @@ class MockDB {
     return deleted;
   }
 
-  find(className: string, opts: { where?: Record<string, any>; limit?: number; order?: string } = {}): any[] {
+  find(
+    className: string,
+    opts: { where?: Record<string, any>; limit?: number; order?: string } = {},
+  ): any[] {
     const col = this.getCollection(className);
     let results = [...col.values()];
 
     if (opts.where) {
-      results = results.filter(item => {
+      results = results.filter((item) => {
         return Object.entries(opts.where!).every(([k, v]) => {
           if (typeof v === "object" && v !== null) {
-            if (v.$in)  return v.$in.includes(item[k]);
+            if (v.$in) return v.$in.includes(item[k]);
             if (v.$gte) return item[k] >= v.$gte;
             if (v.$lte) return item[k] <= v.$lte;
-            if (v.$ne)  return item[k] !== v.$ne;
+            if (v.$ne) return item[k] !== v.$ne;
           }
           return item[k] === v;
         });
@@ -107,7 +115,12 @@ class MockDB {
     return this.find(className, { ...opts, limit: 1 })[0] ?? null;
   }
 
-  clear(): void { this.store.clear(); this.insertions.length = 0; this.updates.length = 0; this.deletions.length = 0; }
+  clear(): void {
+    this.store.clear();
+    this.insertions.length = 0;
+    this.updates.length = 0;
+    this.deletions.length = 0;
+  }
 
   // Shorthand de búsqueda por predicado (útil en asserts)
   query(className: string, predicate: (item: any) => boolean): any[] {
@@ -128,7 +141,11 @@ class MockMQTT {
   publish(topic: string, payload: any): void {
     this.published.push({ topic, payload, ts: new Date().toISOString() });
     const handlers = this.subscribers.get(topic) ?? [];
-    for (const h of handlers) try { h(payload); } catch (_e) { /* noop: handler isolation */ }
+    for (const h of handlers) {
+      try {
+        h(payload);
+      } catch (_e) { /* noop: handler isolation */ }
+    }
   }
 
   subscribe(topic: string, handler: (payload: any) => void): void {
@@ -137,9 +154,14 @@ class MockMQTT {
   }
 
   // Simula llegada de mensaje MQTT (para tests de triggers IoT)
-  simulate(topic: string, payload: any): void { this.publish(topic, payload); }
+  simulate(topic: string, payload: any): void {
+    this.publish(topic, payload);
+  }
 
-  clear(): void { this.published.length = 0; this.subscribers.clear(); }
+  clear(): void {
+    this.published.length = 0;
+    this.subscribers.clear();
+  }
 }
 
 // ── Assertion Helpers ─────────────────────────────────────────────────────────
@@ -149,24 +171,36 @@ class ZenithAssert {
 
   toBeDefined() {
     if (this.value === undefined || this.value === null) {
-      throw new Error(`[Assert${this.description ? ` "${this.description}"` : ""}] Expected value to be defined, got ${this.value}`);
+      throw new Error(
+        `[Assert${
+          this.description ? ` "${this.description}"` : ""
+        }] Expected value to be defined, got ${this.value}`,
+      );
     }
     return this;
   }
 
   toBeNull() {
-    if (this.value !== null) throw new Error(`[Assert] Expected null, got ${JSON.stringify(this.value)}`);
+    if (this.value !== null) {
+      throw new Error(`[Assert] Expected null, got ${JSON.stringify(this.value)}`);
+    }
     return this;
   }
 
   toBe(expected: any) {
-    if (this.value !== expected) throw new Error(`[Assert] Expected ${JSON.stringify(expected)}, got ${JSON.stringify(this.value)}`);
+    if (this.value !== expected) {
+      throw new Error(
+        `[Assert] Expected ${JSON.stringify(expected)}, got ${JSON.stringify(this.value)}`,
+      );
+    }
     return this;
   }
 
   toEqual(expected: any) {
     if (JSON.stringify(this.value) !== JSON.stringify(expected)) {
-      throw new Error(`[Assert] Expected ${JSON.stringify(expected)}, got ${JSON.stringify(this.value)}`);
+      throw new Error(
+        `[Assert] Expected ${JSON.stringify(expected)}, got ${JSON.stringify(this.value)}`,
+      );
     }
     return this;
   }
@@ -177,14 +211,20 @@ class ZenithAssert {
     }
     if (!(key in this.value)) throw new Error(`[Assert] Expected property '${key}' on object`);
     if (value !== undefined && this.value[key] !== value) {
-      throw new Error(`[Assert] Expected '${key}' = ${JSON.stringify(value)}, got ${JSON.stringify(this.value[key])}`);
+      throw new Error(
+        `[Assert] Expected '${key}' = ${JSON.stringify(value)}, got ${
+          JSON.stringify(this.value[key])
+        }`,
+      );
     }
     return this;
   }
 
   toContain(item: any) {
     if (!Array.isArray(this.value)) throw new Error(`[Assert] Expected array for toContain`);
-    if (!this.value.includes(item)) throw new Error(`[Assert] Expected array to contain ${JSON.stringify(item)}`);
+    if (!this.value.includes(item)) {
+      throw new Error(`[Assert] Expected array to contain ${JSON.stringify(item)}`);
+    }
     return this;
   }
 
@@ -204,27 +244,37 @@ class ZenithAssert {
     return this;
   }
 
-  toThrow() { /* async variant — see harness.expectThrows */ return this; }
-  not = { toBeDefined: () => { if (this.value !== undefined && this.value !== null) throw new Error(`[Assert] Expected undefined/null`); } };
+  toThrow() {
+    /* async variant — see harness.expectThrows */ return this;
+  }
+  not = {
+    toBeDefined: () => {
+      if (this.value !== undefined && this.value !== null) {
+        throw new Error(
+          `[Assert] Expected undefined/null`,
+        );
+      }
+    },
+  };
 }
 
 // ── Harness ───────────────────────────────────────────────────────────────────
 
 interface HarnessOptions {
-  plugins?:    ((ctx: any) => void)[];
-  cloudCode?:  string;  // Path al archivo de Cloud Code
-  seed?:       Record<string, any[]>;
+  plugins?: ((ctx: any) => void)[];
+  cloudCode?: string; // Path al archivo de Cloud Code
+  seed?: Record<string, any[]>;
 }
 
 export class ZenithTestHarness {
-  readonly db   = new MockDB();
+  readonly db = new MockDB();
   readonly mqtt = new MockMQTT();
 
-  private cloudRegistry  = new Map<string, (req: any) => Promise<any>>();
+  private cloudRegistry = new Map<string, (req: any) => Promise<any>>();
   private triggerRegistry = {
-    beforeSave:  new Map<string, (obj: any, ctx: any) => Promise<void>>(),
-    afterSave:   new Map<string, (obj: any, ctx: any) => Promise<void>>(),
-    beforeDelete:new Map<string, (obj: any, ctx: any) => Promise<void>>(),
+    beforeSave: new Map<string, (obj: any, ctx: any) => Promise<void>>(),
+    afterSave: new Map<string, (obj: any, ctx: any) => Promise<void>>(),
+    beforeDelete: new Map<string, (obj: any, ctx: any) => Promise<void>>(),
     afterDelete: new Map<string, (obj: any, ctx: any) => Promise<void>>(),
   };
 
@@ -239,15 +289,18 @@ export class ZenithTestHarness {
         insert: (cls: string, data: any) => h.db.insert(cls, data),
         update: (cls: string, id: string, data: any) => h.db.update(cls, id, data),
         delete: (cls: string, id: string) => h.db.delete(cls, id),
-        find:   (cls: string, q: any) => h.db.find(cls, q),
-        findOne:(cls: string, q: any) => h.db.findOne(cls, q),
+        find: (cls: string, q: any) => h.db.find(cls, q),
+        findOne: (cls: string, q: any) => h.db.findOne(cls, q),
       },
-      IoT: { publish: (t: string, p: any) => h.mqtt.publish(t, p), subscribe: (t: string, fn: any) => h.mqtt.subscribe(t, fn) },
+      IoT: {
+        publish: (t: string, p: any) => h.mqtt.publish(t, p),
+        subscribe: (t: string, fn: any) => h.mqtt.subscribe(t, fn),
+      },
       Cloud: {
         define: (name: string, fn: (req: any) => Promise<any>) => h.cloudRegistry.set(name, fn),
         beforeSave: (cls: string, fn: any) => h.triggerRegistry.beforeSave.set(cls, fn),
-        afterSave:  (cls: string, fn: any) => h.triggerRegistry.afterSave.set(cls, fn),
-        afterDelete:(cls: string, fn: any) => h.triggerRegistry.afterDelete.set(cls, fn),
+        afterSave: (cls: string, fn: any) => h.triggerRegistry.afterSave.set(cls, fn),
+        afterDelete: (cls: string, fn: any) => h.triggerRegistry.afterDelete.set(cls, fn),
       },
       Cache: { get: async () => undefined, set: async () => {}, invalidate: async () => 0 },
     };
@@ -303,7 +356,9 @@ export class ZenithTestHarness {
       throw new Error("[TestHarness] Expected function to throw, but it did not.");
     } catch (e: any) {
       if (messageContains && !e.message?.includes(messageContains)) {
-        throw new Error(`[TestHarness] Expected error to contain '${messageContains}', got: '${e.message}'`);
+        throw new Error(
+          `[TestHarness] Expected error to contain '${messageContains}', got: '${e.message}'`,
+        );
       }
     }
   }
@@ -315,16 +370,22 @@ export class ZenithTestHarness {
   }
 
   /** Shorthand: registros insertados en DB durante el test */
-  get inserted() { return this.db.insertions; }
-  get updated()  { return this.db.updates; }
-  get mqttPublished() { return this.mqtt.published; }
+  get inserted() {
+    return this.db.insertions;
+  }
+  get updated() {
+    return this.db.updates;
+  }
+  get mqttPublished() {
+    return this.mqtt.published;
+  }
 }
 
 // ── Test Suite Runner ─────────────────────────────────────────────────────────
 
 interface TestCase {
   name: string;
-  fn:   (harness: ZenithTestHarness) => Promise<void>;
+  fn: (harness: ZenithTestHarness) => Promise<void>;
 }
 
 export class ZenithTestSuite {
@@ -376,5 +437,7 @@ export class ZenithTestSuite {
     }
   }
 
-  getResults() { return this.results; }
+  getResults() {
+    return this.results;
+  }
 }

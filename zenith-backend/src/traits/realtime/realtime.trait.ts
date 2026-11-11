@@ -19,7 +19,8 @@ export const RealtimeTrait = createTraitDescriptor({
   tags: ["uses:events"],
   state: ["channels", "subscribers"],
   runtimes: ["deno"],
-  summary: "Realtime/WebSocket layer: channel-based pub/sub, live query subscriptions (server-push on matching data changes), presence tracking, room management, heartbeat.",
+  summary:
+    "Realtime/WebSocket layer: channel-based pub/sub, live query subscriptions (server-push on matching data changes), presence tracking, room management, heartbeat.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const events = deps.traits["events"];
@@ -34,9 +35,13 @@ export const RealtimeTrait = createTraitDescriptor({
         socket.addEventListener("close", () => {
           traitApi.channels.get(channel)?.delete(socket);
         });
-        if (events) events.on(`${channel}.changed`, (payload: any) => {
-          if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ channel, payload }));
-        });
+        if (events) {
+          events.on(`${channel}.changed`, (payload: any) => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ channel, payload }));
+            }
+          });
+        }
       },
 
       unsubscribe: (channel: string, socket: WebSocket) => {

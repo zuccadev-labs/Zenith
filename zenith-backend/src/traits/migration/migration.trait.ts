@@ -23,7 +23,8 @@ export const MigrationTrait = createTraitDescriptor({
   consumes: ["db", "schema"],
   state: ["registeredMigrations", "appliedMigrations"],
   runtimes: ["deno"],
-  summary: "Schema migration runner with up/down support, transaction wrapping, and tracking of applied migrations per Zenith app instance.",
+  summary:
+    "Schema migration runner with up/down support, transaction wrapping, and tracking of applied migrations per Zenith app instance.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const schema = deps.traits["schema"];
@@ -34,7 +35,9 @@ export const MigrationTrait = createTraitDescriptor({
 
       register: (migration: ZenithMigration) => {
         if (!migration.name) throw new Error("migration must have a name");
-        if (typeof migration.up !== "function" || typeof migration.down !== "function") throw new Error("migration must have up/down functions");
+        if (typeof migration.up !== "function" || typeof migration.down !== "function") {
+          throw new Error("migration must have up/down functions");
+        }
         traitApi.registeredMigrations.set(migration.name, migration);
       },
 
@@ -63,11 +66,21 @@ export const MigrationTrait = createTraitDescriptor({
         try {
           await mig.up(db, schema);
           traitApi.appliedMigrations.add(name);
-          await db.create("_Migration", { name, appliedAt: new Date().toISOString(), durationMs: Date.now() - start, status: "applied" });
+          await db.create("_Migration", {
+            name,
+            appliedAt: new Date().toISOString(),
+            durationMs: Date.now() - start,
+            status: "applied",
+          });
           console.log(`[Migration] ✓ Applied: ${name} (${Date.now() - start}ms)`);
           return { applied: true, name, durationMs: Date.now() - start };
         } catch (e: any) {
-          await db.create("_Migration", { name, appliedAt: new Date().toISOString(), status: "failed", error: e.message }).catch(() => {});
+          await db.create("_Migration", {
+            name,
+            appliedAt: new Date().toISOString(),
+            status: "failed",
+            error: e.message,
+          }).catch(() => {});
           throw new Error(`migration ${name} failed: ${e.message}`);
         }
       },
@@ -104,8 +117,12 @@ export const MigrationTrait = createTraitDescriptor({
 
       rollback: async (steps: number = 1) => {
         await traitApi.loadApplied();
-        const allMigs = Array.from(traitApi.registeredMigrations.entries()) as Array<[string, ZenithMigration]>;
-        const applied: ZenithMigration[] = allMigs.filter(([name, _m]) => traitApi.appliedMigrations.has(name)).map(([_n, m]) => m);
+        const allMigs = Array.from(traitApi.registeredMigrations.entries()) as Array<
+          [string, ZenithMigration]
+        >;
+        const applied: ZenithMigration[] = allMigs.filter(([name, _m]) =>
+          traitApi.appliedMigrations.has(name)
+        ).map(([_n, m]) => m);
         applied.sort((a: ZenithMigration, b: ZenithMigration) => b.name.localeCompare(a.name));
         const toRevert: ZenithMigration[] = applied.slice(0, steps);
         const results: any[] = [];

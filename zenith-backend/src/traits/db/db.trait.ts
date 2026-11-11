@@ -15,11 +15,19 @@ type Where = Record<string, unknown>;
 type Doc = Record<string, any>;
 
 export interface Crud {
-  find(collection: string, query: { where?: Where; limit?: number; skip?: number; order?: string }): Promise<Doc[]>;
+  find(
+    collection: string,
+    query: { where?: Where; limit?: number; skip?: number; order?: string },
+  ): Promise<Doc[]>;
   findOne(collection: string, query: { where?: Where }): Promise<Doc | null>;
   insert(collection: string, data: Doc): Promise<Doc>;
   update(collection: string, objectId: string, data: Doc): Promise<Doc>;
-  updateIf?(collection: string, objectId: string, conditions: Where, data: Doc): Promise<Doc | null>;
+  updateIf?(
+    collection: string,
+    objectId: string,
+    conditions: Where,
+    data: Doc,
+  ): Promise<Doc | null>;
   delete(collection: string, objectId: string): Promise<void>;
   listClasses?(): Promise<string[]>;
 }
@@ -50,11 +58,16 @@ export function createDb(crud: () => Crud) {
     return one ? [one] : (await c().find(cls, { where: f })).map((d) => d.objectId as string);
   };
   const api = {
-    find: (cls: string, where: Where = {}, opts: { limit?: number; skip?: number; order?: string } = {}) =>
-      c().find(cls, { where, ...opts }),
+    find: (
+      cls: string,
+      where: Where = {},
+      opts: { limit?: number; skip?: number; order?: string } = {},
+    ) => c().find(cls, { where, ...opts }),
     findOne: (cls: string, where: Where) => c().findOne(cls, { where }),
     read: (cls: string, objectId: string) =>
-      typeof objectId === "string" && objectId ? c().findOne(cls, { where: { objectId } }) : Promise.resolve(null),
+      typeof objectId === "string" && objectId
+        ? c().findOne(cls, { where: { objectId } })
+        : Promise.resolve(null),
     create: async (cls: string, data: Doc) => {
       const now = new Date().toISOString();
       return await c().insert(cls, { createdAt: now, updatedAt: now, ...data });
@@ -67,7 +80,9 @@ export function createDb(crud: () => Crud) {
     },
     updateIf: (cls: string, objectId: string, conditions: Where, data: Doc) => {
       const x = c();
-      if (!x.updateIf) throw new Error("db.updateIf: this database adapter has no conditional updates");
+      if (!x.updateIf) {
+        throw new Error("db.updateIf: this database adapter has no conditional updates");
+      }
       return x.updateIf(cls, objectId, conditions, data);
     },
     delete: async (cls: string, filter: Where | string) => {
@@ -85,7 +100,9 @@ export function createDb(crud: () => Crud) {
     },
     listClasses: async () => {
       const x = c();
-      if (!x.listClasses) throw new Error("db.listClasses: this database adapter cannot list classes");
+      if (!x.listClasses) {
+        throw new Error("db.listClasses: this database adapter cannot list classes");
+      }
       return await x.listClasses();
     },
   };

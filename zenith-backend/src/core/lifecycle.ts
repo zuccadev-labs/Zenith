@@ -18,14 +18,19 @@ const hasBackground = (v: unknown): v is Background =>
  * publicar el mismo objeto con dos nombres. Devuelve cuántos arrancó. Un fallo se avisa y no detiene
  * a los demás.
  */
-export function startBackground(capabilities: Record<string, unknown>, warn: (m: string) => void = console.warn): number {
+export function startBackground(
+  capabilities: Record<string, unknown>,
+  warn: (m: string) => void = console.warn,
+): number {
   const started = new Set<unknown>();
   for (const [name, value] of Object.entries(capabilities)) {
     if (!hasBackground(value) || started.has(value)) continue;
     started.add(value);
     Promise.resolve()
       .then(() => value.startBackground())
-      .catch((e) => warn(`[lifecycle] ${name}: background work failed to start: ${(e as Error).message}`));
+      .catch((e) =>
+        warn(`[lifecycle] ${name}: background work failed to start: ${(e as Error).message}`)
+      );
   }
   return started.size;
 }

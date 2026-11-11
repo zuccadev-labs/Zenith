@@ -31,7 +31,11 @@
  * y es compatible con Swagger UI, Redoc, Stoplight Elements, etc.
  */
 
-import { type BarritsCollectedRoute, type BarritsRouteContract, generateOpenApiFromRoutes } from "@zuccadev-labs/barrits/schema/openapi";
+import {
+  type BarritsCollectedRoute,
+  type BarritsRouteContract,
+  generateOpenApiFromRoutes,
+} from "@zuccadev-labs/barrits/schema/openapi";
 import { collectTraitRoutes, type RouteAccess, type RouteScope } from "./route-collection.ts";
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -437,7 +441,6 @@ function exampleFor(name: string): string {
   }
 }
 
-
 /** Convierte provider name → tag (snake/kebab → Title Case). */
 function providerToTag(provider: string): string {
   // e.g. "user_routes" → "user" → "User"
@@ -447,9 +450,30 @@ function providerToTag(provider: string): string {
 
   // Acrónimos conocidos — se preservan en mayúsculas
   const ACRONYMS = new Set([
-    "crud", "api", "ui", "sdk", "iam", "iot", "graphql", "rest",
-    "acl", "clp", "sso", "oidc", "oauth", "saml", "jwt", "csp",
-    "http", "https", "tcp", "udp", "dns", "vpn", "cdn", "waf",
+    "crud",
+    "api",
+    "ui",
+    "sdk",
+    "iam",
+    "iot",
+    "graphql",
+    "rest",
+    "acl",
+    "clp",
+    "sso",
+    "oidc",
+    "oauth",
+    "saml",
+    "jwt",
+    "csp",
+    "http",
+    "https",
+    "tcp",
+    "udp",
+    "dns",
+    "vpn",
+    "cdn",
+    "waf",
   ]);
 
   return base
@@ -466,21 +490,54 @@ function providerToTag(provider: string): string {
 function defaultResponses(method: string): OpenApiOperation["responses"] {
   const methodLower = method.toLowerCase();
   const base = {
-    "400": { description: "Bad Request - parámetros inválidos", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } } },
-    "401": { description: "Unauthorized - falta API key, JWT o session token", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } } },
-    "403": { description: "Forbidden - ACL/CLP denied", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } } },
-    "404": { description: "Not Found - el recurso no existe", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } } },
-    "429": { description: "Too Many Requests - rate limit exceeded", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } } },
-    "500": { description: "Internal Server Error", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } } },
+    "400": {
+      description: "Bad Request - parámetros inválidos",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } },
+    },
+    "401": {
+      description: "Unauthorized - falta API key, JWT o session token",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } },
+    },
+    "403": {
+      description: "Forbidden - ACL/CLP denied",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } },
+    },
+    "404": {
+      description: "Not Found - el recurso no existe",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } },
+    },
+    "429": {
+      description: "Too Many Requests - rate limit exceeded",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } },
+    },
+    "500": {
+      description: "Internal Server Error",
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithError" } } },
+    },
   };
   if (methodLower === "get") {
-    return { "200": { description: "OK", content: { "application/json": { schema: { type: "object" } } } }, ...base };
+    return {
+      "200": { description: "OK", content: { "application/json": { schema: { type: "object" } } } },
+      ...base,
+    };
   }
   if (methodLower === "post") {
-    return { "201": { description: "Created", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithObject" } } } }, ...base };
+    return {
+      "201": {
+        description: "Created",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithObject" } } },
+      },
+      ...base,
+    };
   }
   if (methodLower === "put" || methodLower === "patch") {
-    return { "200": { description: "Updated", content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithObject" } } } }, ...base };
+    return {
+      "200": {
+        description: "Updated",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithObject" } } },
+      },
+      ...base,
+    };
   }
   if (methodLower === "delete") {
     return { "204": { description: "No Content" }, ...base };
@@ -492,7 +549,10 @@ function defaultResponses(method: string): OpenApiOperation["responses"] {
  * Security of a route from its `access`, as the pipeline enforces it (ADR-013). Unset is "master",
  * the router's default.
  */
-function securityFor(access: RouteAccess | undefined, scope: RouteScope | undefined): OpenApiOperation["security"] {
+function securityFor(
+  access: RouteAccess | undefined,
+  scope: RouteScope | undefined,
+): OpenApiOperation["security"] {
   if (access === "public") return [];
   if (access === "user") {
     const session: Array<Record<string, string[]>> = [{ "sessionToken": [] }, { "jwtRs256": [] }];
@@ -534,7 +594,10 @@ export function generateOpenApiFromState(
   //    method+path or operationId, which the router would otherwise serve only once.
   const routes: BarritsCollectedRoute[] = [];
   for (const { provider, route } of collectTraitRoutes(state)) {
-    routes.push({ capability: provider, route: toContract(withZenithDefaults(route as RouteEntry)) });
+    routes.push({
+      capability: provider,
+      route: toContract(withZenithDefaults(route as RouteEntry)),
+    });
   }
   const extraRoutes = (options.extraRoutes ?? []).map(withZenithDefaults);
 
@@ -552,20 +615,29 @@ export function generateOpenApiFromState(
     title: options.title ?? "Zenith API",
     version: options.version ?? "1.0.0",
     ...(options.description ? { description: options.description } : {}),
-    ...(options.serverURL ? { servers: [{ url: options.serverURL, description: "Production" }] } : {}),
+    ...(options.serverURL
+      ? { servers: [{ url: options.serverURL, description: "Production" }] }
+      : {}),
     extraRoutes: extraRoutes.map(toContract),
     schemas,
     securitySchemes: securitySchemes as unknown as Record<string, Record<string, unknown>>,
     tagFor: providerToTag,
     tagDescriptions: { ...BUILTIN_TAG_DESCRIPTIONS, ...(options.additionalTagDescriptions ?? {}) },
-    securityFor: (route) => securityFor(route.access as RouteAccess | undefined, route.scope as RouteScope | undefined),
+    securityFor: (route) =>
+      securityFor(route.access as RouteAccess | undefined, route.scope as RouteScope | undefined),
   });
 
   // 3. Zenith-only fields barrits has no option for.
   const spec = structuredClone(doc) as unknown as OpenApiSpec;
   if (options.appId) spec.info["x-app-id"] = options.appId;
   spec.components.parameters = {};
-  for (const route of [...routes.map((r) => r.route), ...extraRoutes] as readonly { method: string; path: string; scope?: unknown }[]) {
+  for (
+    const route of [...routes.map((r) => r.route), ...extraRoutes] as readonly {
+      method: string;
+      path: string;
+      scope?: unknown;
+    }[]
+  ) {
     if (route.scope !== "per-operation") continue;
     const op = spec.paths[toOpenApiPath(route.path)]?.[route.method.toLowerCase()];
     if (op) op["x-api-key-scope"] = PER_OPERATION_SCOPE;
@@ -574,9 +646,11 @@ export function generateOpenApiFromState(
 }
 
 /** Zenith's interfaces describe the same JSON as barrits' readonly records. */
-const toContract = (route: RouteEntry): BarritsRouteContract => route as unknown as BarritsRouteContract;
+const toContract = (route: RouteEntry): BarritsRouteContract =>
+  route as unknown as BarritsRouteContract;
 
-const PER_OPERATION_SCOPE = "Per operation: data:read, data:create, data:write or data:delete (users:read / users:write for _User).";
+const PER_OPERATION_SCOPE =
+  "Per operation: data:read, data:create, data:write or data:delete (users:read / users:write for _User).";
 
 /**
  * A route with Zenith's documentation defaults in `_openapi` (path examples, ZenithError
@@ -612,7 +686,12 @@ export function extractAllRoutes(state: ZenithState): Array<{
 }> {
   const out: Array<{ provider: string; method: string; path: string; hasMetadata: boolean }> = [];
   for (const { provider, route } of collectTraitRoutes(state)) {
-    out.push({ provider, method: route.method, path: route.path, hasMetadata: Boolean(route._openapi) });
+    out.push({
+      provider,
+      method: route.method,
+      path: route.path,
+      hasMetadata: Boolean(route._openapi),
+    });
   }
   return out;
 }

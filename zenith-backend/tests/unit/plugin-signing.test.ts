@@ -12,6 +12,7 @@
 import { assertEquals, assertExists, assertRejects, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
+  addKey,
   buildKeyId,
   buildPluginArtifact,
   canonicalJson,
@@ -27,15 +28,14 @@ import {
   revokeKey,
   saveTrustStore,
   sign,
+  type SignedPluginManifest,
   signPlugin,
+  type TrustStore,
   validateManifest,
   validatePublicKey,
   verify,
   verifyPlugin,
   verifyPluginSignature,
-  type SignedPluginManifest,
-  type TrustStore,
-  addKey,
 } from "../../src/security/plugin-signing/mod.ts";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -141,7 +141,7 @@ Deno.test("canonical.ts: no whitespace in output", () => {
 });
 
 Deno.test("canonical.ts: escapes special chars in strings", () => {
-  const out = canonicalJson("a\"b\nc\td");
+  const out = canonicalJson('a"b\nc\td');
   assertEquals(out, `"a\\"b\\nc\\td"`);
 });
 
@@ -317,7 +317,13 @@ Deno.test("manifest.ts: validateManifest rejects mismatched keyId in sig vs auth
 
 Deno.test("trust-store.ts: addKey + findKey", () => {
   const store = emptyTrustStore();
-  const kp = { keyId: "acme-ed25519-12345678", publicKey: "x", alg: "Ed25519" as const, addedAt: "2024", addedBy: "user" as const };
+  const kp = {
+    keyId: "acme-ed25519-12345678",
+    publicKey: "x",
+    alg: "Ed25519" as const,
+    addedAt: "2024",
+    addedBy: "user" as const,
+  };
   const updated = addKey(store, kp);
   const found = updated.keys.find((x) => x.keyId === kp.keyId);
   assertExists(found);
@@ -325,7 +331,13 @@ Deno.test("trust-store.ts: addKey + findKey", () => {
 
 Deno.test("trust-store.ts: addKey throws on duplicate", () => {
   const store = emptyTrustStore();
-  const k = { keyId: "a-ed25519-00000000", publicKey: "x", alg: "Ed25519" as const, addedAt: "t", addedBy: "user" as const };
+  const k = {
+    keyId: "a-ed25519-00000000",
+    publicKey: "x",
+    alg: "Ed25519" as const,
+    addedAt: "t",
+    addedBy: "user" as const,
+  };
   const added = addKey(store, k);
   let threw = false;
   try {
@@ -339,7 +351,13 @@ Deno.test("trust-store.ts: addKey throws on duplicate", () => {
 
 Deno.test("trust-store.ts: revokeKey marks revokedAt", () => {
   const store = emptyTrustStore();
-  const k = { keyId: "a-ed25519-00000000", publicKey: "x", alg: "Ed25519" as const, addedAt: "t", addedBy: "user" as const };
+  const k = {
+    keyId: "a-ed25519-00000000",
+    publicKey: "x",
+    alg: "Ed25519" as const,
+    addedAt: "t",
+    addedBy: "user" as const,
+  };
   const added = addKey(store, k);
   const revoked = revokeKey(added, k.keyId, "compromised");
   const found = revoked.keys.find((x) => x.keyId === k.keyId);
@@ -349,7 +367,13 @@ Deno.test("trust-store.ts: revokeKey marks revokedAt", () => {
 
 Deno.test("trust-store.ts: removeKey removes completely", () => {
   const store = emptyTrustStore();
-  const k = { keyId: "a-ed25519-00000000", publicKey: "x", alg: "Ed25519" as const, addedAt: "t", addedBy: "user" as const };
+  const k = {
+    keyId: "a-ed25519-00000000",
+    publicKey: "x",
+    alg: "Ed25519" as const,
+    addedAt: "t",
+    addedBy: "user" as const,
+  };
   const added = addKey(store, k);
   const removed = removeKey(added, k.keyId);
   assertEquals(removed.keys.length, 0);
@@ -358,7 +382,13 @@ Deno.test("trust-store.ts: removeKey removes completely", () => {
 Deno.test("trust-store.ts: saveTrustStore + loadTrustStore roundtrip", async () => {
   const dir = await tmpDir();
   const path = join(dir, "sub", "store.json");
-  const k = { keyId: "a-ed25519-00000000", publicKey: "abc", alg: "Ed25519" as const, addedAt: "2024", addedBy: "user" as const };
+  const k = {
+    keyId: "a-ed25519-00000000",
+    publicKey: "abc",
+    alg: "Ed25519" as const,
+    addedAt: "2024",
+    addedBy: "user" as const,
+  };
   const store = addKey(emptyTrustStore(), k);
   await saveTrustStore(path, store);
 
@@ -438,8 +468,11 @@ Deno.test("verifier.ts: rejects plugin_name_mismatch", async () => {
     keyId,
   });
   const trust = addKey(emptyTrustStore(), {
-    keyId, publicKey: kp.publicKey, alg: "Ed25519",
-    addedAt: new Date().toISOString(), addedBy: "user",
+    keyId,
+    publicKey: kp.publicKey,
+    alg: "Ed25519",
+    addedAt: new Date().toISOString(),
+    addedBy: "user",
   });
 
   const result = await verifyPlugin({ pluginPath, manifest, trust });
@@ -472,7 +505,9 @@ Deno.test("verifier.ts: rejects key_not_trusted", async () => {
   });
   // Trust store NO contiene esta key
   const result = await verifyPlugin({
-    pluginPath, manifest, trust: emptyTrustStore(),
+    pluginPath,
+    manifest,
+    trust: emptyTrustStore(),
   });
   assertEquals(result.ok, false);
   if (!result.ok) assertEquals(result.reason, "key_not_trusted");
@@ -490,16 +525,30 @@ Deno.test("verifier.ts: rejects key_revoked by default", async () => {
   const { createHash } = await import("node:crypto");
   const sha = createHash("sha256").update(content).digest("hex");
   const artifact = buildPluginArtifact({
-    name: "x.ts", version: "1.0.0", sha256: sha, size: content.byteLength,
-    permissions: [], author: { id: "acme", keyId },
+    name: "x.ts",
+    version: "1.0.0",
+    sha256: sha,
+    size: content.byteLength,
+    permissions: [],
+    author: { id: "acme", keyId },
   });
   const manifest = await signPlugin({
-    artifact, privateKeyB64: kp.privateKey, authorId: "acme", keyId,
+    artifact,
+    privateKeyB64: kp.privateKey,
+    authorId: "acme",
+    keyId,
   });
-  const trust = revokeKey(addKey(emptyTrustStore(), {
-    keyId, publicKey: kp.publicKey, alg: "Ed25519",
-    addedAt: new Date().toISOString(), addedBy: "user",
-  }), keyId, "compromised");
+  const trust = revokeKey(
+    addKey(emptyTrustStore(), {
+      keyId,
+      publicKey: kp.publicKey,
+      alg: "Ed25519",
+      addedAt: new Date().toISOString(),
+      addedBy: "user",
+    }),
+    keyId,
+    "compromised",
+  );
 
   const result = await verifyPlugin({ pluginPath, manifest, trust });
   assertEquals(result.ok, false);
@@ -524,11 +573,18 @@ Deno.test("verifier.ts: rejects signature_invalid (wrong key in trust store)", a
   const sha = createHash("sha256").update(content).digest("hex");
   // Manifest firmado con A
   const artifact = buildPluginArtifact({
-    name: "x.ts", version: "1.0.0", sha256: sha, size: content.byteLength,
-    permissions: [], author: { id: "acme", keyId: keyIdA },
+    name: "x.ts",
+    version: "1.0.0",
+    sha256: sha,
+    size: content.byteLength,
+    permissions: [],
+    author: { id: "acme", keyId: keyIdA },
   });
   const manifest = await signPlugin({
-    artifact, privateKeyB64: kpA.privateKey, authorId: "acme", keyId: keyIdA,
+    artifact,
+    privateKeyB64: kpA.privateKey,
+    authorId: "acme",
+    keyId: keyIdA,
   });
   // Trust store tiene keyIdA pero apunta a la clave de B
   const trust = addKey(emptyTrustStore(), {
@@ -553,18 +609,28 @@ Deno.test("verifier.ts: rejects plugin_sha256_mismatch (tampered file)", async (
   // Firmamos con un hash
   const claimedSha = "0".repeat(64);
   const artifact = buildPluginArtifact({
-    name: "x.ts", version: "1.0.0", sha256: claimedSha, size: 100,
-    permissions: [], author: { id: "acme", keyId },
+    name: "x.ts",
+    version: "1.0.0",
+    sha256: claimedSha,
+    size: 100,
+    permissions: [],
+    author: { id: "acme", keyId },
   });
   const manifest = await signPlugin({
-    artifact, privateKeyB64: kp.privateKey, authorId: "acme", keyId,
+    artifact,
+    privateKeyB64: kp.privateKey,
+    authorId: "acme",
+    keyId,
   });
   // Pero escribimos un archivo con contenido diferente
   const content = new TextEncoder().encode("malicious code");
   await Deno.writeFile(pluginPath, content);
   const trust = addKey(emptyTrustStore(), {
-    keyId, publicKey: kp.publicKey, alg: "Ed25519",
-    addedAt: new Date().toISOString(), addedBy: "user",
+    keyId,
+    publicKey: kp.publicKey,
+    alg: "Ed25519",
+    addedAt: new Date().toISOString(),
+    addedBy: "user",
   });
   const result = await verifyPlugin({ pluginPath, manifest, trust });
   assertEquals(result.ok, false);
@@ -585,7 +651,9 @@ Deno.test("verifier.ts: rejects manifest_malformed", async () => {
     signature: { alg: "Ed25519", keyId, value: "x", signedAt: "2024" },
   } as unknown as SignedPluginManifest;
   const result = await verifyPlugin({
-    pluginPath, manifest: broken, trust: emptyTrustStore(),
+    pluginPath,
+    manifest: broken,
+    trust: emptyTrustStore(),
   });
   assertEquals(result.ok, false);
   if (!result.ok) assertEquals(result.reason, "manifest_malformed");

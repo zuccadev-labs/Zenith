@@ -12,7 +12,7 @@
  */
 
 export interface QdrantConfig {
-  url: string;     // ej. "http://localhost:56333"
+  url: string; // ej. "http://localhost:56333"
   apiKey?: string; // ej. "zenithqdrant"
 }
 
@@ -43,13 +43,25 @@ export interface VectorSearchOptions {
  */
 export interface VectorDBAdapter {
   /** Crear una colección vectorial si no existe */
-  ensureCollection(name: string, vectorSize: number, distance?: "Cosine" | "Dot" | "Euclid"): Promise<void>;
+  ensureCollection(
+    name: string,
+    vectorSize: number,
+    distance?: "Cosine" | "Dot" | "Euclid",
+  ): Promise<void>;
   /** Insertar o actualizar puntos (upsert semántico) */
   upsert(collection: string, points: VectorPoint[]): Promise<void>;
   /** Búsqueda por similitud de vector */
-  search(collection: string, vector: number[], options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+  search(
+    collection: string,
+    vector: number[],
+    options?: VectorSearchOptions,
+  ): Promise<VectorSearchResult[]>;
   /** Búsqueda por texto usando un vector pre-computado (RAG helper) */
-  searchByText?(collection: string, embedding: number[], options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+  searchByText?(
+    collection: string,
+    embedding: number[],
+    options?: VectorSearchOptions,
+  ): Promise<VectorSearchResult[]>;
   /** Eliminar puntos por ID */
   delete(collection: string, ids: string[]): Promise<void>;
   /** Obtener punto por ID */
@@ -76,8 +88,8 @@ function buildQdrantFilter(filter?: Record<string, any>): any {
       const range: any = {};
       if (value.$gte !== undefined) range.gte = value.$gte;
       if (value.$lte !== undefined) range.lte = value.$lte;
-      if (value.$gt !== undefined)  range.gt = value.$gt;
-      if (value.$lt !== undefined)  range.lt = value.$lt;
+      if (value.$gt !== undefined) range.gt = value.$gt;
+      if (value.$lt !== undefined) range.lt = value.$lt;
       if (Object.keys(range).length > 0) {
         must.push({ key, range });
       }
@@ -137,12 +149,14 @@ export function createQdrantAdapter(config: QdrantConfig): VectorDBAdapter {
           },
           replication_factor: 1,
         });
-        console.log(`[Qdrant] ✅ Collection '${name}' created (dim=${vectorSize}, dist=${distance})`);
+        console.log(
+          `[Qdrant] ✅ Collection '${name}' created (dim=${vectorSize}, dist=${distance})`,
+        );
       }
     },
 
     async upsert(collection, points) {
-      const qdrantPoints = points.map(p => ({
+      const qdrantPoints = points.map((p) => ({
         id: p.id,
         vector: p.vector,
         payload: p.payload ?? {},

@@ -9,7 +9,7 @@
  */
 
 import { generateOpenApiFromState } from "./openapi-generator.ts";
-import { collectTraitRoutes, HEALTH_ROUTE, hasTraitHealthRoute } from "./route-collection.ts";
+import { collectTraitRoutes, hasTraitHealthRoute, HEALTH_ROUTE } from "./route-collection.ts";
 import { apiKeyRouteSpecs } from "../security/api-keys/routes.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,8 +29,13 @@ export interface OpenApiOptions {
  * The routes the server mounts outside the traits: `/zen/api-keys`, and the minimal `/health`
  * when no trait serves one (as `buildDynamicRouter` decides).
  */
-export function coreRoutes(engine: Record<string, unknown> = {}): Array<{ method: string; path: string; [key: string]: unknown }> {
-  return [...(hasTraitHealthRoute(collectTraitRoutes(engine)) ? [] : [HEALTH_ROUTE]), ...apiKeyRouteSpecs()];
+export function coreRoutes(
+  engine: Record<string, unknown> = {},
+): Array<{ method: string; path: string; [key: string]: unknown }> {
+  return [
+    ...(hasTraitHealthRoute(collectTraitRoutes(engine)) ? [] : [HEALTH_ROUTE]),
+    ...apiKeyRouteSpecs(),
+  ];
 }
 
 interface RouteEntry {
@@ -154,9 +159,25 @@ interface RouteSpec {
 
 // deno-lint-ignore no-unused-vars
 const AUTH_HEADER_PARAMS = [
-  { name: "Zen-Application-Id", in: "header", required: true, schema: { type: "string" }, description: "Application ID (alias: X-Parse-Application-Id)" },
-  { name: "Zen-Master-Key", in: "header", schema: { type: "string" }, description: "Master Key — bypasses ACL (alias: X-Parse-Master-Key)" },
-  { name: "Authorization", in: "header", schema: { type: "string", example: "Bearer <sessionToken>" }, description: "JWT Session Token (alias: X-Parse-Session-Token)" },
+  {
+    name: "Zen-Application-Id",
+    in: "header",
+    required: true,
+    schema: { type: "string" },
+    description: "Application ID (alias: X-Parse-Application-Id)",
+  },
+  {
+    name: "Zen-Master-Key",
+    in: "header",
+    schema: { type: "string" },
+    description: "Master Key — bypasses ACL (alias: X-Parse-Master-Key)",
+  },
+  {
+    name: "Authorization",
+    in: "header",
+    schema: { type: "string", example: "Bearer <sessionToken>" },
+    description: "JWT Session Token (alias: X-Parse-Session-Token)",
+  },
 ];
 
 // deno-lint-ignore no-unused-vars
@@ -164,241 +185,504 @@ function routeSpec(method: string, path: string): RouteSpec {
   const m = method.toUpperCase();
 
   // ── Users & Auth ────────────────────────────────────────────────
-  if (path === "/users" && m === "POST") return {
-    summary: "Sign Up (Register User)",
-    description: "Creates a new user. Supports classic username/password and OAuth `authData` (Google, Apple, Facebook).",
-    tags: ["Auth"],
-    requestBody: {
-      required: true,
-      content: { "application/json": { schema: {
-        type: "object",
-        properties: {
-          username: { type: "string", example: "john_doe" },
-          password: { type: "string", example: "s3cr3t" },
-          email: { type: "string", format: "email" },
-          authData: { type: "object", description: "OAuth data (e.g. { google: { id, access_token } })" },
+  if (path === "/users" && m === "POST") {
+    return {
+      summary: "Sign Up (Register User)",
+      description:
+        "Creates a new user. Supports classic username/password and OAuth `authData` (Google, Apple, Facebook).",
+      tags: ["Auth"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                username: { type: "string", example: "john_doe" },
+                password: { type: "string", example: "s3cr3t" },
+                email: { type: "string", format: "email" },
+                authData: {
+                  type: "object",
+                  description: "OAuth data (e.g. { google: { id, access_token } })",
+                },
+              },
+              required: ["username"],
+            },
+          },
         },
-        required: ["username"],
-      }}},
-    },
-    responses: {
-      "201": { description: "User created", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithUser" } } } },
-      "400": { description: "Validation error", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } } } },
-    },
-  };
-
-  if (path === "/login" && m === "POST") return {
-    summary: "Log In",
-    description: "Authenticates a user with username/password or `authData`. Returns a signed JWT session token.",
-    tags: ["Auth"],
-    requestBody: {
-      required: true,
-      content: { "application/json": { schema: {
-        type: "object",
-        properties: {
-          username: { type: "string" },
-          password: { type: "string" },
-          authData: { type: "object" },
+      },
+      responses: {
+        "201": {
+          description: "User created",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithUser" } },
+          },
         },
-      }}},
-    },
-    responses: {
-      "200": { description: "Login successful", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithUser" } } } },
-      "401": { description: "Invalid credentials", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } } } },
-    },
-  };
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/logout" && m === "POST") return {
-    summary: "Log Out",
-    description: "Invalidates the current session token and removes the session from the database.",
-    tags: ["Auth"],
-    responses: { "200": { description: "Logged out successfully" } },
-  };
+  if (path === "/login" && m === "POST") {
+    return {
+      summary: "Log In",
+      description:
+        "Authenticates a user with username/password or `authData`. Returns a signed JWT session token.",
+      tags: ["Auth"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                username: { type: "string" },
+                password: { type: "string" },
+                authData: { type: "object" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Login successful",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithUser" } },
+          },
+        },
+        "401": {
+          description: "Invalid credentials",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/sessions/me" && m === "GET") return {
-    summary: "Get Current Session",
-    description: "Returns the decoded JWT payload for the currently authenticated user.",
-    tags: ["Auth"],
-    responses: {
-      "200": { description: "Session info", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithSession" } } } },
-      "401": { description: "Unauthorized", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } } } },
-    },
-  };
+  if (path === "/logout" && m === "POST") {
+    return {
+      summary: "Log Out",
+      description:
+        "Invalidates the current session token and removes the session from the database.",
+      tags: ["Auth"],
+      responses: { "200": { description: "Logged out successfully" } },
+    };
+  }
 
-  if (path === "/requestPasswordReset" && m === "POST") return {
-    summary: "Request Password Reset",
-    description: "Sends a password reset link to the user's email. Silent success to prevent email enumeration.",
-    tags: ["Auth"],
-    requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { email: { type: "string", format: "email" } }, required: ["email"] } } } },
-    responses: { "200": { description: "Reset email sent (if account exists)" } },
-  };
+  if (path === "/sessions/me" && m === "GET") {
+    return {
+      summary: "Get Current Session",
+      description: "Returns the decoded JWT payload for the currently authenticated user.",
+      tags: ["Auth"],
+      responses: {
+        "200": {
+          description: "Session info",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithSession" } },
+          },
+        },
+        "401": {
+          description: "Unauthorized",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } },
+          },
+        },
+      },
+    };
+  }
+
+  if (path === "/requestPasswordReset" && m === "POST") {
+    return {
+      summary: "Request Password Reset",
+      description:
+        "Sends a password reset link to the user's email. Silent success to prevent email enumeration.",
+      tags: ["Auth"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: { email: { type: "string", format: "email" } },
+              required: ["email"],
+            },
+          },
+        },
+      },
+      responses: { "200": { description: "Reset email sent (if account exists)" } },
+    };
+  }
 
   // ── CRUD ────────────────────────────────────────────────────────
-  if (path === "/classes/:className" && m === "GET") return {
-    summary: "Query Objects",
-    description: "Queries objects with full Parse-compatible filtering: `where`, `limit`, `skip`, `order`, `keys`, `include`, `count`.",
-    tags: ["REST CRUD"],
-    responses: {
-      "200": { description: "Query results", content: { "application/json": { schema: {
-        type: "object",
-        properties: { results: { type: "array", items: { "$ref": "#/components/schemas/ZenithObject" } }, count: { type: "integer" } },
-      }}}},
-    },
-  };
+  if (path === "/classes/:className" && m === "GET") {
+    return {
+      summary: "Query Objects",
+      description:
+        "Queries objects with full Parse-compatible filtering: `where`, `limit`, `skip`, `order`, `keys`, `include`, `count`.",
+      tags: ["REST CRUD"],
+      responses: {
+        "200": {
+          description: "Query results",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  results: {
+                    type: "array",
+                    items: { "$ref": "#/components/schemas/ZenithObject" },
+                  },
+                  count: { type: "integer" },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/classes/:className" && m === "POST") return {
-    summary: "Create Object",
-    description: "Inserts a new object into the specified class. Runs `beforeSave` and `afterSave` Cloud Code triggers.",
-    tags: ["REST CRUD"],
-    requestBody: { required: true, content: { "application/json": { schema: { type: "object", additionalProperties: true, example: { score: 1337, playerName: "John" } } } } },
-    responses: {
-      "201": { description: "Object created", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithObject" } } } },
-    },
-  };
+  if (path === "/classes/:className" && m === "POST") {
+    return {
+      summary: "Create Object",
+      description:
+        "Inserts a new object into the specified class. Runs `beforeSave` and `afterSave` Cloud Code triggers.",
+      tags: ["REST CRUD"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              additionalProperties: true,
+              example: { score: 1337, playerName: "John" },
+            },
+          },
+        },
+      },
+      responses: {
+        "201": {
+          description: "Object created",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithObject" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/classes/:className/:objectId" && m === "GET") return {
-    summary: "Get Object by ID",
-    description: "Retrieves a single object. Supports `include` for pointer resolution.",
-    tags: ["REST CRUD"],
-    responses: {
-      "200": { description: "Object found", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithObject" } } } },
-      "404": { description: "Not found", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } } } },
-    },
-  };
+  if (path === "/classes/:className/:objectId" && m === "GET") {
+    return {
+      summary: "Get Object by ID",
+      description: "Retrieves a single object. Supports `include` for pointer resolution.",
+      tags: ["REST CRUD"],
+      responses: {
+        "200": {
+          description: "Object found",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithObject" } },
+          },
+        },
+        "404": {
+          description: "Not found",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithError" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/classes/:className/:objectId" && m === "PUT") return {
-    summary: "Update Object",
-    description: "Partially updates an object. Runs `beforeSave`/`afterSave` triggers with original object for diffing.",
-    tags: ["REST CRUD"],
-    requestBody: { required: true, content: { "application/json": { schema: { type: "object", additionalProperties: true } } } },
-    responses: { "200": { description: "Updated", content: { "application/json": { schema: { "$ref": "#/components/schemas/ZenithObject" } } } } },
-  };
+  if (path === "/classes/:className/:objectId" && m === "PUT") {
+    return {
+      summary: "Update Object",
+      description:
+        "Partially updates an object. Runs `beforeSave`/`afterSave` triggers with original object for diffing.",
+      tags: ["REST CRUD"],
+      requestBody: {
+        required: true,
+        content: { "application/json": { schema: { type: "object", additionalProperties: true } } },
+      },
+      responses: {
+        "200": {
+          description: "Updated",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/ZenithObject" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/classes/:className/:objectId" && m === "DELETE") return {
-    summary: "Delete Object",
-    description: "Deletes an object. Runs `beforeDelete`/`afterDelete` triggers. Broadcasts to LiveQuery and Federation.",
-    tags: ["REST CRUD"],
-    responses: { "200": { description: "Deleted" } },
-  };
+  if (path === "/classes/:className/:objectId" && m === "DELETE") {
+    return {
+      summary: "Delete Object",
+      description:
+        "Deletes an object. Runs `beforeDelete`/`afterDelete` triggers. Broadcasts to LiveQuery and Federation.",
+      tags: ["REST CRUD"],
+      responses: { "200": { description: "Deleted" } },
+    };
+  }
 
-  if (path === "/batch" && m === "POST") return {
-    summary: "Batch Operations",
-    description: "Executes multiple REST operations atomically in a single HTTP request. Parse Server compatible.",
-    tags: ["REST CRUD"],
-    requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/BatchRequest" } } } },
-    responses: { "200": { description: "Batch results array" } },
-  };
+  if (path === "/batch" && m === "POST") {
+    return {
+      summary: "Batch Operations",
+      description:
+        "Executes multiple REST operations atomically in a single HTTP request. Parse Server compatible.",
+      tags: ["REST CRUD"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: { "$ref": "#/components/schemas/BatchRequest" } },
+        },
+      },
+      responses: { "200": { description: "Batch results array" } },
+    };
+  }
 
   // ── Cloud Code ──────────────────────────────────────────────────
-  if (path === "/functions/:functionName" && m === "POST") return {
-    summary: "Invoke Cloud Function",
-    description: "Calls a registered Cloud Function. Runs validator (requireUser, fields, roles) before execution. Parse Server compatible.",
-    tags: ["Cloud Code"],
-    requestBody: { required: false, content: { "application/json": { schema: { type: "object", additionalProperties: true, example: { name: "World" } } } } },
-    responses: { "200": { description: "Function result", content: { "application/json": { schema: { "$ref": "#/components/schemas/CloudFunctionResult" } } } } },
-  };
+  if (path === "/functions/:functionName" && m === "POST") {
+    return {
+      summary: "Invoke Cloud Function",
+      description:
+        "Calls a registered Cloud Function. Runs validator (requireUser, fields, roles) before execution. Parse Server compatible.",
+      tags: ["Cloud Code"],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: { type: "object", additionalProperties: true, example: { name: "World" } },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Function result",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/CloudFunctionResult" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (path === "/jobs/:jobName" && m === "POST") return {
-    summary: "Run Background Job",
-    description: "Enqueues a background job for async execution. **Master Key required.** Returns immediately with job ID.",
-    tags: ["Cloud Code"],
-    security: [{ MasterKey: [] }],
-    responses: { "202": { description: "Job accepted", content: { "application/json": { schema: { type: "object", properties: { status: { type: "string" }, jobId: { type: "string" } } } } } } },
-  };
+  if (path === "/jobs/:jobName" && m === "POST") {
+    return {
+      summary: "Run Background Job",
+      description:
+        "Enqueues a background job for async execution. **Master Key required.** Returns immediately with job ID.",
+      tags: ["Cloud Code"],
+      security: [{ MasterKey: [] }],
+      responses: {
+        "202": {
+          description: "Job accepted",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { status: { type: "string" }, jobId: { type: "string" } },
+              },
+            },
+          },
+        },
+      },
+    };
+  }
 
   // ── Storage ─────────────────────────────────────────────────────
-  if (m === "POST" && path.includes("/storage/upload")) return {
-    summary: "Upload File",
-    description: "Uploads a file to the RustFS/S3 storage adapter. Runs `beforeSaveFile` and `afterSaveFile` triggers.",
-    tags: ["File Storage"],
-    requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: { file: { type: "string", format: "binary" }, name: { type: "string" } } } } } },
-    responses: { "201": { description: "File uploaded", content: { "application/json": { schema: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } } } } } } },
-  };
+  if (m === "POST" && path.includes("/storage/upload")) {
+    return {
+      summary: "Upload File",
+      description:
+        "Uploads a file to the RustFS/S3 storage adapter. Runs `beforeSaveFile` and `afterSaveFile` triggers.",
+      tags: ["File Storage"],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              properties: { file: { type: "string", format: "binary" }, name: { type: "string" } },
+            },
+          },
+        },
+      },
+      responses: {
+        "201": {
+          description: "File uploaded",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { name: { type: "string" }, url: { type: "string" } },
+              },
+            },
+          },
+        },
+      },
+    };
+  }
 
   // ── Media ────────────────────────────────────────────────────────
-  if (m === "POST" && path === "/media/publish") return {
-    summary: "Publish Media Stream (WHIP)",
-    description: "Initiates a new media stream. Supports WebRTC (WHIP protocol). Runs `beforePublish` Cloud Code trigger.",
-    tags: ["Media Streaming"],
-    requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { protocol: { type: "string", enum: ["webrtc", "hls"] }, record: { type: "boolean" }, streamId: { type: "string" } } } } } },
-    responses: { "201": { description: "Stream created", content: { "application/json": { schema: { "$ref": "#/components/schemas/MediaStreamResult" } } } } },
-  };
+  if (m === "POST" && path === "/media/publish") {
+    return {
+      summary: "Publish Media Stream (WHIP)",
+      description:
+        "Initiates a new media stream. Supports WebRTC (WHIP protocol). Runs `beforePublish` Cloud Code trigger.",
+      tags: ["Media Streaming"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                protocol: { type: "string", enum: ["webrtc", "hls"] },
+                record: { type: "boolean" },
+                streamId: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        "201": {
+          description: "Stream created",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/MediaStreamResult" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (m === "POST" && path === "/media/watch/:streamId") return {
-    summary: "Watch Stream (WHEP)",
-    description: "Subscribes to an active stream. Returns WebRTC signaling info. Runs `beforeWatch` trigger.",
-    tags: ["Media Streaming"],
-    responses: { "200": { description: "Stream info", content: { "application/json": { schema: { "$ref": "#/components/schemas/MediaStreamResult" } } } } },
-  };
+  if (m === "POST" && path === "/media/watch/:streamId") {
+    return {
+      summary: "Watch Stream (WHEP)",
+      description:
+        "Subscribes to an active stream. Returns WebRTC signaling info. Runs `beforeWatch` trigger.",
+      tags: ["Media Streaming"],
+      responses: {
+        "200": {
+          description: "Stream info",
+          content: {
+            "application/json": { schema: { "$ref": "#/components/schemas/MediaStreamResult" } },
+          },
+        },
+      },
+    };
+  }
 
-  if (m === "GET" && path === "/media/streams") return {
-    summary: "List Active Streams",
-    description: "Returns all currently active media streams. Useful for admin dashboards.",
-    tags: ["Media Streaming"],
-    responses: { "200": { description: "Active streams", content: { "application/json": { schema: { type: "object", properties: { results: { type: "array" } } } } } } },
-  };
+  if (m === "GET" && path === "/media/streams") {
+    return {
+      summary: "List Active Streams",
+      description: "Returns all currently active media streams. Useful for admin dashboards.",
+      tags: ["Media Streaming"],
+      responses: {
+        "200": {
+          description: "Active streams",
+          content: {
+            "application/json": {
+              schema: { type: "object", properties: { results: { type: "array" } } },
+            },
+          },
+        },
+      },
+    };
+  }
 
-  if (m === "POST" && path === "/media/stop/:streamId") return {
-    summary: "Stop Stream",
-    description: "Stops an active media stream. Only the publisher can stop their own stream.",
-    tags: ["Media Streaming"],
-    responses: { "200": { description: "Stream stopped" } },
-  };
+  if (m === "POST" && path === "/media/stop/:streamId") {
+    return {
+      summary: "Stop Stream",
+      description: "Stops an active media stream. Only the publisher can stop their own stream.",
+      tags: ["Media Streaming"],
+      responses: { "200": { description: "Stream stopped" } },
+    };
+  }
 
   // ── GraphQL ──────────────────────────────────────────────────────
-  if (path === "/graphql") return {
-    summary: "GraphQL Endpoint",
-    description: "Executes GraphQL queries and mutations. Schema is auto-generated from all registered Zenith classes. Supports introspection.",
-    tags: ["GraphQL"],
-    requestBody: { required: true, content: { "application/json": { schema: { "$ref": "#/components/schemas/GraphQLRequest" } } } },
-    responses: { "200": { description: "GraphQL response" } },
-  };
+  if (path === "/graphql") {
+    return {
+      summary: "GraphQL Endpoint",
+      description:
+        "Executes GraphQL queries and mutations. Schema is auto-generated from all registered Zenith classes. Supports introspection.",
+      tags: ["GraphQL"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: { "$ref": "#/components/schemas/GraphQLRequest" } },
+        },
+      },
+      responses: { "200": { description: "GraphQL response" } },
+    };
+  }
 
   // ── Schema ───────────────────────────────────────────────────────
-  if (path === "/schemas" && m === "GET") return {
-    summary: "List All Schemas",
-    description: "Returns all class schemas registered in the Zenith engine. **Master Key recommended.**",
-    tags: ["Schema Management"],
-    responses: { "200": { description: "Schema list" } },
-  };
+  if (path === "/schemas" && m === "GET") {
+    return {
+      summary: "List All Schemas",
+      description:
+        "Returns all class schemas registered in the Zenith engine. **Master Key recommended.**",
+      tags: ["Schema Management"],
+      responses: { "200": { description: "Schema list" } },
+    };
+  }
 
-  if (path === "/schemas/:className" && m === "GET") return {
-    summary: "Get Class Schema",
-    description: "Returns the schema definition for a specific class.",
-    tags: ["Schema Management"],
-    responses: { "200": { description: "Schema definition" } },
-  };
+  if (path === "/schemas/:className" && m === "GET") {
+    return {
+      summary: "Get Class Schema",
+      description: "Returns the schema definition for a specific class.",
+      tags: ["Schema Management"],
+      responses: { "200": { description: "Schema definition" } },
+    };
+  }
 
   // ── Realtime ─────────────────────────────────────────────────────
-  if (path === "/live" || path === "/realtime") return {
-    summary: "LiveQuery WebSocket",
-    description: "WebSocket endpoint for real-time subscriptions. Connect and send `{ op: 'subscribe', query: {...} }`. Receives `create/update/delete` events.",
-    tags: ["Real-time"],
-    responses: { "101": { description: "WebSocket Upgrade" } },
-  };
+  if (path === "/live" || path === "/realtime") {
+    return {
+      summary: "LiveQuery WebSocket",
+      description:
+        "WebSocket endpoint for real-time subscriptions. Connect and send `{ op: 'subscribe', query: {...} }`. Receives `create/update/delete` events.",
+      tags: ["Real-time"],
+      responses: { "101": { description: "WebSocket Upgrade" } },
+    };
+  }
 
   // ── Observability ────────────────────────────────────────────────
-  if (path.includes("/health") || path.includes("/metrics") || path.includes("/observability")) return {
-    summary: "Health / Metrics",
-    description: "OpenTelemetry metrics and health check endpoint.",
-    tags: ["Observability"],
-    responses: { "200": { description: "Metrics data" } },
-  };
+  if (path.includes("/health") || path.includes("/metrics") || path.includes("/observability")) {
+    return {
+      summary: "Health / Metrics",
+      description: "OpenTelemetry metrics and health check endpoint.",
+      tags: ["Observability"],
+      responses: { "200": { description: "Metrics data" } },
+    };
+  }
 
   // ── OpenAPI itself ───────────────────────────────────────────────
-  if (path === "/openapi.json") return {
-    summary: "OpenAPI Spec",
-    description: "Returns this OpenAPI v3.1 specification as JSON.",
-    tags: ["Meta"],
-    responses: { "200": { description: "OpenAPI spec JSON" } },
-  };
+  if (path === "/openapi.json") {
+    return {
+      summary: "OpenAPI Spec",
+      description: "Returns this OpenAPI v3.1 specification as JSON.",
+      tags: ["Meta"],
+      responses: { "200": { description: "OpenAPI spec JSON" } },
+    };
+  }
 
-  if (path === "/swagger") return {
-    summary: "Swagger UI",
-    description: "Interactive Swagger UI for this Zenith API.",
-    tags: ["Meta"],
-    responses: { "200": { description: "Swagger HTML page" } },
-  };
+  if (path === "/swagger") {
+    return {
+      summary: "Swagger UI",
+      description: "Interactive Swagger UI for this Zenith API.",
+      tags: ["Meta"],
+      responses: { "200": { description: "Swagger HTML page" } },
+    };
+  }
 
   // ── Fallback ─────────────────────────────────────────────────────
   return {
@@ -428,7 +712,8 @@ export function generateOpenApiSchema(
 ): Record<string, unknown> {
   const {
     title = "Zenith BaaS API",
-    description = "Auto-generated from Barrits Trait AST. Parse Server–compatible Backend-as-a-Service.",
+    description =
+      "Auto-generated from Barrits Trait AST. Parse Server–compatible Backend-as-a-Service.",
     version = "1.0.0",
     serverURL = "http://localhost:23614",
     appId = "zenith",
@@ -487,7 +772,8 @@ export function generateOpenApiSchema(
     type: "apiKey",
     in: "header",
     name: "Authorization",
-    description: "JWT Session Token: `Bearer <token>` o `Zen-Session-Token` / `X-Parse-Session-Token`",
+    description:
+      "JWT Session Token: `Bearer <token>` o `Zen-Session-Token` / `X-Parse-Session-Token`",
   };
   spec.components.securitySchemes.JavaScriptKey = {
     type: "apiKey",

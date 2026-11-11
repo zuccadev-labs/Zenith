@@ -1,7 +1,11 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { FeatureEntry } from "../../src/core/feature-catalog.ts";
-import { FEATURE_STATE_CLASS, type RuntimeFeatures, runtimeFeaturesTrait } from "../../src/core/runtime-features.ts";
+import {
+  FEATURE_STATE_CLASS,
+  type RuntimeFeatures,
+  runtimeFeaturesTrait,
+} from "../../src/core/runtime-features.ts";
 import { composeZenith } from "../../src/core/compose.ts";
 import { buildDynamicRouter } from "../../src/core/router.ts";
 
@@ -12,7 +16,9 @@ const routesTrait = (name: string, cap: string, path: string) =>
     consumes: [],
     state: [],
     runtimes: ["deno"],
-    create: () => ({ [cap]: [{ method: "GET", path, access: "public", handler: () => new Response("ok") }] }),
+    create: () => ({
+      [cap]: [{ method: "GET", path, access: "public", handler: () => new Response("ok") }],
+    }),
   });
 
 const Core = routesTrait("Core", "core_routes", "/core");
@@ -21,7 +27,14 @@ const Child = routesTrait("Child", "child_routes", "/child");
 const ENTRIES: FeatureEntry[] = [
   { id: "core", group: "core", required: true, summary: "core", traits: [Core] },
   { id: "hooks", group: "integrations", default: true, summary: "hooks", traits: [Hooks] },
-  { id: "child", group: "integrations", default: true, requires: ["hooks"], summary: "child", traits: [Child] },
+  {
+    id: "child",
+    group: "integrations",
+    default: true,
+    requires: ["hooks"],
+    summary: "child",
+    traits: [Child],
+  },
 ];
 const CONFIG = { appId: "a" } as never;
 
@@ -40,14 +53,34 @@ function fakeDb() {
 }
 
 function boot(db?: unknown) {
-  const traits: unknown[] = [runtimeFeaturesTrait(ENTRIES, CONFIG, { refreshMs: 3_600_000 }), Core, Hooks, Child];
+  const traits: unknown[] = [
+    runtimeFeaturesTrait(ENTRIES, CONFIG, { refreshMs: 3_600_000 }),
+    Core,
+    Hooks,
+    Child,
+  ];
   if (db) {
-    traits.unshift(createTraitDescriptor({ name: "Db", provides: ["db"], consumes: [], state: [], runtimes: ["deno"], create: () => ({ db }) }));
+    traits.unshift(
+      createTraitDescriptor({
+        name: "Db",
+        provides: ["db"],
+        consumes: [],
+        state: [],
+        runtimes: ["deno"],
+        create: () => ({ db }),
+      }),
+    );
   }
   const composition = composeZenith(traits);
   const router = buildDynamicRouter(composition as never).dispatch();
   const call = (path: string, method = "GET", body?: unknown) =>
-    router(new Request(`http://x${path}`, { method, body: body === undefined ? undefined : JSON.stringify(body) }), { masterKey: true } as never);
+    router(
+      new Request(`http://x${path}`, {
+        method,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }),
+      { masterKey: true } as never,
+    );
   return { registry: (composition.traits as any)["runtime-features"] as RuntimeFeatures, call };
 }
 
@@ -72,7 +105,10 @@ Deno.test("runtime features: the core and dependencies are protected", async () 
   await registry.set("hooks", false);
   await assertRejects(() => registry.set("child", true), Error, "requires hooks");
   await assertRejects(() => registry.set("nope", true), Error);
-  assertEquals(registry.list().map((f) => [f.id, f.enabled]), [["core", true], ["hooks", false], ["child", false]]);
+  assertEquals(registry.list().map((f) => [f.id, f.enabled]), [["core", true], ["hooks", false], [
+    "child",
+    false,
+  ]]);
 });
 
 Deno.test("runtime features: /zen/features lists every loaded feature and validates the body", async () => {
@@ -80,7 +116,11 @@ Deno.test("runtime features: /zen/features lists every loaded feature and valida
   const list = await (await call("/zen/features")).json();
   assertEquals(list.results.map((f: any) => f.id), ["core", "hooks", "child"]);
   assert(list.results[0].required);
-  await assertRejects(async () => await call("/zen/features/hooks", "PUT", { enabled: "no" }), Error, "enabled");
+  await assertRejects(
+    async () => await call("/zen/features/hooks", "PUT", { enabled: "no" }),
+    Error,
+    "enabled",
+  );
 });
 
 Deno.test("runtime features: the state is saved and another instance picks it up", async () => {

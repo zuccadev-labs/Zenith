@@ -48,9 +48,7 @@ function escapeString(s: string): string {
           const offset = cp - 0x10000;
           const hi = 0xD800 + (offset >> 10);
           const lo = 0xDC00 + (offset & 0x3FF);
-          return `\\u${hi.toString(16).padStart(4, "0")}\\u${
-            lo.toString(16).padStart(4, "0")
-          }`;
+          return `\\u${hi.toString(16).padStart(4, "0")}\\u${lo.toString(16).padStart(4, "0")}`;
         }
       }
     })
