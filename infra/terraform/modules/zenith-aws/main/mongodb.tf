@@ -53,11 +53,13 @@ resource "aws_security_group" "mongodb" {
     security_groups = [module.eks.node_security_group_id]
   }
 
+  # A database starts no connections to the internet; replies are allowed by the stateful ingress rule.
   egress {
+    description = "Within the VPC only"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.vpc_cidr]
   }
 }
 

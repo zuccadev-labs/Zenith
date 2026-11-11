@@ -49,7 +49,24 @@ module "s3_uploads_replica" {
   }
 
   bucket = "zenith-${var.environment}-uploads-replica"
-  # ... simplified for brevity
+
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        sse_algorithm     = "aws:kms"
+        kms_master_key_id = aws_kms_key.uploads_replica[0].arn
+      }
+      bucket_key_enabled = true
+    }
+  }
+}
+
+resource "aws_kms_key" "uploads_replica" {
+  count                   = var.environment == "prod" ? 1 : 0
+  provider                = aws.replica
+  description             = "KMS key for the upload bucket replica"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
 }
 
 module "s3_logs" {
@@ -59,6 +76,15 @@ module "s3_logs" {
   bucket = "zenith-${var.environment}-logs"
 
   versioning = { enabled = true }
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        sse_algorithm     = "aws:kms"
+        kms_master_key_id = aws_kms_key.logs.arn
+      }
+      bucket_key_enabled = true
+    }
+  }
   lifecycle_rule = [{
     id      = "expire-old-logs"
     enabled = true
@@ -74,6 +100,12 @@ module "s3_logs" {
 
 resource "aws_kms_key" "uploads" {
   description             = "KMS key for upload bucket"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_key" "logs" {
+  description             = "KMS key for the logs bucket"
   deletion_window_in_days = 30
   enable_key_rotation     = true
 }

@@ -99,3 +99,9 @@ variable "backup_retention_days" {
   type    = number
   default = 30
 }
+
+variable "cluster_admin_cidrs" {
+  description = "Networks allowed to reach the EKS API publicly (e.g. the office VPN). Empty: private endpoint only."
+  type        = list(string)
+  default     = []
+}

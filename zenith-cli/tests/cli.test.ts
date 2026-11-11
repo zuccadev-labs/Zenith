@@ -277,7 +277,7 @@ Deno.test({
     const dir = await tmp();
     await inDir(dir, () => runDevCommand("init", ["e2e"]));
     const p = join(dir, "e2e");
-    // A port the OS says is free: a random one could land on another server (the lab's services use 2xxxx).
+    // A port the OS says is free (a random one could collide with a running service).
     const probe = Deno.listen({ hostname: "127.0.0.1", port: 0 });
     const port = (probe.addr as Deno.NetAddr).port;
     probe.close();
@@ -318,6 +318,12 @@ Zen.Cloud.beforeSave("Todo", (req: any) => {
         "dev",
       ],
       cwd: p,
+      // The project's .env must decide: an inherited ZENITH_* (e.g. ZENITH_MASTER_KEY exported for the engine's lab
+      // tests) takes precedence over .env, as it should, and then the server's key is not the one read above.
+      clearEnv: true,
+      env: Object.fromEntries(
+        Object.entries(Deno.env.toObject()).filter(([k]) => !k.startsWith("ZENITH_")),
+      ),
       stdout: "piped",
       stderr: "piped",
     }).spawn();
