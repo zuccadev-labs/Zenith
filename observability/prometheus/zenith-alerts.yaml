@@ -157,7 +157,7 @@ groups:
           summary: "Zenith pod {{ $labels.pod }} OOMKilled"
 
       - alert: ZenithHpaAtMax
-        expr: kube_horizontalpodautoscaler_status_current_replicas{deployment="zenith"} >= kube_horizontalpodautoscaler_spec_max_replicas{deployment="zenith"}
+        expr: kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler=~"zenith.*"} >= on (namespace, horizontalpodautoscaler) kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=~"zenith.*"}
         for: 15m
         labels:
           severity: warning
@@ -218,6 +218,16 @@ groups:
         annotations:
           summary: "Vault is unhealthy"
 
+      - alert: ZenithCircuitOpen
+        expr: max by (circuit) (zenith_circuit_breaker_state{state="OPEN"}) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Circuit breaker {{ $labels.circuit }} is open"
+          description: "Calls to that dependency fail fast. It probes again after its reset timeout; check the dependency."
+
       - alert: ZenithRedisDown
         expr: up{job="redis"} == 0
         for: 1m
@@ -261,14 +271,17 @@ groups:
         annotations:
           summary: "Master key is being used — should be rare"
 
-      - alert: ZenithPluginSignatureInvalid
-        expr: increase(zenith_plugin_signature_failures_total[5m]) > 0
-        for: 1m
+      # A plugin whose signature does not verify aborts the boot (mod.ts, [SecOps H-05]): the process never
+      # serves /metrics, so a counter could not be scraped. It shows as a pod that cannot start.
+      - alert: ZenithCrashLooping
+        expr: max by (pod) (kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff",pod=~"zenith-.*"}) > 0
+        for: 5m
         labels:
           severity: critical
           team: security
         annotations:
-          summary: "Plugin signature verification failed — possible tampering"
+          summary: "Zenith pod {{ $labels.pod }} cannot start"
+          description: "Read its log. '[SecOps H-05] ABORT' means a plugin signature did not verify (possible tampering); '[SecOps] ABORT' a plugin hash not in plugins.lock.json."
 
   # ----------------------------------------------------------------
   # 6. Background work: webhooks and the durable job queue (ADR-017)

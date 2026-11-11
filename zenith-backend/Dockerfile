@@ -45,7 +45,8 @@ COPY --from=builder /app/zenith-server /app/zenith-server
 # Uploaded file contents too (ZENITH_FILES_DIR): /app is read-only for the zenith user.
 ENV ZENITH_MODE=production DENO_DIR=/data HOME=/data ZENITH_FILES_DIR=/data/files
 VOLUME ["/data"]
-EXPOSE 1337
+# 1337: the API. 9090: Prometheus metrics, only when ZENITH_METRICS_PORT=9090 (the Helm chart sets it).
+EXPOSE 1337 9090
 USER zenith
 
 ENTRYPOINT ["/app/zenith-server"]

@@ -48,7 +48,7 @@
       },
       "targets": [
         {
-          "expr": "1 - (sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[30d])) / sum(rate(http_requests_total{job=\"zenith\"}[30d])))",
+          "expr": "1 - ((sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[30d])) or vector(0)) / sum(rate(http_requests_total{job=\"zenith\"}[30d])))",
           "legendFormat": "30d availability"
         }
       ]
@@ -86,10 +86,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [
-        {
-          "expr": "sum(rate(http_requests_total{job=\"zenith\"}[5m]))",
-          "legendFormat": "RPS"
-        }
+        { "expr": "sum(rate(http_requests_total{job=\"zenith\"}[5m]))", "legendFormat": "RPS" }
       ]
     },
     {
@@ -112,7 +109,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"zenith\"}[5m]))",
+          "expr": "(sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[5m])) or vector(0)) / sum(rate(http_requests_total{job=\"zenith\"}[5m]))",
           "legendFormat": "5xx"
         }
       ]
@@ -213,25 +210,137 @@
       "fieldConfig": { "defaults": { "unit": "percentunit" } },
       "targets": [
         {
-          "expr": "(sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[1h])) / sum(rate(http_requests_total{job=\"zenith\"}[1h]))) / 0.001",
+          "expr": "((sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[1h])) or vector(0)) / sum(rate(http_requests_total{job=\"zenith\"}[1h]))) / 0.001",
           "legendFormat": "1h burn rate"
         },
         {
-          "expr": "(sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[6h])) / sum(rate(http_requests_total{job=\"zenith\"}[6h]))) / 0.001",
+          "expr": "((sum(rate(http_requests_total{job=\"zenith\",code=~\"5..\"}[6h])) or vector(0)) / sum(rate(http_requests_total{job=\"zenith\"}[6h]))) / 0.001",
           "legendFormat": "6h burn rate"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "API keys — requests per second (by scope)",
+      "title": "API keys — requests per second (by environment)",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "unit": "reqps" } },
       "targets": [
         {
-          "expr": "sum(rate(apikey_requests_total[5m])) by (scope)",
-          "legendFormat": "{{scope}}"
+          "expr": "sum(rate(zenith_api_key_requests_total{job=\"zenith\"}[5m])) by (env)",
+          "legendFormat": "{{env}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Background work, resilience and security",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Jobs — completed and failed per second (by type)",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zenith_jobs_total{job=\"zenith\"}[5m])) by (type, result)",
+          "legendFormat": "{{type}} {{result}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Jobs — backlog (by status)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        { "expr": "max(zenith_jobs{job=\"zenith\"}) by (status)", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Jobs — mean duration (by type)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zenith_job_duration_ms_sum{job=\"zenith\"}[5m])) by (type) / sum(rate(zenith_job_duration_ms_count{job=\"zenith\"}[5m])) by (type)",
+          "legendFormat": "{{type}} (mean)"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhooks — delivery attempts per second (by result)",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 45 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zenith_webhook_attempts_total{job=\"zenith\"}[5m])) by (result)",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhooks — messages (by status)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 45 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        {
+          "expr": "max(zenith_webhook_messages{job=\"zenith\"}) by (status)",
+          "legendFormat": "{{status}}"
+        },
+        {
+          "expr": "max(zenith_webhook_endpoints_disabled{job=\"zenith\"})",
+          "legendFormat": "endpoints disabled"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Circuit breakers — open",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 45 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        {
+          "expr": "max(zenith_circuit_breaker_state{job=\"zenith\",state=\"OPEN\"}) by (circuit)",
+          "legendFormat": "{{circuit}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Master key — uses per second (should be ~0)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum(rate(zenith_master_key_usage_total{job=\"zenith\"}[5m]))",
+          "legendFormat": "master key"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP — 401 and 429 per second",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 53 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=\"zenith\",code=~\"401|429\"}[5m])) by (code)",
+          "legendFormat": "{{code}}"
         }
       ]
     }
@@ -261,6 +370,6 @@
   "timezone": "",
   "title": "Zenith — SRE Overview",
   "uid": "zenith-sre",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

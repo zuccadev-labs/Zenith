@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-unused-vars
 /**
  * Circuit breaker pattern: fail-fast when downstream services are unhealthy, automatic recovery probes, configurable thresholds, fallback handlers.
  *
@@ -9,6 +8,7 @@
  * @barrits-state breakers
  * @barrits-stability experimental
  * @barrits-runtime deno
+ * @barrits-tags uses:metric-registry
  */
 import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
@@ -20,7 +20,29 @@ export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
   runtimes: ["deno"],
   summary:
     "Circuit breaker pattern: fail-fast when downstream services are unhealthy, automatic recovery probes, configurable thresholds, fallback handlers.",
+  tags: ["uses:metric-registry"],
   create: (deps: Record<string, any>) => {
+    const STATES = ["closed", "open", "half-open"] as const;
+    /** `zenith_circuit_breaker_state{circuit, state}`: 1 for the current state, 0 for the others. */
+    const report = (name: string, state: string) => {
+      const metrics = deps.traits?.["metric-registry"];
+      if (!metrics) return;
+      for (const s of STATES) {
+        metrics.gauge("zenith_circuit_breaker_state", s === state ? 1 : 0, {
+          circuit: name,
+          state: s.toUpperCase().replace("-", "_"),
+        });
+      }
+    };
+    const setState = (
+      name: string,
+      b: { state: string },
+      state: "closed" | "open" | "half-open",
+    ) => {
+      if (b.state === state) return;
+      b.state = state;
+      report(name, state);
+    };
     const traitApi: any = {
       breakers: new Map<
         string,
@@ -46,6 +68,7 @@ export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
             threshold: options.threshold || 5,
             resetTimeoutMs: options.resetTimeoutMs || 30000,
           });
+          report(name, "closed");
         }
         return traitApi.breakers.get(name)!;
       },
@@ -58,7 +81,7 @@ export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
         const breaker = traitApi.getOrCreate(name, options);
         if (breaker.state === "open") {
           if (Date.now() - (breaker.lastFailure || 0) > breaker.resetTimeoutMs) {
-            breaker.state = "half-open";
+            setState(name, breaker, "half-open");
             breaker.successCount = 0;
           } else {
             if (options.fallback) return options.fallback(new Error("circuit breaker open"));
@@ -69,14 +92,19 @@ export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
           const result = await fn();
           breaker.successCount++;
           if (breaker.state === "half-open" && breaker.successCount >= 2) {
-            breaker.state = "closed";
+            setState(name, breaker, "closed");
             breaker.failureCount = 0;
+          } else if (breaker.state === "closed") {
+            breaker.failureCount = 0; // the threshold counts consecutive failures, not failures ever
           }
           return result;
         } catch (e: any) {
           breaker.failureCount++;
           breaker.lastFailure = Date.now();
-          if (breaker.failureCount >= breaker.threshold) breaker.state = "open";
+          // A failed probe in half-open reopens at once.
+          if (breaker.state === "half-open" || breaker.failureCount >= breaker.threshold) {
+            setState(name, breaker, "open");
+          }
           if (options.fallback) return options.fallback(e);
           throw e;
         }

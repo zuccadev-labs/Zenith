@@ -63,6 +63,9 @@ autoscaling:
   maxReplicas: 50
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown: { stabilizationWindowSeconds: 300 }
+    scaleUp: { stabilizationWindowSeconds: 30 }
   # Escala IoT workers por mensajes MQTT (custom metrics via KEDA si disponible)
 
 # ── Pod Disruption Budget (alta disponibilidad) ──────────────────────────────
@@ -206,30 +209,37 @@ serviceMonitor:
   interval: 30s
   path: /metrics
 
+# ── Secret del chart ─────────────────────────────────────────────────────────
+# Por defecto los secretos vienen de `zenith-secrets` (envFrom, arriba), creado fuera del chart. Con
+# create: true el chart crea el suyo a partir de zenith.masterKey, etc., más extraKeys. Antes faltaba esta
+# clave y el chart no se podía renderizar sin values-prod.yaml.
+secret:
+  create: false
+  extraKeys: {}
+
 # ── PrometheusRule (alertas automáticas) ─────────────────────────────────────
 prometheusRule:
   enabled: false
-  groups:
-    - name: zenith.rules
-      rules:
-        - alert: ZenithHighErrorRate
-          expr: rate(http_requests_total{job="zenith",status=~"5.."}[5m]) > 0.05
-          for: 5m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Zenith error rate > 5%"
-        - alert: ZenithCircuitOpen
-          expr: zenith_circuit_breaker_state{state="OPEN"} > 0
-          for: 1m
-          labels:
-            severity: critical
-          annotations:
-            summary: "Zenith circuit breaker OPEN for {{ $labels.circuit }}"
-        - alert: ZenithDLQGrowing
-          expr: zenith_job_dlq_size > 10
-          for: 5m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Zenith DLQ has {{ $value }} failed jobs"
+  # The canonical rules of observability/prometheus/zenith-alerts.yaml (files/zenith-alerts.yaml).
+  includeDefaultRules: true
+  # Extra groups, appended to the canonical ones. Empty: the ones that lived here (error rate, circuit
+  # breaker, DLQ) are now in the canonical file, with the labels the code really emits.
+  groups: []
+
+# ── Claves que las plantillas leen y que faltaban aquí ───────────────────────
+# Sin ellas, `helm template`/`helm install` fallaban con los valores por defecto ("nil pointer"); solo
+# funcionaba con values-prod.yaml. Los valores son los que las plantillas ya asumían con `default`.
+revisionHistoryLimit: 10
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: "25%"
+    maxUnavailable: 0
+terminationGracePeriodSeconds: 60
+topologySpreadConstraints: []
+extraConfig: []
+networkPolicy:
+  enabled: false
+  egress: {}
+vault:
+  enabled: false

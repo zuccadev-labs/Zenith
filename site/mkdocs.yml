@@ -91,6 +91,8 @@ nav:
       - OpenAPI y Swagger: architecture/openapi-swagger.md
       - Piezas y motores: architecture/features-and-engines.md
       - Webhooks y Cloud Code Hooks: architecture/webhooks-and-hooks.md
+      - Cadena de suministro: architecture/supply-chain.md
+      - Métricas y alertas: architecture/metrics.md
       - ADR-012 engine-auth: architecture-decisions/ADR-012-engine-auth.md
       - ADR-013 composición y acceso: architecture-decisions/ADR-013-composition-and-access.md
       - ADR-014 clases para usuarios: architecture-decisions/ADR-014-classes-for-users.md

@@ -273,3 +273,13 @@ ScyllaDB, RustFS, LuxDB y engine-auth locales (receta en `docs/testing.md`). Des
 - **`/functions/:name` sigue siendo solo de master key.** Es una de las rutas de negocio de ADR-013 por abrir a
   usuarios tras revisar cada función. Parse las abre a cualquier usuario.
 
+## Futuro (requiere plan de pago o infraestructura)
+Detalle en `docs/architecture/supply-chain.md`:
+- **CodeQL:** su licencia no permite usarlo en repos privados sin GitHub Advanced Security. Lo cubre Semgrep.
+- **Protección de `main` y rulesets:** no existen para repos privados en el plan gratuito de organizaciones.
+- **CI en cada push y PR:** hoy solo arranca a mano (`gh workflow run ci.yml`). Lo revisa un administrador de la
+  organización en Settings → Actions.
+- **Firma de la imagen en un registro y atestaciones de procedencia:** hace falta un registro (GHCR da 500 MB a los
+  privados gratuitos y la imagen pesa unos 490 MB) y GitHub Enterprise para las atestaciones de repos privados.
+  Mientras tanto se firman el SBOM y el ID de la imagen con cosign y clave propia.
+

@@ -80,6 +80,9 @@ export const ServerTrait = createTraitDescriptor({
             rateLimiter: perKeyRateLimiter,
             audit: true,
             appId: config.appId,
+            onMasterKey: () => caps["metric-registry"]?.increment("zenith_master_key_usage_total"),
+            onApiKey: (env) =>
+              caps["metric-registry"]?.increment("zenith_api_key_requests_total", { env }),
           }),
           applyCORS("*"),
           validateAppId(config.appId),
@@ -130,7 +133,20 @@ export const ServerTrait = createTraitDescriptor({
         };
 
         const handler = createRequestHandler(pipeline, tracedDispatch);
-        return handler;
+        // HTTP metrics (http_requests_total, http_request_duration_seconds) around everything, so the 401
+        // and 429 the pipeline answers count too. Before, the middleware existed but nothing called it: the
+        // availability SLO, the latency panels and the error alerts had no data.
+        const httpMetrics = caps["observability"]?.middleware;
+        return httpMetrics
+          ? (req: Request) =>
+            httpMetrics(
+              req,
+              () => handler(req),
+              (m: string, p: string) => router.routeOf(m, p),
+            ) as Promise<
+              Response
+            >
+          : handler;
       },
     };
   },
