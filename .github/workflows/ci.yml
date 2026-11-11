@@ -308,7 +308,7 @@ jobs:
           helm() { docker run --rm -u "$(id -u)" -v "$PWD/k8s/helm:/c:ro" -w /c alpine/helm:4.3.1 "$@"; }
           for v in values values-prod; do
             helm lint zenith -f "zenith/$v.yaml"
-            helm template zenith zenith -f "zenith/$v.yaml" --set prometheusRule.enabled=true \
+            helm template zenith zenith -n zenith -f "zenith/$v.yaml" --set prometheusRule.enabled=true \
               --set serviceMonitor.enabled=true --set networkPolicy.enabled=true \
               > "$RUNNER_TEMP/chart/$v.yaml"
             yq 'select(.kind == "PrometheusRule") | .spec' "$RUNNER_TEMP/chart/$v.yaml" \
