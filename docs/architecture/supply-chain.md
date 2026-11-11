@@ -12,7 +12,17 @@
 | Vulnerabilidades de la imagen | Trivy 0.69 (acción v0.36.0) | hay una CRITICAL o HIGH con arreglo disponible |
 | Inventario de componentes | syft (CycloneDX 1.7) | — (se publica como artefacto) |
 | Firma del SBOM y del ID de la imagen | cosign 3.1.4, con clave propia | la firma no verifica con `zenith-backend/cosign.pub` |
+| Provenance SLSA v1 | `tools/supply-chain/slsa-provenance.sh` + `cosign attest-blob` | la atestación no verifica |
+| Publicación en el registro (desde `main`) | Zot propio + `cosign sign`/`attest` sobre el digest | la firma o la provenance no verifican |
+| Vulnerabilidades de dependencias npm | OSV-Scanner 2.7 (`osv-scanner.toml` por carpeta para excepciones revisadas, con fecha de caducidad) | hay una vulnerabilidad conocida |
+| Vulnerabilidades de dependencias Deno | `deno audit` (OSV-Scanner no lee `deno.lock`) | hay una vulnerabilidad conocida |
+| Infraestructura como código | Trivy config 0.76 (`.trivyignore.yaml`) y Checkov 3.4 (`.checkov.yaml`, y sobre el chart renderizado) | un hallazgo HIGH/CRITICAL sin justificar |
+| Dockerfile | hadolint 2.15 | un aviso |
+| Workflows de GitHub Actions | zizmor 1.32 (medio y superior) y actionlint 1.7 | inyección de plantillas, credenciales persistidas, acciones sin fijar… |
 | Dependencias | Dependabot (Deno, npm, Docker, Compose y Actions) | — (abre PR semanales) |
+
+Todas las Actions de terceros están fijadas por SHA de commit, con la versión en un comentario; Dependabot las
+actualiza.
 
 ## Activar la firma (una vez)
 
@@ -43,14 +53,39 @@ docker image inspect zenith-backend:<tag> --format '{{.Id}}'   # tiene que ser e
 confianza la da la clave pública versionada. Una modificación de un solo byte en lo firmado hace fallar la
 verificación (probado en local).
 
+## Verificar la provenance y la imagen del registro
+
+```bash
+cosign verify-blob-attestation --key zenith-backend/cosign.pub --insecure-ignore-tlog=true --type slsaprovenance1 \
+  --bundle zenith-backend.image-id.provenance.sigstore.json zenith-backend.image-id
+cosign verify --key zenith-backend/cosign.pub --insecure-ignore-tlog=true <registro>/zenith/zenith-backend@sha256:…
+cosign verify-attestation --key zenith-backend/cosign.pub --insecure-ignore-tlog=true --type slsaprovenance1 \
+  <registro>/zenith/zenith-backend@sha256:…
+```
+
+La provenance dice qué se construyó (repositorio y commit), cómo (workflow, ejecución, evento) y a partir de qué
+(los digests de las imágenes base del Dockerfile). Es el mismo predicado SLSA que generan las atestaciones de GitHub,
+firmado con nuestra clave en lugar de la de GitHub.
+
+## Lo que GitHub cobra y cómo se cubre gratis
+
+| De pago en un repo privado | Alternativa libre en uso |
+|---|---|
+| CodeQL (licencia: solo código abierto) | Semgrep OSS, Trivy, Checkov, hadolint, zizmor, actionlint, OSV-Scanner, `deno audit` |
+| Atestaciones de GitHub (Enterprise) | Provenance SLSA v1 firmada con cosign y clave propia, sin log público |
+| Registro con espacio (GHCR: 500 MB) | Zot propio (`docs/architecture/registry.md`). La imagen comprimida pesa ~97 MB |
+| Protección de ramas / rulesets | `.githooks/pre-push` + `tools/ship.sh` (push → CI de ese commit → veredicto) |
+| CI en cada push | `tools/ship.sh` lanza el CI del commit empujado y espera su resultado |
+
 ## Pendiente para el futuro (planes de pago o infraestructura que no hay)
 
 - **CodeQL.** Su licencia prohíbe usarlo en código de un repositorio privado sin GitHub Advanced Security (*"any
   codebase that is not an Open Source Codebase (e.g., code in a private repo in GitHub)"*), incluso la CLI. Hasta
   entonces cubre Semgrep.
-- **Protección de rama y rulesets.** No existen en repos privados del plan gratuito de organizaciones.
-- **Firma en un registro y atestaciones** (`cosign sign <imagen>`, `actions/attest-build-provenance`). Necesitan
-  publicar la imagen en un registro (GHCR da 500 MB a los privados gratuitos y la imagen pesa unos 490 MB), y las
-  atestaciones de repos privados exigen GitHub Enterprise.
+- **Protección de rama y rulesets.** No existen en repos privados del plan gratuito de organizaciones. La cubren, del
+  lado del cliente, el hook pre-push y `tools/ship.sh`. Las alternativas de servidor gratuitas son hacer el repo
+  público o un Forgejo propio como espejo con ramas protegidas.
+- **Atestaciones nativas de GitHub** (`actions/attest-build-provenance`) en el repo privado: exigen GitHub Enterprise.
+  Las cubre la provenance SLSA firmada con cosign (arriba).
 - **Firma keyless con OIDC.** Es gratuita, pero publica la identidad del repo en el log público. Tiene sentido si el
   repo se hace público.

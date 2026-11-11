@@ -1,0 +1,48 @@
+{
+  "distSpecVersion": "1.1.1",
+  "storage": {
+    "rootDirectory": "/var/lib/zot",
+    "dedupe": true,
+    "gc": true,
+    "gcDelay": "1h",
+    "gcInterval": "24h",
+    "retention": {
+      "dryRun": false,
+      "delay": "24h",
+      "policies": [
+        {
+          "repositories": ["**"],
+          "deleteReferrers": false,
+          "deleteUntagged": true,
+          "keepTags": [{ "patterns": [".*"], "mostRecentlyPushedCount": 20 }]
+        }
+      ]
+    }
+  },
+  "http": {
+    "address": "0.0.0.0",
+    "port": "5000",
+    "realm": "zenith-registry",
+    "auth": {
+      "htpasswd": { "path": "/etc/zot/htpasswd" },
+      "failDelay": 5
+    },
+    "accessControl": {
+      "repositories": {
+        "**": {
+          "policies": [
+            { "users": ["ci"], "actions": ["read", "create", "update", "delete"] },
+            { "users": ["reader"], "actions": ["read"] }
+          ],
+          "defaultPolicy": [],
+          "anonymousPolicy": []
+        }
+      }
+    }
+  },
+  "log": { "level": "info" },
+  "extensions": {
+    "search": { "enable": true },
+    "scrub": { "enable": true, "interval": "24h" }
+  }
+}
