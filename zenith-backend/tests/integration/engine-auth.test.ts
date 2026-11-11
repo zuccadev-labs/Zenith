@@ -24,6 +24,7 @@ import {
   DatabaseMongoTrait,
 } from "../../src/adapters/database/mongo.adapter.ts";
 import { MongoClient } from "mongodb";
+import { ZenCloud } from "../../src/core/cloud.ts";
 
 import { AUD, BIN, EngineAuth, LIB_DIR, PASSWORD } from "./_engine_auth_lab.ts";
 
@@ -297,6 +298,70 @@ Deno.test({
     } finally {
       await ea.stop();
       await closeAll();
+    }
+  },
+});
+
+Deno.test({
+  name: "engine-auth facade: Zen.Cloud login and logout triggers run, and beforeLogin can refuse",
+  ignore,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const ea = await EngineAuth.start();
+    const seen: string[] = [];
+    try {
+      ZenCloud.beforeLogin((r) => {
+        seen.push(`beforeLogin:${r.object.username}`);
+        if (r.object.username === "blocked") throw new Error("This account is suspended.");
+      });
+      ZenCloud.afterLogin((r) => void seen.push(`afterLogin:${r.object.username}`));
+      ZenCloud.beforeLogout((r) =>
+        void seen.push(`beforeLogout:${r.user?.objectId ? "user" : "?"}`)
+      );
+      ZenCloud.afterLogout(() => {
+        seen.push("afterLogout");
+        throw new Error("a failing afterLogout does not undo the logout");
+      });
+      const t = await testDb();
+      const z = zenith(ea, t.crud);
+      for (const username of ["okay", "blocked"]) {
+        const su = await z.call("POST", "/users", {
+          body: { username, email: `${username}@example.test`, password: PASSWORD },
+        });
+        assertEquals(su.status, 201, JSON.stringify(su.body));
+      }
+      const before = (await t.sessions()).length;
+
+      const refused = await z.call("POST", "/login", {
+        body: { username: "blocked", password: PASSWORD },
+      });
+      assertEquals([refused.status, refused.body], [400, {
+        code: 142,
+        error: "This account is suspended.",
+      }]);
+      assertEquals((await t.sessions()).length, before, "no Zenith session for a refused login");
+
+      const li = await z.call("POST", "/login", { body: { username: "okay", password: PASSWORD } });
+      assertEquals(li.status, 200, JSON.stringify(li.body));
+      const out = await z.call("POST", "/logout", { token: li.body.sessionToken });
+      assertEquals(out.status, 200);
+      const after = await z.call("GET", "/users/me", { token: li.body.sessionToken });
+      assertNotEquals(after.status, 200, "the session ended despite the failing afterLogout");
+      assertEquals(seen, [
+        "beforeLogin:blocked",
+        "beforeLogin:okay",
+        "afterLogin:okay",
+        "beforeLogout:user",
+        "afterLogout",
+      ]);
+    } finally {
+      // The registry is process-wide: leave no hooks behind for the other tests.
+      for (const hook of ["beforeLogin", "afterLogin", "beforeLogout", "afterLogout"] as const) {
+        ZenCloud[hook](() => {});
+      }
+      await closeAll();
+      await ea.stop();
     }
   },
 });

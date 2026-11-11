@@ -270,8 +270,22 @@ ScyllaDB, RustFS, LuxDB y engine-auth locales (receta en `docs/testing.md`). Des
 - **`loadCloudCode` no aceptaba URLs `file://`:** las daba por "no encontradas" y no cargaba el código cloud.
 - **`GET /login` con la contraseña en la URL:** Parse lo admite y Zenith responde 405 a propósito. Las credenciales
   en una URL acaban en logs de proxies y servidores; solo `POST /login`.
-- **`/functions/:name` sigue siendo solo de master key.** Es una de las rutas de negocio de ADR-013 por abrir a
-  usuarios tras revisar cada función. Parse las abre a cualquier usuario.
+- **`/functions/:name` se abre por función (hecho el 2026-11-11).** Con el validador de Parse (`requireUser`, roles,
+  `fields`) o `public: true`; sin validador sigue siendo solo master (ADR-013). Ver
+  `docs/architecture/webhooks-and-hooks.md`.
+
+### Cloud Code: validadores y triggers de `Zen.Cloud` (2026-11-11)
+Revisando `/functions` aparecieron tres fallos, ya corregidos y probados (unidad, engine-auth real y `zen dev` con
+MongoDB):
+- **Los validadores no se aplicaban** (ni en funciones ni en triggers), aunque la OpenAPI decía que sí.
+- **Los triggers de `Zen.Cloud` no se ejecutaban nunca:** `beforeSave`/`afterSave`/`before|afterFind`/
+  `before|afterDelete`, los de archivos y los de login/logout. Solo se copiaban las funciones.
+- **`response.error(141, …)` tumbaba la respuesta:** el código de Parse se usaba como estado HTTP.
+
+**Pendiente:** los triggers de LiveQuery (`beforeConnect`, `beforeSubscribe`, `afterLiveQueryEvent`,
+`onLiveQueryEvent`), de media (`beforePublish`, `beforeWatch`, `onStreamEvent`) y `beforePasswordResetRequest`
+(el reseteo de contraseña aún responde 501). Se registran, pero ningún trait los lee. Ahora registrarlos avisa una
+vez en el log en vez de fallar en silencio.
 
 ## Futuro (requiere plan de pago o infraestructura)
 Detalle en `docs/architecture/supply-chain.md`:
