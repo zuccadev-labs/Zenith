@@ -51,6 +51,9 @@ Deno.test("core/crypto: base64url round trip without padding", () => {
   assert(!/[+/=]/.test(s));
   assertEquals(fromBase64Url(s), bytes);
   assertEquals(fromBase64Url(s + "="), bytes);
+  // Standard base64 too (engine-auth's sessionKey is often written with btoa): 0xfb 0xff → "+/8".
+  assertEquals(fromBase64Url("+/8="), new Uint8Array([251, 255]));
+  assertEquals(fromBase64Url(btoa(String.fromCharCode(...bytes))), bytes);
   assertEquals(toHex(bytes), "fbff000102");
 });
 

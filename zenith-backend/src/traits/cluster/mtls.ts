@@ -105,49 +105,33 @@ function pemToDer(pem: string): Uint8Array {
  * The SPKI is the 7th element (0-indexed: 6) of the tbsCertificate SEQUENCE.
  * We walk the ASN.1 manually since we want to avoid pulling in a full ASN.1 lib.
  */
+/**
+ * The DER-encoded SubjectPublicKeyInfo of an X.509 certificate, tag and length included: RFC 7469
+ * pins hash that whole structure (what `openssl x509 -pubkey | openssl pkey -pubin -outform der`
+ * yields). tbsCertificate is: [0] version (optional), serialNumber, signature, issuer, validity,
+ * subject, subjectPublicKeyInfo, …
+ */
 function extractSpkiFromCertDer(der: Uint8Array): Uint8Array {
-  // Walk past the outer SEQUENCE tag and length
-  let offset = 0;
-  if (der[offset++] !== 0x30) throw new Error("Expected outer SEQUENCE");
-  offset = skipAsn1Length(der, offset);
-  // Walk into tbsCertificate
-  if (der[offset++] !== 0x30) throw new Error("Expected tbsCertificate SEQUENCE");
-  const tbsStart = offset;
-  offset = skipAsn1Length(der, offset);
-  const tbsEnd = offset;
-  // Elements of tbsCertificate before SPKI (for X.509 v3):
-  //   0: [0] EXPLICIT version (with tag, only if present)
-  //   1: INTEGER serialNumber
-  //   2: SEQUENCE signature algorithm
-  //   3: SEQUENCE issuer
-  //   4: SEQUENCE validity
-  //   5: SEQUENCE subject
-  //   6: SEQUENCE subjectPublicKeyInfo  ← THIS IS WHAT WE WANT
-  let cursor = tbsStart;
+  const cert = readAsn1Element(der, 0);
+  if (cert.tag !== 0x30) throw new Error("Expected outer SEQUENCE");
+  const tbs = readAsn1Element(der, cert.contentOffset);
+  if (tbs.tag !== 0x30) throw new Error("Expected tbsCertificate SEQUENCE");
+  let cursor = tbs.contentOffset;
   let idx = 0;
-  while (cursor < tbsEnd) {
-    const { tag, contentOffset, endOffset } = readAsn1Element(der, cursor);
-    if (idx === 6) {
-      if (tag !== 0x30) throw new Error("Expected SPKI to be a SEQUENCE");
-      return der.subarray(contentOffset, endOffset);
+  while (cursor < tbs.endOffset) {
+    const el = readAsn1Element(der, cursor);
+    if (idx === 0 && el.tag === 0xa0) {
+      cursor = el.endOffset; // explicit version: not counted
+      continue;
     }
-    if (idx > 6) throw new Error(`Walked past SPKI (idx=${idx})`);
-    cursor = endOffset;
+    if (idx === 5) {
+      if (el.tag !== 0x30) throw new Error("Expected SPKI to be a SEQUENCE");
+      return der.subarray(cursor, el.endOffset);
+    }
+    cursor = el.endOffset;
     idx++;
-    // Skip the version [0] tag if present (it has context-specific tag 0xA0)
-    if (idx === 1 && tag === 0xA0) {
-      // version is present, next is serialNumber
-      // (cursor already moved past version)
-    }
   }
   throw new Error("Could not locate SPKI in cert");
-}
-
-function skipAsn1Length(der: Uint8Array, offset: number): number {
-  const first = der[offset];
-  if (first < 0x80) return offset + 1;
-  const numBytes = first & 0x7f;
-  return offset + 1 + numBytes;
 }
 
 function readAsn1Element(der: Uint8Array, offset: number) {

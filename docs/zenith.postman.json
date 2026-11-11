@@ -1345,7 +1345,7 @@
       "name": "Queue",
       "item": [
         {
-          "name": "Enqueue a background job",
+          "name": "Enqueue a background job: { type, data, priority?, maxAttempts?, delayMs?, idempotencyKey? }",
           "request": {
             "method": "POST",
             "header": [
@@ -1385,7 +1385,7 @@
           "response": []
         },
         {
-          "name": "List jobs by status",
+          "name": "List jobs (?status=pending|running|completed|failed)",
           "request": {
             "method": "GET",
             "header": [
@@ -1410,6 +1410,48 @@
               "path": [
                 "queue",
                 "jobs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Requeue a failed job (dead-letter)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/queue/jobs/{jobId}/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "queue",
+                "jobs",
+                "{jobId}",
+                "retry"
               ]
             }
           },

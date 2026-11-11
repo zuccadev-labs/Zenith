@@ -84,9 +84,9 @@ momento.
 - **Mantener la firma de Stripe** (ADR-016). Es más conocida, pero es de un proveedor: no firma el id del mensaje,
   usa hex y no tiene bibliotecas neutrales. Standard Webhooks resuelve todo eso y es lo que hoy adoptan los
   proveedores nuevos.
-- **Reutilizar la cola de trabajos** (`queue`). Guarda los trabajos en memoria y no los recarga al reiniciar, así
-  que no aguanta 75 h de reintentos. La outbox vive en el módulo de webhooks. La cola debe llevarse al mismo nivel
-  para compartirla (`pending.md`).
+- **Reutilizar la cola de trabajos** (`queue`) tal como estaba. Guardaba los trabajos en memoria y no los
+  recargaba al reiniciar. Se extrajo el mecanismo de reclamo a `core/outbox.ts`, y ahora la cola y los webhooks lo
+  comparten.
 - **Un proxy de salida** (smokescreen). Es la protección SSRF completa: elimina la carrera entre la resolución y
   la conexión (DNS rebinding). Es infraestructura, así que queda recomendado en `webhooks-and-hooks.md`.
 
@@ -104,7 +104,9 @@ momento.
   - `outbound-http`;
   - `cloud-hooks`: con el Cloud Code real.
 - **Rutas:** 230 por defecto y 274 con todas las features.
-- **Pendiente:**
-  - en `updateObject`, los cambios de un `beforeSave` no se guardan; afecta igual a Cloud Code y a los Hooks;
-  - la verificación de endpoints de Standard Webhooks (extensión opcional) no está implementada;
-  - la cola de trabajos no es duradera.
+- **Resuelto después, el mismo día:**
+  - el mecanismo de reclamo de la outbox pasó a `core/outbox.ts` y la cola de trabajos lo reutiliza (`_Job`
+    duradero);
+  - los cambios de un `beforeSave` se guardan también al actualizar.
+  Los dos están probados con MongoDB real en `tests/integration/pieces-e2e.test.ts`.
+- **Pendiente:** la verificación de endpoints de Standard Webhooks (extensión opcional).

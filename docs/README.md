@@ -48,7 +48,7 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [Notifications](./api/Notifications.md) (6 endpoints)
 - [Observability](./api/Observability.md) (4 endpoints)
 - [Plugins](./api/Plugins.md) (8 endpoints)
-- [Queue](./api/Queue.md) (2 endpoints)
+- [Queue](./api/Queue.md) (3 endpoints)
 - [Ratelimit](./api/Ratelimit.md) (2 endpoints)
 - [Runner](./api/Runner.md) (2 endpoints)
 - [Schema](./api/Schema.md) (5 endpoints)

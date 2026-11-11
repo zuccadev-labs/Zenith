@@ -3,8 +3,8 @@
  *
  * Entrega de webhooks con una outbox en la base de datos: cada mensaje es un registro
  * (`ZenithWebhookMessage`) con su próximo intento. Sobrevive a reinicios, y varias instancias reparten el
- * trabajo sin duplicarlo: cada una reclama el mensaje con `updateIf` sobre el número de intentos
- * (bloqueo optimista) antes de enviarlo.
+ * trabajo sin duplicarlo, con el mecanismo de reclamo compartido con la cola de trabajos
+ * (`core/outbox.ts`).
  *
  * Reglas (Standard Webhooks, § Operational considerations):
  * - **Reintentos:** inmediato, 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 14 h, 20 h y 24 h, con ±10 % de
@@ -21,6 +21,7 @@
  */
 import { safeFetch, type OutboundPolicy } from "../../security/outbound-http.ts";
 import { webhookHeaders } from "../../security/webhook-signature.ts";
+import { claimDue } from "../../core/outbox.ts";
 
 export const MESSAGE_CLASS = "ZenithWebhookMessage";
 export const ATTEMPT_CLASS = "ZenithWebhookAttempt";
@@ -143,36 +144,29 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
 }
 
 /**
- * Reclama y entrega los mensajes vencidos de endpoints activos. Devuelve cuántos procesó. El reclamo es
- * `updateIf` con el número de intentos y la concesión actuales: si otra instancia lo tomó antes, se omite.
+ * Reclama (`core/outbox.ts`) y entrega los mensajes vencidos de endpoints activos. Devuelve cuántos
+ * procesó. Los de un endpoint pausado o desactivado esperan; los de uno borrado se cierran.
  */
 export async function deliverDue(deps: DeliveryDeps & { limit?: number; leaseMs?: number }): Promise<number> {
   const now = (deps.now ?? Date.now)();
-  const due = ((await deps.db.find(MESSAGE_CLASS, { status: "pending" })) ?? [])
-    .filter((m: any) => (!m.nextAttemptAt || Date.parse(m.nextAttemptAt) <= now) && (!m.leaseUntil || Date.parse(m.leaseUntil) <= now))
-    .sort((a: any, b: any) => String(a.nextAttemptAt ?? "").localeCompare(String(b.nextAttemptAt ?? "")))
-    .slice(0, deps.limit ?? 20);
   const endpoints = new Map<string, any>();
-  let processed = 0;
-  await Promise.all(due.map(async (m: any) => {
-    let ep = endpoints.get(m.endpointId);
-    if (ep === undefined) {
-      ep = await deps.db.read(ENDPOINT_CLASS, m.endpointId);
-      endpoints.set(m.endpointId, ep);
-    }
-    if (!ep) {
-      await deps.db.update(MESSAGE_CLASS, { objectId: m.objectId }, { status: "failed", lastError: "Endpoint deleted.", nextAttemptAt: null });
-      return;
-    }
-    if (ep.status !== "active") return; // pausado o desactivado: el mensaje espera
-    // The current lease is part of the condition: two instances that read the same expired lease
-    // cannot both win, because the first one changes it.
-    const claimed = await deps.db.updateIf(MESSAGE_CLASS, m.objectId, { attempts: m.attempts ?? 0, status: "pending", leaseUntil: m.leaseUntil ?? null }, {
-      leaseUntil: iso(now + (deps.leaseMs ?? 60_000)),
-    });
-    if (!claimed) return;
-    await attemptDelivery(deps, { ...m, ...claimed }, ep);
-    processed++;
-  }));
-  return processed;
+  const endpointOf = async (id: string) => {
+    if (!endpoints.has(id)) endpoints.set(id, await deps.db.read(ENDPOINT_CLASS, id));
+    return endpoints.get(id);
+  };
+  const claimed = await claimDue<any>(deps.db, MESSAGE_CLASS, {
+    now,
+    limit: deps.limit ?? 20,
+    leaseMs: deps.leaseMs ?? 60_000,
+    accept: async (m) => {
+      const ep = await endpointOf(m.endpointId);
+      if (!ep) {
+        await deps.db.update(MESSAGE_CLASS, { objectId: m.objectId }, { status: "failed", lastError: "Endpoint deleted.", nextAttemptAt: null });
+        return false;
+      }
+      return ep.status === "active"; // paused or disabled: the message waits
+    },
+  });
+  await Promise.all(claimed.map(async (m) => attemptDelivery(deps, m, await endpointOf(m.endpointId))));
+  return claimed.length;
 }
