@@ -62,7 +62,8 @@ curl -X PUT -H "X-Parse-Master-Key: $ZENITH_MASTER_KEY" -H "content-type: applic
   cada ruta por la capacidad que la expone.
 - **Trabajo en segundo plano:** los traits que trabajan fuera de las peticiones consultan
   `runtime-features.isEnabled(id)`, declarando `uses:runtime-features`. Por ejemplo, los webhooks no entregan
-  mientras están apagados.
+  mientras están apagados. Ese trabajo arranca con `startBackground()` (`core/lifecycle.ts`), que
+  `createZenithApp` llama con la base de datos conectada.
 - **Persistencia:** con base de datos, el estado se guarda en `_ZenithFeature` y las demás instancias lo recogen
   en 30 s.
 - **Protecciones:**
@@ -78,7 +79,10 @@ curl -X PUT -H "X-Parse-Master-Key: $ZENITH_MASTER_KEY" -H "content-type: applic
    existe:
    - `core/trait-utils.ts` (respuestas, paginación, parámetros);
    - `core/crypto.ts` (aleatorios, hashes, HMAC);
-   - `security/webhook-signature.ts`;
+   - `security/outbound-http.ts` (peticiones salientes con protección SSRF);
+   - `security/webhook-signature.ts` (Standard Webhooks);
+   - `security/sanitize.ts` (quitar credenciales antes de enviar);
+   - el bus de eventos (`events`, en el núcleo) para publicar y suscribirse;
    - la capa `db` y las capacidades de otros traits.
 2. **Declara lo que necesita** con `consumes` y lo opcional con `uses:<capacidad>`. Lo opcional no debe romper la
    pieza si falta.

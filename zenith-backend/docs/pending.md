@@ -60,11 +60,26 @@ Queda uno solo: `/zen/api-keys` (`security/api-keys`). Se retiraron `/zen/apikey
 trait workspace. `ZenithAPIKey` del SDK usa ya `/zen/api-keys`, con la master key. El nombre `ZenithApiKey` sigue
 reservado en `metadata`.
 
-### Dos traits de webhooks que se solapan
-`cloud/webhook.trait.ts` (`/webhooks/endpoints`, clase `WebhookEndpoint`, claves del proceso) y
-`webhooks/webhook.manager.trait.ts` (gestión por app, secreto por webhook, reintentos y registro de entregas)
-hacen lo mismo. Ya comparten la firma (`security/webhook-signature.ts`, ADR-016). Falta elegir uno y retirar el
-otro. El segundo es el más completo.
+### Dos traits de webhooks que se solapan: resuelto el 2026-11-11 (ADR-017)
+Queda `webhooks/webhook.manager.trait.ts`, completo según Standard Webhooks: outbox, reintentos, rotación,
+reentrega, recuperación y SSRF. Se retiró `cloud/webhook.trait.ts`. El bus de eventos pasó al núcleo; antes,
+con la configuración por defecto, ningún webhook se disparaba. Se añadieron los Cloud Code Hooks de Parse
+(`/hooks`).
+
+### La cola de trabajos no es duradera
+`queue/job.queue.trait.ts` guarda los trabajos en un `Map` y escribe `_Job` sin volver a leerlo. Si el proceso
+se reinicia, pierde lo pendiente; además procesa uno por segundo y en una sola instancia. Los webhooks usan su
+propia outbox (`webhooks/webhook.delivery.ts`, con `updateIf` y concesión) por eso. Hay que llevar la cola a ese
+diseño y que los webhooks la reutilicen.
+
+### `beforeSave` no puede cambiar un objeto al actualizarlo
+`crud.trait.ts` `updateObject` pasa `merged` al trigger pero guarda `store` (las operaciones del cliente), así que
+lo que cambia un `beforeSave` (Cloud Code o hook) solo se guarda al crear. Parse Server lo aplica también al
+actualizar.
+
+### Verificación de endpoints de webhooks (extensión de Standard Webhooks)
+La extensión opcional `webhook-challenge` no está implementada: verificar con un desafío firmado que el receptor
+controla la URL antes de entregarle eventos, y volver a verificar si cambia la URL.
 
 ### URLs firmadas de `storage` sin verificar
 `presignedUrl` firma con HMAC (ADR-016), pero ninguna ruta de `/files` comprueba `sig` ni `expires`. Las rutas son
@@ -154,6 +169,11 @@ Usa puerto 3000 y las opciones `--app-id`, `--port` y `--target-dir`, distintas 
 las tareas `dev`, `compile` y `build` de `zenith-backend/deno.json` para el arranque multi-app. Hay más tareas
 rotas: `lab:up` y `lab:down` apuntan a `lab-infra/docker-compose.yml` (el real está en
 `lab-infra/docker/docker-compose.yml`) y `verify` llama a `coverage:check`, que no existe.
+
+### `zenith-cli/deno.lock` desactualizado para las pruebas
+`deno test` en `zenith-cli/` reescribe el lock: quita entradas del motor (mongodb, stripe, viem…) que solo
+alcanzan los imports dinámicos al enlazar `zenith-backend/` en local. Con `--frozen` falla. Hay que decidir si el
+CLI fija esas dependencias (y entonces el lock debe incluirlas de forma estable) o no.
 
 ### `package-lock.json` ignorado
 `.gitignore` excluye `**/package-lock.json`, así que el SDK de cliente y el ejemplo no tienen builds reproducibles.

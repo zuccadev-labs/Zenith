@@ -1,91 +1,133 @@
 /**
- * ZenithWebhooks — SDK client for /zen/webhooks
- * CRUD + pause/resume + test delivery + delivery history
+ * ZenithWebhooks — the app's outgoing webhook endpoints (`/zen/webhooks`).
+ *
+ * Server-side only: the server manages webhooks with the master key, which it accepts only from
+ * localhost, like `ZenithAPIKey` and Parse Server's `/hooks`. Deliveries follow Standard Webhooks:
+ * verify them in your receiver with the official `standardwebhooks` library and the endpoint secret.
+ *
+ * @example
+ * const hooks = new ZenithWebhooks();
+ * const ep = await hooks.create({ name: "crm", url: "https://example.com/hook", events: ["Contact.*"] });
+ * console.log(ep.secret); // shown once: give it to the receiver
  */
-import type { Zenith } from "../core/Zenith.ts";
+import { RESTController } from "../rest/RESTController.js";
+import { Zenith } from "../core/Zenith.js";
 
 export interface ZenithWebhook {
-  objectId:       string;
-  name:           string;
-  url:            string;
-  events:         string[];      // ["Contact.*", "Deal.created", "*"]
-  secret?:        string;        // Solo visible en CREATE
-  status:         "active" | "paused" | "failed";
-  failureCount:   number;
-  lastTriggeredAt?: string;
-  lastError?:     string;
-  headers?:       Record<string, string>;
-  retryPolicy?:   { maxRetries: number; backoffMs: number };
-  createdAt:      string;
+  objectId: string;
+  name: string;
+  url: string;
+  description?: string;
+  /** Event types or patterns: "Contact.created", "Deal.*", "*". */
+  events: string[];
+  status: "active" | "paused" | "disabled";
+  headers?: Record<string, string>;
+  /** Signing secrets currently in use (2 during a rotation). The secrets themselves are never returned. */
+  secretCount: number;
+  exhaustedCount?: number;
+  lastError?: string;
+  disabledReason?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
-export interface ZenithWebhookDelivery {
-  objectId:    string;
-  webhook:     { objectId: string };
-  event:       string;
-  statusCode:  number;
-  success:     boolean;
-  attempt:     number;
-  durationMs:  number;
-  error?:      string;
-  deliveredAt: string;
+export interface ZenithWebhookMessage {
+  objectId: string;
+  /** The `webhook-id` header: the same on every retry. */
+  messageId: string;
+  endpointId: string;
+  type: string;
+  status: "pending" | "succeeded" | "failed";
+  attempts: number;
+  nextAttemptAt?: string;
+  lastStatusCode?: number;
+  lastError?: string;
+  deliveredAt?: string;
+  createdAt: string;
 }
+
+export interface ZenithWebhookAttempt {
+  messageId: string;
+  attempt: number;
+  statusCode: number;
+  durationMs: number;
+  error?: string;
+  response?: string;
+  at: string;
+}
+
+/** @deprecated Use ZenithWebhookAttempt. */
+export type ZenithWebhookDelivery = ZenithWebhookAttempt;
+
+type EndpointInput = { name: string; url: string; events: string[]; description?: string; headers?: Record<string, string> };
 
 export class ZenithWebhooks {
-  private readonly base: string;
-  private readonly h: () => Record<string, string>;
-
-  constructor(z: typeof Zenith) {
-    this.base = (z as any)._serverURL;
-    this.h    = () => ({
-      "content-type": "application/json",
-      "x-parse-application-id": (z as any)._applicationId,
-      "x-parse-session-token":  (z as any).User?.current()?.getSessionToken() ?? "",
-    });
+  private master() {
+    if (!Zenith.getConfig().masterKey) {
+      throw new Error("ZenithWebhooks needs the master key (server-side only): Zenith.initialize(appId, { masterKey }).");
+    }
+    return { useMasterKey: true };
   }
 
-  async list(): Promise<{ results: ZenithWebhook[] }> {
-    return (await fetch(`${this.base}/zen/webhooks`, { headers: this.h() })).json();
+  private call<T>(method: string, path: string, body?: unknown): Promise<T> {
+    return RESTController.request(method, `/zen/webhooks${path}`, body, this.master());
   }
 
-  async get(objectId: string): Promise<ZenithWebhook> {
-    return (await fetch(`${this.base}/zen/webhooks/${objectId}`, { headers: this.h() })).json();
+  list(): Promise<{ results: ZenithWebhook[] }> {
+    return this.call("GET", "");
   }
 
-  /**
-   * Crear webhook. El secret se retorna completo SOLO en la creación.
-   * Guarda el secret de inmediato — no se mostrará de nuevo.
-   */
-  async create(data: { name: string; url: string; events: string[]; secret?: string; headers?: Record<string, string>; retryPolicy?: object }): Promise<ZenithWebhook & { _secretWarning: string }> {
-    return (await fetch(`${this.base}/zen/webhooks`, {
-      method: "POST", headers: this.h(), body: JSON.stringify(data),
-    })).json();
+  get(objectId: string): Promise<ZenithWebhook> {
+    return this.call("GET", `/${encodeURIComponent(objectId)}`);
   }
 
-  async update(objectId: string, data: Partial<Pick<ZenithWebhook, "name" | "url" | "events" | "headers" | "retryPolicy" | "status">>): Promise<ZenithWebhook> {
-    return (await fetch(`${this.base}/zen/webhooks/${objectId}`, {
-      method: "PUT", headers: this.h(), body: JSON.stringify(data),
-    })).json();
+  /** Creates an endpoint. `secret` (whsec_…) is returned only here. */
+  create(data: EndpointInput): Promise<ZenithWebhook & { secret: string }> {
+    return this.call("POST", "", data);
   }
 
-  async pause(objectId: string): Promise<ZenithWebhook> {
-    return (await fetch(`${this.base}/zen/webhooks/${objectId}/pause`, { method: "POST", headers: this.h() })).json();
-  }
-
-  async resume(objectId: string): Promise<ZenithWebhook> {
-    return (await fetch(`${this.base}/zen/webhooks/${objectId}/resume`, { method: "POST", headers: this.h() })).json();
-  }
-
-  /** Enviar una entrega de prueba al endpoint del webhook */
-  async test(objectId: string): Promise<{ success: boolean; message: string }> {
-    return (await fetch(`${this.base}/zen/webhooks/${objectId}/test`, { method: "POST", headers: this.h() })).json();
-  }
-
-  async deliveries(objectId: string): Promise<{ results: ZenithWebhookDelivery[] }> {
-    return (await fetch(`${this.base}/zen/webhooks/${objectId}/deliveries`, { headers: this.h() })).json();
+  update(objectId: string, data: Partial<EndpointInput>): Promise<ZenithWebhook> {
+    return this.call("PUT", `/${encodeURIComponent(objectId)}`, data);
   }
 
   async delete(objectId: string): Promise<void> {
-    await fetch(`${this.base}/zen/webhooks/${objectId}`, { method: "DELETE", headers: this.h() });
+    await this.call("DELETE", `/${encodeURIComponent(objectId)}`);
+  }
+
+  pause(objectId: string): Promise<ZenithWebhook> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/pause`);
+  }
+
+  /** Resumes a paused endpoint, or re-enables one disabled after repeated failures. */
+  resume(objectId: string): Promise<ZenithWebhook> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/resume`);
+  }
+
+  /** Queues a `webhook.test` message. */
+  test(objectId: string): Promise<{ messageId: string; status: "pending" }> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/test`);
+  }
+
+  /** New secret, returned once. The previous one keeps signing for `graceHours` (default 24). */
+  rotateSecret(objectId: string, graceHours?: number): Promise<{ id: string; secret: string; previousValidUntil: string | null }> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/rotate-secret`, graceHours === undefined ? {} : { graceHours });
+  }
+
+  messages(objectId: string, status?: ZenithWebhookMessage["status"]): Promise<{ results: ZenithWebhookMessage[] }> {
+    return this.call("GET", `/${encodeURIComponent(objectId)}/messages${status ? `?status=${status}` : ""}`);
+  }
+
+  attempts(objectId: string, messageId: string): Promise<{ results: ZenithWebhookAttempt[] }> {
+    return this.call("GET", `/${encodeURIComponent(objectId)}/messages/${encodeURIComponent(messageId)}/attempts`);
+  }
+
+  /** Delivers a message again, with the same `webhook-id`. */
+  redeliver(objectId: string, messageId: string): Promise<{ messageId: string; status: "pending" }> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/messages/${encodeURIComponent(messageId)}/redeliver`);
+  }
+
+  /** Requeues the failed messages created since `since` (ISO 8601). */
+  recover(objectId: string, since: string): Promise<{ requeued: number }> {
+    return this.call("POST", `/${encodeURIComponent(objectId)}/recover`, { since });
   }
 }

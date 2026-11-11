@@ -1,245 +1,414 @@
-// deno-lint-ignore-file no-unused-vars
 /**
- * Webhook Manager Trait — CRUD de webhooks gestionados por el usuario.
+ * Webhooks salientes de Zenith: cada evento del bus llega, firmado, a los endpoints suscritos.
  *
- * Extiende la lógica de firma del WebhookTrait existente añadiendo
- * los endpoints de gestión que permiten a los usuarios crear, editar,
- * pausar y eliminar sus propios webhooks vía API o CLI.
- *
- * Integración: usa `webhook-manager` del WebhookTrait para la entrega.
- * zen webhook create --url https://myapp.com/hook --events "Contact.*"
+ * - **Formato:** Standard Webhooks 1.0. Cuerpo `{ type, timestamp, data }` y cabeceras `webhook-id`,
+ *   `webhook-timestamp` y `webhook-signature` (`security/webhook-signature.ts`). Un receptor lo verifica
+ *   con la biblioteca oficial de su lenguaje.
+ * - **Entrega:** outbox en la base de datos, con reintentos durante unas 75 h y desactivación de los
+ *   endpoints que fallan siempre (`webhook.delivery.ts`). Protección SSRF y 15 s por intento
+ *   (`security/outbound-http.ts`).
+ * - **Secretos:** uno por endpoint (`whsec_…`). Se cifran en reposo con `WEBHOOK_SECRETS_KEY` (AES-256-GCM)
+ *   y solo se muestran al crear o rotar. La rotación mantiene el anterior durante el periodo de gracia y
+ *   firma con los dos.
+ * - **API** (solo master key, como `/hooks` en Parse Server y `/zen/api-keys`):
+ *   - `/zen/webhooks`: CRUD;
+ *   - `/pause`, `/resume`, `/test` y `/rotate-secret`;
+ *   - mensajes, intentos, reentrega de un mensaje y recuperación de los fallidos desde una fecha.
+ * - **En caliente:** con la pieza `webhooks` apagada (`/zen/features`) no se encolan ni se entregan
+ *   mensajes. Un endpoint pausado acumula los mensajes y los entrega al reanudarse.
  *
  * @barrits-trait
  * @barrits-summary ZenithWebhookManager
  * @barrits-provides webhook_mgmt_routes, webhookManager
- * @barrits-consumes cloud, db
- * @barrits-tags uses:events
+ * @barrits-consumes db
+ * @barrits-tags uses:events, uses:cloud, uses:runtime-features
  * @barrits-stability stable
  * @barrits-runtime deno
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
-import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
-import { randomHex } from "../../core/crypto.ts";
-import { signWebhook, WEBHOOK_SIGNATURE_HEADER } from "../../security/webhook-signature.ts";
+import { ZenithError, ZenithErrorCode, ZenithErrors } from "../../core/errors.ts";
+import { jsonRes, errRes, NO_CONTENT, pathParams, sortResults, now } from "../../core/trait-utils.ts";
+import { isSealed, randomBytes, seal, toBase64Url, unseal } from "../../core/crypto.ts";
+import { generateWebhookSecret } from "../../security/webhook-signature.ts";
+import { checkOutboundUrl, OutboundBlockedError, type OutboundPolicy } from "../../security/outbound-http.ts";
+import { sanitizePayload } from "../../security/sanitize.ts";
+import { ATTEMPT_CLASS, deliverDue, ENDPOINT_CLASS, MESSAGE_CLASS, type DeliveryDeps } from "./webhook.delivery.ts";
 
 const WEBHOOK_SCHEMA = {
-  ZenithWebhook: {
-    name:        { type: "String", required: true },
-    url:         { type: "String", required: true },
-    events:      { type: "Array",  required: true },  // ["Contact.created","Deal.*","*"]
-    secret:      { type: "String" },                   // HMAC secret (generado si no se provee)
-    status:      { type: "String", defaultValue: "active" }, // active|paused|failed
-    owner:       { type: "Pointer", targetClass: "_User" },
-    workspaceId: { type: "String" },
-    lastTriggeredAt: { type: "Date" },
-    failureCount:    { type: "Number", defaultValue: 0 },
-    lastError:       { type: "String" },
-    headers:         { type: "Object", defaultValue: {} }, // Headers adicionales custom
-    retryPolicy:     { type: "Object", defaultValue: { maxRetries: 3, backoffMs: 1000 } },
+  [ENDPOINT_CLASS]: {
+    name:          { type: "String", required: true },
+    url:           { type: "String", required: true },
+    description:   { type: "String" },
+    events:        { type: "Array",  required: true }, // ["Contact.created", "Deal.*", "*"]
+    status:        { type: "String", defaultValue: "active" }, // active | paused | disabled
+    secrets:       { type: "Array" },  // [{ value: cifrado, createdAt, expiresAt? }], el actual primero
+    headers:       { type: "Object", defaultValue: {} },
+    exhaustedCount:{ type: "Number", defaultValue: 0 },
+    lastError:     { type: "String" },
+    disabledReason:{ type: "String" },
+    disabledAt:    { type: "Date" },
   },
-  ZenithWebhookDelivery: {
-    webhook:     { type: "Pointer", targetClass: "ZenithWebhook", required: true },
-    event:       { type: "String", required: true },
-    payload:     { type: "Object" },
-    statusCode:  { type: "Number" },
-    success:     { type: "Boolean", defaultValue: false },
-    attempt:     { type: "Number", defaultValue: 1 },
-    duration:    { type: "Number" }, // ms
-    error:       { type: "String" },
-    deliveredAt: { type: "Date" },
+  [MESSAGE_CLASS]: {
+    messageId:     { type: "String", required: true }, // webhook-id: estable entre reintentos
+    endpointId:    { type: "String", required: true },
+    type:          { type: "String", required: true },
+    body:          { type: "String", required: true }, // los bytes exactos que se firman
+    status:        { type: "String", defaultValue: "pending" }, // pending | succeeded | failed
+    attempts:      { type: "Number", defaultValue: 0 },
+    nextAttemptAt: { type: "Date" },
+    leaseUntil:    { type: "Date" },
+    lastStatusCode:{ type: "Number" },
+    lastError:     { type: "String" },
+    deliveredAt:   { type: "Date" },
+  },
+  [ATTEMPT_CLASS]: {
+    messageId:     { type: "String", required: true },
+    endpointId:    { type: "String", required: true },
+    attempt:       { type: "Number", required: true },
+    statusCode:    { type: "Number" },
+    durationMs:    { type: "Number" },
+    error:         { type: "String" },
+    response:      { type: "String" }, // primeros 512 caracteres
+    at:            { type: "Date" },
   },
 } as const;
 
-/** Genera un secret HMAC aleatorio para el webhook */
-async function generateSecret(): Promise<string> {
-  return `whsec_${randomHex(24)}`;
+/** `Contact.created`, `Deal.*`, `*` (identificadores `[A-Za-z0-9_]`, separados por puntos). */
+const EVENT_PATTERN = /^(\*|[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*(\.\*)?)$/;
+/** Cabeceras que pone Zenith y no se pueden sustituir. */
+const RESERVED_HEADERS = new Set(["webhook-id", "webhook-timestamp", "webhook-signature", "content-type", "content-length", "host", "user-agent"]);
+const MAX_BODY_BYTES = 256 * 1024;
+const ENDPOINT_CACHE_MS = 5_000;
+const WORKER_INTERVAL_MS = 1_000;
+
+// Shared with the Cloud Code Hooks (security/sanitize.ts); re-exported for existing callers.
+export { sanitizePayload } from "../../security/sanitize.ts";
+
+export function matchesEvent(patterns: readonly string[], type: string): boolean {
+  return patterns.some((p) => p === "*" || p === type || (p.endsWith(".*") && type.startsWith(p.slice(0, -1))));
 }
 
-export const WebhookManagerTrait: AnyTraitDescriptor = createTraitDescriptor({
-  name: "ZenithWebhookManager",
-  provides: ["webhook_mgmt_routes", "webhookManager"],
-  consumes: ["cloud", "db"],
-  tags: ["uses:events"],
-  state: [],
-  runtimes: ["deno"],
-  summary: "User-managed Webhook CRUD: create, list, update, pause, delete. HMAC-SHA256 signing, delivery logs, retry policy. Integrates with CLI `zen webhook`.",
+const bad = (msg: string) => ZenithErrors.validationFailed(msg);
+const newMessageId = () => `msg_${toBase64Url(randomBytes(16))}`;
 
-  create: (deps: Record<string, any>) => {
-    const db     = deps.traits["db"];
-    const events = deps.traits["events"];
+export interface WebhookManagerOptions {
+  /** Destinos http y privados permitidos (desarrollo). Por defecto, desde `ZENITH_WEBHOOKS_ALLOW_PRIVATE=1`. */
+  readonly policy?: OutboundPolicy;
+  /** Clave de cifrado de los secretos. Por defecto, `WEBHOOK_SECRETS_KEY`. */
+  readonly secretsKey?: string;
+  readonly fetcher?: DeliveryDeps["fetcher"];
+  readonly now?: () => number;
+}
 
-    if (deps.traits["cloud"]?.defineSchema) {
-      for (const [name, fields] of Object.entries(WEBHOOK_SCHEMA)) {
-        deps.traits["cloud"].defineSchema(name, fields, {});
-      }
-    }
+function envFlag(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
+}
 
-    // Entrega efectiva del webhook con retry
-    async function deliverWebhook(webhook: any, event: string, payload: unknown): Promise<void> {
-      const body = JSON.stringify({ event, data: payload, timestamp: now(), webhookId: webhook.objectId });
-      const signature = webhook.secret ? await signWebhook(webhook.secret, body) : "";
-      let attempt = 0, success = false, lastError = "";
-      const maxRetries = webhook.retryPolicy?.maxRetries ?? 3;
+/** Un trait de webhooks con opciones (pruebas, desarrollo). `WebhookManagerTrait` es el de producción. */
+export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): AnyTraitDescriptor {
+  return createTraitDescriptor({
+    name: "ZenithWebhookManager",
+    provides: ["webhook_mgmt_routes", "webhookManager"],
+    consumes: ["db"],
+    tags: ["uses:events", "uses:cloud", "uses:runtime-features"],
+    state: [],
+    runtimes: ["deno"],
+    summary: "Outgoing webhooks (Standard Webhooks): signed deliveries from a database outbox with ~75 h of retries, SSRF protection, secret rotation, message log, redelivery and recovery.",
 
-      while (attempt < maxRetries && !success) {
-        attempt++;
-        const start = Date.now();
-        try {
-          const res = await fetch(webhook.url, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              [WEBHOOK_SIGNATURE_HEADER]: signature,
-              "x-zenith-event": event,
-              ...(webhook.headers ?? {}),
-            },
-            body,
-          });
-          success = res.ok;
-          lastError = success ? "" : `HTTP ${res.status}`;
-          await db.create("ZenithWebhookDelivery", {
-            webhook: ptr("ZenithWebhook", webhook.objectId),
-            event, payload, statusCode: res.status, success,
-            attempt, duration: Date.now() - start,
-            error: lastError || undefined, deliveredAt: now(), createdAt: now(),
-          }).catch(() => {});
-          if (success) break;
-        } catch(e: any) {
-          lastError = e.message;
-          await db.create("ZenithWebhookDelivery", {
-            webhook: ptr("ZenithWebhook", webhook.objectId),
-            event, payload, statusCode: 0, success: false,
-            attempt, duration: Date.now() - start,
-            error: lastError, deliveredAt: now(), createdAt: now(),
-          }).catch(() => {});
-        }
-        if (!success && attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, (webhook.retryPolicy?.backoffMs ?? 1000) * attempt));
-        }
+    create: (deps: Record<string, any>) => {
+      const db = deps.traits["db"];
+      const events = deps.traits["events"];
+      const features = deps.traits["runtime-features"];
+      const clock = options.now ?? Date.now;
+      const allowPrivate = envFlag("ZENITH_WEBHOOKS_ALLOW_PRIVATE") === "1";
+      const policy: OutboundPolicy = options.policy ?? (allowPrivate ? { allowHttp: true, allowPrivate: true } : {});
+      const secretsKey = options.secretsKey ?? envFlag("WEBHOOK_SECRETS_KEY");
+      let warnedPlain = false;
+
+      if (deps.traits["cloud"]?.defineSchema) {
+        for (const [name, fields] of Object.entries(WEBHOOK_SCHEMA)) deps.traits["cloud"].defineSchema(name, fields, {});
       }
 
-      // Actualizar estado del webhook
-      const failureCount = success ? 0 : (webhook.failureCount ?? 0) + 1;
-      const status = failureCount >= 10 ? "failed" : (success ? "active" : webhook.status);
-      await db.update("ZenithWebhook", { objectId: webhook.objectId }, {
-        lastTriggeredAt: now(), failureCount,
-        status, lastError: lastError || null, updatedAt: now(),
-      }).catch(() => {});
-    }
+      const enabled = () => !features?.isEnabled || features.isEnabled("webhooks");
 
-    // Suscribirse a todos los eventos para entregarlos a webhooks activos
-    if (events) {
-      const originalEmit = events.emit?.bind(events);
-      if (originalEmit) {
-        events.emit = async (eventName: string, data: unknown) => {
-          originalEmit(eventName, data);
-          // Buscar webhooks que escuchen este evento
+      // ── Secretos ───────────────────────────────────────────────────────────
+      const protect = async (secret: string, endpointId: string) => {
+        if (secretsKey) return await seal(secretsKey, secret, `webhook:${endpointId}`);
+        if (!warnedPlain) {
+          warnedPlain = true;
+          console.warn("[webhooks] WEBHOOK_SECRETS_KEY is not set: endpoint secrets are stored unencrypted.");
+        }
+        return secret;
+      };
+      const reveal = async (value: string, endpointId: string) => {
+        if (!isSealed(value)) return value;
+        if (!secretsKey) throw new Error("A webhook secret is encrypted but WEBHOOK_SECRETS_KEY is not set.");
+        return await unseal(secretsKey, value, `webhook:${endpointId}`);
+      };
+      const secretsOf = async (endpoint: any): Promise<string[]> => {
+        const t = clock();
+        const live = (endpoint.secrets ?? []).filter((s: any) => !s.expiresAt || Date.parse(s.expiresAt) > t);
+        return await Promise.all(live.map((s: any) => reveal(s.value, endpoint.objectId)));
+      };
+
+      const redact = (ep: any) => {
+        if (!ep) return ep;
+        const { secrets, ...rest } = ep;
+        return { ...rest, secretCount: (secrets ?? []).length };
+      };
+
+      // ── Endpoints (con caché corta para el reparto de eventos) ─────────────
+      let cache: { at: number; list: any[] } | null = null;
+      const invalidate = () => { cache = null; };
+      const subscribed = async () => {
+        if (!cache || clock() - cache.at > ENDPOINT_CACHE_MS) {
+          const list = (await db.find(ENDPOINT_CLASS, {})).filter((e: any) => e.status === "active" || e.status === "paused");
+          cache = { at: clock(), list };
+        }
+        return cache.list;
+      };
+
+      const validate = async (data: Record<string, any>, partial: boolean) => {
+        const out: Record<string, any> = {};
+        if (!partial || data.name !== undefined) {
+          if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 100) throw bad("name: 1 to 100 characters.");
+          out.name = data.name.trim();
+        }
+        if (!partial || data.url !== undefined) {
+          if (typeof data.url !== "string") throw bad("url is required.");
           try {
-            const active = await db.find("ZenithWebhook", { status: "active" });
-            for (const wh of active) {
-              const matches = (wh.events ?? []).some((pattern: string) => {
-                if (pattern === "*") return true;
-                if (pattern.endsWith(".*")) {
-                  return eventName.startsWith(pattern.slice(0, -2));
-                }
-                return pattern === eventName;
-              });
-              if (matches) deliverWebhook(wh, eventName, data).catch(() => {});
-            }
-          } catch { /* no bloquear el flujo principal */ }
-        };
-      }
-    }
+            await checkOutboundUrl(data.url, policy);
+          } catch (e) {
+            if (e instanceof OutboundBlockedError) throw bad(`url: ${e.message}`);
+            throw e;
+          }
+          out.url = data.url;
+        }
+        if (!partial || data.events !== undefined) {
+          const ev = data.events;
+          if (!Array.isArray(ev) || ev.length === 0 || ev.length > 100 || ev.some((p) => typeof p !== "string" || !EVENT_PATTERN.test(p))) {
+            throw bad('events: a non-empty list of event types or patterns ("Contact.created", "Deal.*", "*").');
+          }
+          out.events = [...new Set(ev)];
+        }
+        if (data.description !== undefined) {
+          if (typeof data.description !== "string" || data.description.length > 500) throw bad("description: up to 500 characters.");
+          out.description = data.description;
+        }
+        if (data.headers !== undefined) {
+          const h = data.headers;
+          if (typeof h !== "object" || h === null || Array.isArray(h) || Object.keys(h).length > 20) throw bad("headers: an object with up to 20 entries.");
+          for (const [k, v] of Object.entries(h)) {
+            if (!/^[A-Za-z0-9-]{1,64}$/.test(k) || typeof v !== "string" || v.length > 1000 || /[\r\n]/.test(v)) throw bad(`headers: invalid header "${k}".`);
+            if (RESERVED_HEADERS.has(k.toLowerCase())) throw bad(`headers: "${k}" is set by Zenith.`);
+          }
+          out.headers = h;
+        }
+        return out;
+      };
 
-    const api = {
-      async list(ctx: any) {
-        const where: Record<string, any> = {};
-        if (!ctx.master && ctx.user) where["owner.objectId"] = ctx.user.objectId;
-        const results = await db.find("ZenithWebhook", where);
-        // Redactar el secret en las respuestas
-        return { results: results.map((w: any) => ({ ...w, secret: w.secret ? "whsec_***" : null })) };
-      },
+      const endpointOrThrow = async (id: string) => {
+        const ep = await db.read(ENDPOINT_CLASS, id);
+        if (!ep) throw ZenithErrors.notFound(ENDPOINT_CLASS, id);
+        return ep;
+      };
 
-      async get(objectId: string, ctx: any) {
-        const wh = await db.read("ZenithWebhook", objectId);
-        if (!wh) throw ZenithErrors.notFound("ZenithWebhook", objectId);
-        if (!ctx.master && wh.owner?.objectId !== ctx.user?.objectId) throw ZenithErrors.forbidden();
-        return { ...wh, secret: "whsec_***" };
-      },
-
-      async create(data: Record<string, any>, ctx: any) {
-        if (!data.url) throw ZenithErrors.validationFailed("url es obligatorio.");
-        if (!data.events?.length) throw ZenithErrors.validationFailed("events debe ser un array no vacío.");
-        // Validar URL
-        try { new URL(data.url); } catch { throw ZenithErrors.validationFailed("url no es una URL válida."); }
-        const secret = data.secret ?? await generateSecret();
-        const wh = await db.create("ZenithWebhook", {
-          ...data, secret,
-          owner: ctx.user ? ptr("_User", ctx.user.objectId) : null,
-          status: "active", failureCount: 0,
-          createdAt: now(), updatedAt: now(),
+      // ── Mensajes ──────────────────────────────────────────────────────────
+      const enqueueFor = async (endpoint: any, type: string, data: unknown, at = clock()) => {
+        const body = JSON.stringify({ type, timestamp: new Date(at).toISOString(), data: sanitizePayload(data ?? null) });
+        const tooLarge = new TextEncoder().encode(body).length > MAX_BODY_BYTES;
+        return await db.create(MESSAGE_CLASS, {
+          messageId: newMessageId(), endpointId: endpoint.objectId, type,
+          body: tooLarge ? JSON.stringify({ type, timestamp: new Date(at).toISOString(), data: null }) : body,
+          status: tooLarge ? "failed" : "pending", attempts: 0, leaseUntil: null,
+          nextAttemptAt: new Date(at).toISOString(),
+          ...(tooLarge ? { lastError: `Payload larger than ${MAX_BODY_BYTES} bytes.` } : {}),
         });
-        // Retornar secret completo SOLO en la creación
-        return { ...wh, _secretWarning: "Guarda este secret. No se mostrará de nuevo." };
-      },
+      };
 
-      async update(objectId: string, data: Record<string, any>, ctx: any) {
-        const wh = await db.read("ZenithWebhook", objectId);
-        if (!wh) throw ZenithErrors.notFound("ZenithWebhook", objectId);
-        if (!ctx.master && wh.owner?.objectId !== ctx.user?.objectId) throw ZenithErrors.forbidden();
-        const allowed = ["name", "url", "events", "headers", "retryPolicy", "status"];
-        const patch = Object.fromEntries(Object.entries(data).filter(([k]) => allowed.includes(k)));
-        return db.update("ZenithWebhook", { objectId }, { ...patch, updatedAt: now() });
-      },
+      /** Reparte un evento entre los endpoints suscritos. Devuelve cuántos mensajes encoló. */
+      const publish = async (type: string, data: unknown): Promise<number> => {
+        if (!enabled() || typeof type !== "string" || !type) return 0;
+        const targets = (await subscribed()).filter((e) => matchesEvent(e.events ?? [], type));
+        for (const ep of targets) await enqueueFor(ep, type, data);
+        if (targets.length) kick();
+        return targets.length;
+      };
 
-      async pause(objectId: string, ctx: any) {
-        return api.update(objectId, { status: "paused" }, ctx);
-      },
+      // ── Trabajador ────────────────────────────────────────────────────────
+      const deliveryDeps: DeliveryDeps = {
+        db, secretsOf, policy,
+        emit: (event, payload) => { void events?.emit?.(event, payload); },
+        now: clock,
+        ...(options.fetcher ? { fetcher: options.fetcher } : {}),
+      };
+      let running: Promise<number> | null = null;
+      const runOnce = (): Promise<number> => {
+        if (!enabled()) return Promise.resolve(0);
+        running ??= deliverDue(deliveryDeps).finally(() => { running = null; });
+        return running;
+      };
+      let timer: ReturnType<typeof setInterval> | null = null;
+      const kick = () => { if (timer !== null) void runOnce().catch(() => {}); };
 
-      async resume(objectId: string, ctx: any) {
-        const wh = await db.read("ZenithWebhook", objectId);
-        if (!wh) throw ZenithErrors.notFound("ZenithWebhook", objectId);
-        return api.update(objectId, { status: "active", failureCount: 0 }, ctx);
-      },
+      if (events?.on) {
+        // The bus hands wildcard subscribers the whole event ({ event, payload, timestamp }).
+        events.on("*", (e: { event?: string; payload?: unknown }) => {
+          if (!e?.event || e.event.startsWith("webhook.")) return; // no webhooks about webhook deliveries
+          publish(e.event, e.payload).catch((err) => console.warn(`[webhooks] could not enqueue ${e.event}: ${(err as Error).message}`));
+        });
+      }
 
-      async delete(objectId: string, ctx: any) {
-        const wh = await db.read("ZenithWebhook", objectId);
-        if (!wh) throw ZenithErrors.notFound("ZenithWebhook", objectId);
-        if (!ctx.master && wh.owner?.objectId !== ctx.user?.objectId) throw ZenithErrors.forbidden();
-        await db.delete("ZenithWebhook", { objectId });
-        return { success: true };
-      },
+      const api = {
+        publish,
+        /** Entrega lo vencido ahora (lo usa el trabajador; útil en pruebas). */
+        deliverDue: runOnce,
+        startBackground() {
+          if (timer !== null) return;
+          timer = setInterval(() => void runOnce().catch((e) => console.warn(`[webhooks] delivery loop: ${(e as Error).message}`)), WORKER_INTERVAL_MS);
+          Deno.unrefTimer(timer);
+        },
+        stopBackground() {
+          if (timer !== null) clearInterval(timer);
+          timer = null;
+        },
 
-      async deliveries(webhookId: string, ctx: any) {
-        const wh = await db.read("ZenithWebhook", webhookId);
-        if (!wh) throw ZenithErrors.notFound("ZenithWebhook", webhookId);
-        if (!ctx.master && wh.owner?.objectId !== ctx.user?.objectId) throw ZenithErrors.forbidden();
-        const results = await db.find("ZenithWebhookDelivery", { "webhook.objectId": webhookId });
-        return { results: sortResults(results, "-createdAt").slice(0, 50) };
-      },
+        async list() {
+          return { results: (await db.find(ENDPOINT_CLASS, {})).map(redact) };
+        },
+        async get(id: string) {
+          return redact(await endpointOrThrow(id));
+        },
+        async create(data: Record<string, any>) {
+          const fields = await validate(data, false);
+          const secret = generateWebhookSecret();
+          const ep = await db.create(ENDPOINT_CLASS, { ...fields, headers: fields.headers ?? {}, status: "active", exhaustedCount: 0, secrets: [] });
+          await db.update(ENDPOINT_CLASS, { objectId: ep.objectId }, { secrets: [{ value: await protect(secret, ep.objectId), createdAt: now() }] });
+          invalidate();
+          return { ...redact({ ...ep, secrets: [1] }), secret, _secretWarning: "Store this secret now: it is not shown again." };
+        },
+        async update(id: string, data: Record<string, any>) {
+          await endpointOrThrow(id);
+          const fields = await validate(data, true);
+          const updated = await db.update(ENDPOINT_CLASS, { objectId: id }, fields);
+          invalidate();
+          return redact(updated);
+        },
+        async setStatus(id: string, status: "active" | "paused") {
+          await endpointOrThrow(id);
+          const patch = status === "active" ? { status, exhaustedCount: 0, disabledReason: null, disabledAt: null } : { status };
+          const updated = await db.update(ENDPOINT_CLASS, { objectId: id }, patch);
+          invalidate();
+          if (status === "active") kick();
+          return redact(updated);
+        },
+        async remove(id: string) {
+          await endpointOrThrow(id);
+          await db.delete(ENDPOINT_CLASS, { objectId: id });
+          invalidate();
+        },
+        async rotateSecret(id: string, graceHours = 24) {
+          if (!Number.isFinite(graceHours) || graceHours < 0 || graceHours > 24 * 7) throw bad("graceHours: 0 to 168.");
+          const ep = await endpointOrThrow(id);
+          const secret = generateWebhookSecret();
+          const until = new Date(clock() + graceHours * 3_600_000).toISOString();
+          const previous = (ep.secrets ?? []).filter((s: any) => !s.expiresAt || Date.parse(s.expiresAt) > clock()).slice(0, 1);
+          const secrets = [
+            { value: await protect(secret, id), createdAt: now() },
+            ...(graceHours > 0 ? previous.map((s: any) => ({ ...s, expiresAt: until })) : []),
+          ];
+          await db.update(ENDPOINT_CLASS, { objectId: id }, { secrets });
+          invalidate();
+          return { id, secret, previousValidUntil: graceHours > 0 && previous.length ? until : null };
+        },
+        async test(id: string) {
+          const ep = await endpointOrThrow(id);
+          const m = await enqueueFor(ep, "webhook.test", { message: "Test delivery from Zenith" });
+          kick();
+          return { messageId: m.messageId, status: "pending" };
+        },
+        async messages(id: string, status?: string) {
+          await endpointOrThrow(id);
+          const where: Record<string, unknown> = { endpointId: id };
+          if (status) where.status = status;
+          const results = sortResults(await db.find(MESSAGE_CLASS, where), "-createdAt").slice(0, 100);
+          return { results: results.map(({ body: _b, leaseUntil: _l, ...m }: any) => m) };
+        },
+        async attempts(id: string, messageId: string) {
+          await endpointOrThrow(id);
+          const results = sortResults(await db.find(ATTEMPT_CLASS, { endpointId: id, messageId }), "attempt");
+          return { results };
+        },
+        async redeliver(id: string, messageId: string) {
+          await endpointOrThrow(id);
+          const [m] = await db.find(MESSAGE_CLASS, { endpointId: id, messageId });
+          if (!m) throw ZenithErrors.notFound(MESSAGE_CLASS, messageId);
+          if (m.status === "pending") return { messageId, status: "pending" };
+          // Same webhook-id: the receiver can recognise it as a duplicate.
+          await db.update(MESSAGE_CLASS, { objectId: m.objectId }, { status: "pending", attempts: 0, nextAttemptAt: new Date(clock()).toISOString(), leaseUntil: null });
+          kick();
+          return { messageId, status: "pending" };
+        },
+        /** Vuelve a encolar los mensajes fallidos desde `since` (recuperación tras una caída del receptor). */
+        async recover(id: string, since: string) {
+          await endpointOrThrow(id);
+          const from = Date.parse(since);
+          if (!Number.isFinite(from)) throw bad("since: an ISO 8601 date.");
+          const failed = (await db.find(MESSAGE_CLASS, { endpointId: id, status: "failed" })).filter((m: any) => Date.parse(m.createdAt) >= from);
+          for (const m of failed) {
+            await db.update(MESSAGE_CLASS, { objectId: m.objectId }, { status: "pending", attempts: 0, nextAttemptAt: new Date(clock()).toISOString(), leaseUntil: null });
+          }
+          kick();
+          return { requeued: failed.length };
+        },
+      };
 
-      async testDelivery(objectId: string, ctx: any) {
-        const wh = await db.read("ZenithWebhook", objectId);
-        if (!wh) throw ZenithErrors.notFound("ZenithWebhook", objectId);
-        if (!ctx.master && wh.owner?.objectId !== ctx.user?.objectId) throw ZenithErrors.forbidden();
-        await deliverWebhook(wh, "webhook.test", { message: "Test delivery from Zenith", timestamp: now() });
-        return { success: true, message: "Test delivery enviado." };
-      },
-    };
+      const body = async (req: Request) => {
+        try {
+          return (await req.json()) ?? {};
+        } catch {
+          throw new ZenithError(ZenithErrorCode.INVALID_JSON, "Invalid JSON body.", 400);
+        }
+      };
+      const route = (method: "GET" | "POST" | "PUT" | "DELETE", path: string, summary: string, run: (req: Request, p: Record<string, string>) => Promise<Response>) => ({
+        method, path, access: "master" as const,
+        _openapi: { summary, tags: ["Webhooks"] },
+        handler: async (req: Request) => {
+          try {
+            return await run(req, pathParams(path, req.url) ?? {});
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      });
 
-    const webhook_mgmt_routes = [
-      { method: "GET"    as const, path: "/zen/webhooks",                           _openapi: { summary: "Listar webhooks del usuario",            tags: ["Webhooks"] }, handler: async (_req: Request, ctx: any) => { try { return jsonRes(await api.list(ctx)); } catch(e) { return errRes(e); } } },
-      { method: "GET"    as const, path: "/zen/webhooks/:objectId",                 _openapi: { summary: "Obtener webhook por ID",                 tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId", req.url)!; return jsonRes(await api.get(p.objectId, ctx)); } catch(e) { return errRes(e); } } },
-      { method: "POST"   as const, path: "/zen/webhooks",                           _openapi: { summary: "Crear webhook (secret solo visible al crear)", tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { return jsonRes(await api.create(await req.json(), ctx), 201); } catch(e) { return errRes(e); } } },
-      { method: "PUT"    as const, path: "/zen/webhooks/:objectId",                 _openapi: { summary: "Actualizar webhook",                     tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId", req.url)!; return jsonRes(await api.update(p.objectId, await req.json(), ctx)); } catch(e) { return errRes(e); } } },
-      { method: "POST"   as const, path: "/zen/webhooks/:objectId/pause",           _openapi: { summary: "Pausar webhook",                         tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId/pause", req.url)!; return jsonRes(await api.pause(p.objectId, ctx)); } catch(e) { return errRes(e); } } },
-      { method: "POST"   as const, path: "/zen/webhooks/:objectId/resume",          _openapi: { summary: "Reactivar webhook",                      tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId/resume", req.url)!; return jsonRes(await api.resume(p.objectId, ctx)); } catch(e) { return errRes(e); } } },
-      { method: "POST"   as const, path: "/zen/webhooks/:objectId/test",            _openapi: { summary: "Enviar entrega de prueba",               tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId/test", req.url)!; return jsonRes(await api.testDelivery(p.objectId, ctx)); } catch(e) { return errRes(e); } } },
-      { method: "GET"    as const, path: "/zen/webhooks/:objectId/deliveries",      _openapi: { summary: "Historial de entregas (últimas 50)",     tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId/deliveries", req.url)!; return jsonRes(await api.deliveries(p.objectId, ctx)); } catch(e) { return errRes(e); } } },
-      { method: "DELETE" as const, path: "/zen/webhooks/:objectId",                 _openapi: { summary: "Eliminar webhook",                       tags: ["Webhooks"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/webhooks/:objectId", req.url)!; await api.delete(p.objectId, ctx); return NO_CONTENT; } catch(e) { return errRes(e); } } },
-    ];
+      const webhook_mgmt_routes = [
+        route("GET", "/zen/webhooks", "List webhook endpoints (secrets are never returned)", async () => jsonRes(await api.list())),
+        route("POST", "/zen/webhooks", "Create an endpoint. The signing secret is returned once", async (req) => jsonRes(await api.create(await body(req)), 201)),
+        route("GET", "/zen/webhooks/:objectId", "Get an endpoint", async (_r, p) => jsonRes(await api.get(p.objectId))),
+        route("PUT", "/zen/webhooks/:objectId", "Update name, url, events, description or headers", async (req, p) => jsonRes(await api.update(p.objectId, await body(req)))),
+        route("DELETE", "/zen/webhooks/:objectId", "Delete an endpoint", async (_r, p) => { await api.remove(p.objectId); return NO_CONTENT; }),
+        route("POST", "/zen/webhooks/:objectId/pause", "Pause deliveries (messages wait until resume)", async (_r, p) => jsonRes(await api.setStatus(p.objectId, "paused"))),
+        route("POST", "/zen/webhooks/:objectId/resume", "Resume, or re-enable a disabled endpoint", async (_r, p) => jsonRes(await api.setStatus(p.objectId, "active"))),
+        route("POST", "/zen/webhooks/:objectId/test", "Send a webhook.test message", async (_r, p) => jsonRes(await api.test(p.objectId), 202)),
+        route("POST", "/zen/webhooks/:objectId/rotate-secret", "New secret, returned once. The previous one keeps signing for graceHours (default 24)", async (req, p) => {
+          const b = await body(req);
+          return jsonRes(await api.rotateSecret(p.objectId, b.graceHours === undefined ? 24 : Number(b.graceHours)));
+        }),
+        route("GET", "/zen/webhooks/:objectId/messages", "Latest messages of an endpoint (?status=pending|succeeded|failed)", async (req, p) =>
+          jsonRes(await api.messages(p.objectId, new URL(req.url).searchParams.get("status") ?? undefined))),
+        route("GET", "/zen/webhooks/:objectId/messages/:messageId/attempts", "Delivery attempts of a message", async (_r, p) => jsonRes(await api.attempts(p.objectId, p.messageId))),
+        route("POST", "/zen/webhooks/:objectId/messages/:messageId/redeliver", "Deliver a message again (same webhook-id)", async (_r, p) => jsonRes(await api.redeliver(p.objectId, p.messageId), 202)),
+        route("POST", "/zen/webhooks/:objectId/recover", "Requeue the failed messages created since a date ({ since })", async (req, p) => jsonRes(await api.recover(p.objectId, String((await body(req)).since ?? "")), 202)),
+      ];
 
-    return { webhook_mgmt_routes, webhookManager: api };
-  },
-});
+      return { webhook_mgmt_routes, webhookManager: api };
+    },
+  });
+}
+
+export const WebhookManagerTrait: AnyTraitDescriptor = createWebhookManagerTrait();

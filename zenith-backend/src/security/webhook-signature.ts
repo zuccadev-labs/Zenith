@@ -1,71 +1,108 @@
 /**
  * @module @zenith/security/webhook-signature
  *
- * Firma de los webhooks que envía Zenith, en un solo sitio. Esquema de Stripe:
+ * Firma de los webhooks que envía Zenith según Standard Webhooks 1.0 (standardwebhooks.com), la
+ * especificación neutral que siguen OpenAI, Twilio, Supabase y otros. Cualquier receptor la verifica con
+ * las bibliotecas oficiales (`standardwebhooks` en npm, Go, Python, Rust…).
  *
- *   x-zenith-signature: t=<unix segundos>,v1=<hex HMAC-SHA256(secreto, "<t>.<cuerpo>")>
+ * Cabeceras de cada entrega:
+ * - `webhook-id`: id del mensaje. No cambia entre reintentos, así que el receptor lo usa para
+ *   deduplicar.
+ * - `webhook-timestamp`: segundos Unix del intento.
+ * - `webhook-signature`: `v1,<base64(HMAC-SHA256(clave, "<id>.<timestamp>.<cuerpo>"))>`. Durante una
+ *   rotación van varias firmas separadas por espacios, con la clave nueva y con la anterior.
  *
- * - **Marca de tiempo firmada:** el receptor rechaza firmas fuera de la tolerancia (5 min por
- *   defecto), así que una petición capturada no se puede reenviar más tarde.
- * - **Varios `v1`, varios secretos:** durante una rotación, el receptor verifica con el secreto
- *   nuevo y con el anterior.
- * - **Comparación en tiempo constante** (core/crypto.ts).
- *
- * Antes había dos implementaciones (`cloud/webhook.trait.ts` y `webhooks/webhook.manager.trait.ts`).
- * Firmaban solo el cuerpo, con la marca en milisegundos, y la verificación esperaba `"<t>.<cuerpo>"`:
- * una firma propia nunca verificaba.
+ * Secreto: `whsec_` + base64 de 32 bytes aleatorios (la especificación admite de 24 a 64). La clave
+ * HMAC son esos bytes decodificados, no el texto. El receptor rechaza firmas con más de 5 minutos de
+ * diferencia (la tolerancia de la biblioteca oficial).
  */
-import { hmacSha256Hex, timingSafeEqual } from "../core/crypto.ts";
+import { fromBase64, hmacSha256, randomBytes, timingSafeEqual, toBase64 } from "../core/crypto.ts";
 
-/** Cabecera HTTP con la firma. */
-export const WEBHOOK_SIGNATURE_HEADER = "x-zenith-signature";
-/** Tolerancia por defecto entre la marca firmada y el reloj del receptor. */
+export const WEBHOOK_ID_HEADER = "webhook-id";
+export const WEBHOOK_TIMESTAMP_HEADER = "webhook-timestamp";
+export const WEBHOOK_SIGNATURE_HEADER = "webhook-signature";
+/** Tolerancia entre la marca firmada y el reloj del receptor (la de la biblioteca oficial). */
 export const WEBHOOK_TOLERANCE_SECONDS = 300;
 
-const enc = new TextEncoder();
-const signedPayload = (t: number, body: string) => `${t}.${body}`;
+const SECRET_PREFIX = "whsec_";
 
-/** Valor de la cabecera de firma para `body`. `nowMs` solo para pruebas. */
-export async function signWebhook(secret: string, body: string, nowMs: number = Date.now()): Promise<string> {
-  const t = Math.floor(nowMs / 1000);
-  return `t=${t},v1=${await hmacSha256Hex(secret, signedPayload(t, body))}`;
+/** Un secreto nuevo: `whsec_` + base64 de 32 bytes del CSPRNG. */
+export function generateWebhookSecret(): string {
+  return SECRET_PREFIX + toBase64(randomBytes(32));
 }
 
-/** Marca de tiempo y firmas `v1` de una cabecera; `null` si está mal formada. */
-export function parseWebhookSignature(header: string): { t: number; v1: string[] } | null {
-  let t = NaN;
-  const v1: string[] = [];
-  for (const part of header.split(",")) {
-    const i = part.indexOf("=");
-    if (i < 1) continue;
-    const k = part.slice(0, i).trim();
-    const v = part.slice(i + 1).trim();
-    if (k === "t" && /^\d+$/.test(v)) t = Number(v);
-    else if (k === "v1" && /^[0-9a-f]{64}$/.test(v)) v1.push(v);
+/** Los bytes de la clave. Acepta el secreto con o sin `whsec_`; lanza si no es base64 de 24 a 64 bytes. */
+export function webhookKeyBytes(secret: string): Uint8Array<ArrayBuffer> {
+  const raw = secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret;
+  let key: Uint8Array<ArrayBuffer>;
+  try {
+    key = fromBase64(raw);
+  } catch {
+    throw new Error("Webhook secret: expected whsec_ followed by base64.");
   }
-  return Number.isSafeInteger(t) && v1.length > 0 ? { t, v1 } : null;
+  if (key.length < 24 || key.length > 64) throw new Error("Webhook secret: the key must be 24 to 64 bytes.");
+  return key;
+}
+
+/** `v1,<base64>` para un mensaje. */
+export async function signWebhook(secret: string, id: string, timestamp: number, body: string): Promise<string> {
+  if (id.includes(".")) throw new Error("webhook-id must not contain '.'.");
+  return `v1,${toBase64(await hmacSha256(webhookKeyBytes(secret), `${id}.${timestamp}.${body}`))}`;
 }
 
 /**
- * Si `header` firma `body` con alguno de `secrets` dentro de la tolerancia. Falla cerrado: una
- * cabecera mal formada, sin secretos o fuera de tiempo devuelve `false`.
+ * Las tres cabeceras de una entrega. Con varios secretos (rotación), una firma por secreto: el receptor
+ * acepta el mensaje con cualquiera de ellos.
+ */
+export async function webhookHeaders(
+  secrets: readonly string[],
+  id: string,
+  body: string,
+  nowMs: number = Date.now(),
+): Promise<Record<string, string>> {
+  if (secrets.length === 0) throw new Error("webhookHeaders: at least one secret.");
+  const timestamp = Math.floor(nowMs / 1000);
+  const signatures = await Promise.all(secrets.map((s) => signWebhook(s, id, timestamp, body)));
+  return {
+    [WEBHOOK_ID_HEADER]: id,
+    [WEBHOOK_TIMESTAMP_HEADER]: String(timestamp),
+    [WEBHOOK_SIGNATURE_HEADER]: signatures.join(" "),
+  };
+}
+
+type HeaderSource = Headers | Record<string, string | undefined>;
+const header = (h: HeaderSource, name: string) => (h instanceof Headers ? h.get(name) : h[name] ?? h[name.toLowerCase()]) ?? null;
+
+/**
+ * Si las cabeceras firman `body` con alguno de `secrets` dentro de la tolerancia. Falla cerrado: falta
+ * de cabeceras, marca fuera de tiempo o ninguna firma válida devuelven `false`. Es la verificación de
+ * la biblioteca oficial, para pruebas y para los receptores escritos en Deno.
  */
 export async function verifyWebhook(
-  header: string | null | undefined,
+  headers: HeaderSource,
   body: string,
   secrets: readonly string[],
   options: { toleranceSeconds?: number; nowMs?: number } = {},
 ): Promise<boolean> {
-  const parsed = header ? parseWebhookSignature(header) : null;
-  if (!parsed || secrets.length === 0) return false;
-  const tolerance = options.toleranceSeconds ?? WEBHOOK_TOLERANCE_SECONDS;
+  const id = header(headers, WEBHOOK_ID_HEADER);
+  const ts = header(headers, WEBHOOK_TIMESTAMP_HEADER);
+  const sig = header(headers, WEBHOOK_SIGNATURE_HEADER);
+  if (!id || !ts || !sig || !/^\d+$/.test(ts) || id.includes(".") || secrets.length === 0) return false;
+  const timestamp = Number(ts);
   const now = Math.floor((options.nowMs ?? Date.now()) / 1000);
-  if (Math.abs(now - parsed.t) > tolerance) return false;
+  if (Math.abs(now - timestamp) > (options.toleranceSeconds ?? WEBHOOK_TOLERANCE_SECONDS)) return false;
+  const enc = new TextEncoder();
+  const candidates = sig.split(" ").filter((s) => s.startsWith("v1,")).map((s) => enc.encode(s.slice(3)));
   let ok = false;
   for (const secret of secrets) {
-    const expected = enc.encode(await hmacSha256Hex(secret, signedPayload(parsed.t, body)));
-    // Sin cortocircuito: el tiempo no revela cuál de las firmas o de los secretos coincidió.
-    for (const candidate of parsed.v1) ok = timingSafeEqual(expected, enc.encode(candidate)) || ok;
+    let expected: Uint8Array;
+    try {
+      expected = enc.encode(toBase64(await hmacSha256(webhookKeyBytes(secret), `${id}.${timestamp}.${body}`)));
+    } catch {
+      continue;
+    }
+    // Sin cortocircuito: el tiempo no revela qué firma o qué secreto coincidió.
+    for (const c of candidates) ok = timingSafeEqual(expected, c) || ok;
   }
   return ok;
 }

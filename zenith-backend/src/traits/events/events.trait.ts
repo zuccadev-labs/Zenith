@@ -1,10 +1,13 @@
 /**
- * Event sourcing bus: domain events (CRUD triggers, custom events), pub/sub with Kafka adapter (optional), replay log, event-store projections.
+ * Event store sobre el bus de eventos (`event-bus.trait.ts`): guarda cada evento en `_Event`, mantiene los
+ * últimos 10 000 en memoria para reproducirlos y expone `/events/emit` y `/events/replay`. Es opcional
+ * (`features.events`). El bus, en cambio, es núcleo, así que los demás traits publican y se suscriben
+ * aunque esta pieza esté apagada.
  *
  * @barrits-trait
  * @barrits-summary ZenithEventStreaming
- * @barrits-provides events-routes, events, eventBus
- * @barrits-consumes db
+ * @barrits-provides events-routes, eventStore
+ * @barrits-consumes db, events
  * @barrits-state eventSubscribers, eventLog
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -13,50 +16,32 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const EventStreamingTrait = createTraitDescriptor({
   name: "ZenithEventStreaming",
-  provides: ["events-routes", "events", "eventBus"],
-  consumes: ["db"],
+  provides: ["events-routes", "eventStore"],
+  consumes: ["db", "events"],
   state: ["eventSubscribers", "eventLog"],
   runtimes: ["deno"],
-  summary: "Event sourcing bus: domain events (CRUD triggers, custom events), pub/sub with Kafka adapter (optional), replay log, event-store projections.",
+  summary: "Event store on top of the core event bus: persists every event in _Event, keeps the last 10 000 for replay, /events/emit and /events/replay.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
+    const bus = deps.traits["events"];
+    const eventLog: Array<{ event: string; payload: any; timestamp: number }> = [];
+
+    // Every event of the bus goes to the log and to _Event.
+    bus.on("*", async (e: { event: string; payload: any; timestamp: number }) => {
+      eventLog.push(e);
+      if (eventLog.length > 10000) eventLog.shift();
+      await db.create("_Event", e).catch(() => {});
+    });
+
     const traitApi: any = {
-      subscribers: new Map<string, Set<(payload: any) => void | Promise<void>>>(),
-      eventLog: [] as Array<{ event: string; payload: any; timestamp: number }>,
-
-      on: (eventName: string, handler: (payload: any) => void | Promise<void>) => {
-        if (!traitApi.subscribers.has(eventName)) traitApi.subscribers.set(eventName, new Set());
-        traitApi.subscribers.get(eventName)!.add(handler);
-        return () => traitApi.subscribers.get(eventName)?.delete(handler);
-      },
-
-      off: (eventName: string, handler: (payload: any) => any) => {
-        traitApi.subscribers.get(eventName)?.delete(handler);
-      },
-
-      emit: async (eventName: string, payload: any) => {
-        const event = { event: eventName, payload, timestamp: Date.now() };
-        traitApi.eventLog.push(event);
-        if (traitApi.eventLog.length > 10000) traitApi.eventLog.shift();
-        await db.create("_Event", event).catch(() => {});
-        const subs = traitApi.subscribers.get(eventName) || new Set();
-        for (const handler of subs) {
-          try { await handler(payload); } catch (e) { console.error(`[Events] handler error for ${eventName}:`, e); }
-        }
-        const wildcards = traitApi.subscribers.get("*");
-        if (wildcards) {
-          for (const handler of wildcards) {
-            try { await handler(event); } catch (e) { console.error(`[Events] wildcard handler error:`, e); }
-          }
-        }
-      },
-
+      eventLog,
+      emit: (eventName: string, payload: any) => bus.emit(eventName, payload),
       replay: async (filter: { eventName?: string; fromTimestamp?: number; toTimestamp?: number } = {}) => {
-        let events: Array<{ event: string; timestamp: number; payload: any }> = traitApi.eventLog;
-        if (filter.eventName) events = events.filter((e: { event: string }) => e.event === filter.eventName);
-        if (filter.fromTimestamp) events = events.filter((e: { timestamp: number }) => e.timestamp >= filter.fromTimestamp!);
-        if (filter.toTimestamp) events = events.filter((e: { timestamp: number }) => e.timestamp <= filter.toTimestamp!);
+        let events = eventLog;
+        if (filter.eventName) events = events.filter((e) => e.event === filter.eventName);
+        if (filter.fromTimestamp) events = events.filter((e) => e.timestamp >= filter.fromTimestamp!);
+        if (filter.toTimestamp) events = events.filter((e) => e.timestamp <= filter.toTimestamp!);
         return events;
       },
     };
@@ -90,8 +75,7 @@ export const EventStreamingTrait = createTraitDescriptor({
 
     return {
       "events-routes": events_routes,
-      "events": traitApi,
-      "eventBus": traitApi,
+      "eventStore": traitApi,
     };
   },
 });

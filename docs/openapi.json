@@ -90,6 +90,9 @@
       "name": "HR"
     },
     {
+      "name": "Hooks"
+    },
+    {
       "name": "Inventory"
     },
     {
@@ -153,9 +156,6 @@
     {
       "name": "Views",
       "description": "Vistas guardadas (Kanban, Table, List, Calendar, Timeline) con filtros y ordenación persistente."
-    },
-    {
-      "name": "Webhook"
     },
     {
       "name": "Webhooks",
@@ -2139,37 +2139,672 @@
         "security": []
       }
     },
-    "/hooks/trigger": {
-      "post": {
-        "operationId": "post_hooks_trigger",
-        "summary": "Manually trigger a webhook delivery (test)",
+    "/hooks/functions": {
+      "get": {
+        "operationId": "get_hooks_functions",
+        "summary": "List function hooks (Parse Server)",
         "tags": [
-          "Webhook"
+          "Hooks"
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": "string"
-                  },
-                  "payload": {
-                    "type": "object"
-                  }
-                },
-                "required": [
-                  "url",
-                  "payload"
-                ]
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
               }
             }
           }
         },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_hooks_functions",
+        "summary": "Create a function hook: { functionName, url }",
+        "tags": [
+          "Hooks"
+        ],
         "responses": {
           "201": {
             "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/hooks/functions/{functionName}": {
+      "get": {
+        "operationId": "get_hooks_functions_By_functionName",
+        "summary": "Get a function hook",
+        "tags": [
+          "Hooks"
+        ],
+        "parameters": [
+          {
+            "name": "functionName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "helloWorld"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_hooks_functions_By_functionName",
+        "summary": "Update its url, or delete it with { __op: \"Delete\" }",
+        "tags": [
+          "Hooks"
+        ],
+        "parameters": [
+          {
+            "name": "functionName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "helloWorld"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/hooks/triggers": {
+      "get": {
+        "operationId": "get_hooks_triggers",
+        "summary": "List trigger hooks (Parse Server)",
+        "tags": [
+          "Hooks"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "post_hooks_triggers",
+        "summary": "Create a trigger hook: { className, triggerName, url }",
+        "tags": [
+          "Hooks"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/hooks/triggers/{className}/{triggerName}": {
+      "get": {
+        "operationId": "get_hooks_triggers_By_className_By_triggerName",
+        "summary": "Get a trigger hook",
+        "tags": [
+          "Hooks"
+        ],
+        "parameters": [
+          {
+            "name": "className",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "GameScore"
+          },
+          {
+            "name": "triggerName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "triggerName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "put_hooks_triggers_By_className_By_triggerName",
+        "summary": "Update its url, or delete it with { __op: \"Delete\" }",
+        "tags": [
+          "Hooks"
+        ],
+        "parameters": [
+          {
+            "name": "className",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "GameScore"
+          },
+          {
+            "name": "triggerName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "triggerName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated",
             "content": {
               "application/json": {
                 "schema": {
@@ -4947,262 +5582,6 @@
           }
         },
         "security": []
-      }
-    },
-    "/webhooks/endpoints": {
-      "post": {
-        "operationId": "post_webhooks_endpoints",
-        "summary": "Register a new webhook endpoint",
-        "tags": [
-          "Webhook"
-        ],
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithObject"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - parámetros inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - falta API key, JWT o session token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - ACL/CLP denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - el recurso no existe",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests - rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "masterKey": []
-          }
-        ]
-      },
-      "get": {
-        "operationId": "get_webhooks_endpoints",
-        "summary": "List active webhook endpoints",
-        "tags": [
-          "Webhook"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - parámetros inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - falta API key, JWT o session token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - ACL/CLP denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - el recurso no existe",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests - rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "masterKey": []
-          }
-        ]
-      }
-    },
-    "/webhooks/rotate-key": {
-      "post": {
-        "operationId": "post_webhooks_rotate_key",
-        "summary": "Rotate webhook signing key",
-        "tags": [
-          "Webhook"
-        ],
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithObject"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - parámetros inválidos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - falta API key, JWT o session token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - ACL/CLP denied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - el recurso no existe",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests - rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZenithError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "masterKey": []
-          }
-        ]
       }
     },
     "/zen/agents": {
@@ -19463,7 +19842,7 @@
     "/zen/webhooks": {
       "get": {
         "operationId": "get_zen_webhooks",
-        "summary": "Listar webhooks del usuario",
+        "summary": "List webhook endpoints (secrets are never returned)",
         "tags": [
           "Webhooks"
         ],
@@ -19547,7 +19926,7 @@
       },
       "post": {
         "operationId": "post_zen_webhooks",
-        "summary": "Crear webhook (secret solo visible al crear)",
+        "summary": "Create an endpoint. The signing secret is returned once",
         "tags": [
           "Webhooks"
         ],
@@ -19633,7 +20012,7 @@
     "/zen/webhooks/{objectId}": {
       "get": {
         "operationId": "get_zen_webhooks_By_objectId",
-        "summary": "Obtener webhook por ID",
+        "summary": "Get an endpoint",
         "tags": [
           "Webhooks"
         ],
@@ -19728,7 +20107,7 @@
       },
       "put": {
         "operationId": "put_zen_webhooks_By_objectId",
-        "summary": "Actualizar webhook",
+        "summary": "Update name, url, events, description or headers",
         "tags": [
           "Webhooks"
         ],
@@ -19823,7 +20202,7 @@
       },
       "delete": {
         "operationId": "delete_zen_webhooks_By_objectId",
-        "summary": "Eliminar webhook",
+        "summary": "Delete an endpoint",
         "tags": [
           "Webhooks"
         ],
@@ -19910,10 +20289,10 @@
         ]
       }
     },
-    "/zen/webhooks/{objectId}/deliveries": {
+    "/zen/webhooks/{objectId}/messages": {
       "get": {
-        "operationId": "get_zen_webhooks_By_objectId_deliveries",
-        "summary": "Historial de entregas (últimas 50)",
+        "operationId": "get_zen_webhooks_By_objectId_messages",
+        "summary": "Latest messages of an endpoint (?status=pending|succeeded|failed)",
         "tags": [
           "Webhooks"
         ],
@@ -20007,10 +20386,319 @@
         ]
       }
     },
+    "/zen/webhooks/{objectId}/messages/{messageId}/attempts": {
+      "get": {
+        "operationId": "get_zen_webhooks_By_objectId_messages_By_messageId_attempts",
+        "summary": "Delivery attempts of a message",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "xWMyZ4YYGX"
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "messageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/zen/webhooks/{objectId}/messages/{messageId}/redeliver": {
+      "post": {
+        "operationId": "post_zen_webhooks_By_objectId_messages_By_messageId_redeliver",
+        "summary": "Deliver a message again (same webhook-id)",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "xWMyZ4YYGX"
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "messageId"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
     "/zen/webhooks/{objectId}/pause": {
       "post": {
         "operationId": "post_zen_webhooks_By_objectId_pause",
-        "summary": "Pausar webhook",
+        "summary": "Pause deliveries (messages wait until resume)",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "xWMyZ4YYGX"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/zen/webhooks/{objectId}/recover": {
+      "post": {
+        "operationId": "post_zen_webhooks_By_objectId_recover",
+        "summary": "Requeue the failed messages created since a date ({ since })",
         "tags": [
           "Webhooks"
         ],
@@ -20107,7 +20795,104 @@
     "/zen/webhooks/{objectId}/resume": {
       "post": {
         "operationId": "post_zen_webhooks_By_objectId_resume",
-        "summary": "Reactivar webhook",
+        "summary": "Resume, or re-enable a disabled endpoint",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "name": "objectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "xWMyZ4YYGX"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/zen/webhooks/{objectId}/rotate-secret": {
+      "post": {
+        "operationId": "post_zen_webhooks_By_objectId_rotate_secret",
+        "summary": "New secret, returned once. The previous one keeps signing for graceHours (default 24)",
         "tags": [
           "Webhooks"
         ],
@@ -20204,7 +20989,7 @@
     "/zen/webhooks/{objectId}/test": {
       "post": {
         "operationId": "post_zen_webhooks_By_objectId_test",
-        "summary": "Enviar entrega de prueba",
+        "summary": "Send a webhook.test message",
         "tags": [
           "Webhooks"
         ],

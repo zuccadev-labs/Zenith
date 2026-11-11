@@ -27,6 +27,7 @@
     "npm:mongodb@^7.8.0": "7.8.0",
     "npm:mqtt@5": "5.15.1",
     "npm:openai@^7.54.0": "7.54.0_ws@8.21.0",
+    "npm:standardwebhooks@1.1.1": "1.1.1",
     "npm:stripe@^23.1.0": "23.1.0",
     "npm:tweetnacl@^1.0.3": "1.0.3",
     "npm:typescript@^6.0.3": "6.0.3",
@@ -1588,6 +1589,7 @@
       "npm:graphql@^17.1.0",
       "npm:mongodb@^7.8.0",
       "npm:openai@^7.54.0",
+      "npm:standardwebhooks@1.1.1",
       "npm:stripe@^23.1.0",
       "npm:tweetnacl@^1.0.3",
       "npm:viem@^2.57.17"

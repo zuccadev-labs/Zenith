@@ -62,7 +62,7 @@ export { ZenithFavoritesTags } from "./favtags/ZenithFavoritesTags.js";
 export type { ZenithFavorite, ZenithTag, ZenithTagAssign } from "./favtags/ZenithFavoritesTags.js";
 
 export { ZenithWebhooks } from "./webhooks/ZenithWebhooks.js";
-export type { ZenithWebhook, ZenithWebhookDelivery } from "./webhooks/ZenithWebhooks.js";
+export type { ZenithWebhook, ZenithWebhookAttempt, ZenithWebhookDelivery, ZenithWebhookMessage } from "./webhooks/ZenithWebhooks.js";
 
 export { ZenithCSV } from "./automation/ZenithAutomationCSV.js";
 export type { CSVImportResult, CSVSupportedClass } from "./automation/ZenithAutomationCSV.js";

@@ -28,15 +28,17 @@ Deno.test("feature catalog: every trait appears in exactly one feature", () => {
 });
 
 Deno.test("feature catalog: selectTraits keeps the boot order and defaults it had as an if-chain", () => {
-  // Captured from the if-chain selectTraits before the catalog (2026-11-11).
+  // Captured from the if-chain selectTraits before the catalog (2026-11-11), then: the event bus
+  // became core (after ZenithDb), the process-level ZenithWebhook was retired and Parse's Cloud Code
+  // Hooks were added (ADR-017).
   const legacyDefault = [
-    "ZenithDb", "ZenithRustFSAdapter", "ZenithCrypto", "ZenithSchemaManagement", "ZenithUserManagement", "ZenithMediaStream",
+    "ZenithDb", "ZenithEventBus", "ZenithRustFSAdapter", "ZenithCrypto", "ZenithSchemaManagement", "ZenithUserManagement", "ZenithMediaStream",
     "ZenithACL", "ZenithRateLimit", "ZenithRestCrud", "ZenithCloudCode", "ZenithFileStorage", "ZenithObservability",
     "ZenithMigration", "ZenithDatabaseMongo", "ZenithCoreServer", "ZenithRealtime", "ZenithGraphQL", "ZenithRunner",
-    "ZenithShellAPI", "ZenithWebhook", "ZenithZeroMQ", "ZenithFeatureFlags", "ZenithCache", "ZenithJobQueue",
+    "ZenithShellAPI", "ZenithZeroMQ", "ZenithFeatureFlags", "ZenithCache", "ZenithJobQueue",
     "ZenithCircuitBreaker", "ZenithCRMTrait", "ZenithERPTrait", "ZenithCollaboration", "ZenithWorkspace", "ZenithViews",
     "ZenithTimeline", "ZenithSearch", "ZenithMetadata", "ZenithBlogForum", "ZenithADKAgents", "ZenithPluginMarketplace",
-    "ZenithNotifications", "ZenithFavoritesTags", "ZenithWebhookManager", "ZenithCSV", "ZenithEmailSync",
+    "ZenithNotifications", "ZenithFavoritesTags", "ZenithWebhookManager", "ZenithCloudHooks", "ZenithCSV", "ZenithEmailSync",
     "ZenithCalendarSync", "ZenithAutomation",
   ];
   const log = console.log;
