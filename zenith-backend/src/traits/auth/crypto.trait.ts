@@ -11,6 +11,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { randomBytes, randomHex, sha256Hex, toHex } from "../../core/crypto.ts";
 
 export const CryptoTrait = createTraitDescriptor({
   name: "ZenithCrypto",
@@ -31,17 +32,11 @@ export const CryptoTrait = createTraitDescriptor({
           const argon2 = await import("@node-rs/argon2");
           return await argon2.verify(hash, password);
         },
-        sha256: async (input: string | Uint8Array): Promise<string> => {
-          const data = typeof input === "string" ? new TextEncoder().encode(input) : input;
-          const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
-          const hash = await crypto.subtle.digest("SHA-256", buffer);
-          return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-        },
+        sha256: (input: string | Uint8Array): Promise<string> => sha256Hex(input),
         sha512: async (input: string | Uint8Array): Promise<string> => {
           const data = typeof input === "string" ? new TextEncoder().encode(input) : input;
           const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
-          const hash = await crypto.subtle.digest("SHA-512", buffer);
-          return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+          return toHex(await crypto.subtle.digest("SHA-512", buffer));
         },
       },
       hmac: {
@@ -53,8 +48,7 @@ export const CryptoTrait = createTraitDescriptor({
             false,
             ["sign"]
           );
-          const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message));
-          return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+          return toHex(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message)));
         },
         verify: async (key: string, message: string, signature: string, algorithm: "SHA-256" | "SHA-512" = "SHA-256"): Promise<boolean> => {
           const cryptoKey = await crypto.subtle.importKey(
@@ -110,11 +104,8 @@ export const CryptoTrait = createTraitDescriptor({
         },
       },
       random: {
-        bytes: (n: number): Uint8Array => crypto.getRandomValues(new Uint8Array(n)),
-        hex: (n: number): string => {
-          const arr = crypto.getRandomValues(new Uint8Array(n));
-          return Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
-        },
+        bytes: (n: number): Uint8Array => randomBytes(n),
+        hex: (n: number): string => randomHex(n),
         base64: (n: number): string => {
           const arr = crypto.getRandomValues(new Uint8Array(n));
           return btoa(String.fromCharCode(...arr));

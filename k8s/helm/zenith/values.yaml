@@ -131,7 +131,11 @@ env:
 #     --from-literal=MASTER_KEY=<key> \
 #     --from-literal=JWT_SECRET=<secret> \
 #     --from-literal=SURREAL_PASS=<pass> \
-#     --from-literal=QDRANT_API_KEY=<key>
+#     --from-literal=QDRANT_API_KEY=<key> \
+#     --from-literal=FILE_SIGNING_KEY=$(openssl rand -hex 32) \
+#     --from-literal=AUDIT_SIGNING_KEY=$(openssl rand -hex 32)
+# FILE_SIGNING_KEY y AUDIT_SIGNING_KEY (HMAC, ADR-016) deben ser iguales en todas las réplicas: sin ellas
+# cada réplica usa una clave aleatoria propia y no reconoce lo que firman las demás.
 envFrom:
   - secretRef:
       name: zenith-secrets

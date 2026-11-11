@@ -20,6 +20,8 @@
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
+import { randomHex } from "../../core/crypto.ts";
+import { signWebhook, WEBHOOK_SIGNATURE_HEADER } from "../../security/webhook-signature.ts";
 
 const WEBHOOK_SCHEMA = {
   ZenithWebhook: {
@@ -51,19 +53,7 @@ const WEBHOOK_SCHEMA = {
 
 /** Genera un secret HMAC aleatorio para el webhook */
 async function generateSecret(): Promise<string> {
-  const raw = crypto.getRandomValues(new Uint8Array(24));
-  return `whsec_${Array.from(raw).map(b => b.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/** Firma el payload con el secret del webhook */
-async function signPayload(payload: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-  const hex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
-  return `t=${Date.now()},v1=${hex}`;
+  return `whsec_${randomHex(24)}`;
 }
 
 export const WebhookManagerTrait: AnyTraitDescriptor = createTraitDescriptor({
@@ -88,7 +78,7 @@ export const WebhookManagerTrait: AnyTraitDescriptor = createTraitDescriptor({
     // Entrega efectiva del webhook con retry
     async function deliverWebhook(webhook: any, event: string, payload: unknown): Promise<void> {
       const body = JSON.stringify({ event, data: payload, timestamp: now(), webhookId: webhook.objectId });
-      const signature = webhook.secret ? await signPayload(body, webhook.secret) : "";
+      const signature = webhook.secret ? await signWebhook(webhook.secret, body) : "";
       let attempt = 0, success = false, lastError = "";
       const maxRetries = webhook.retryPolicy?.maxRetries ?? 3;
 
@@ -100,7 +90,7 @@ export const WebhookManagerTrait: AnyTraitDescriptor = createTraitDescriptor({
             method: "POST",
             headers: {
               "content-type": "application/json",
-              "x-zenith-signature": signature,
+              [WEBHOOK_SIGNATURE_HEADER]: signature,
               "x-zenith-event": event,
               ...(webhook.headers ?? {}),
             },

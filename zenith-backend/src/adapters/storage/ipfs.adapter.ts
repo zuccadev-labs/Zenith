@@ -11,6 +11,7 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import type { StorageAdapter } from "../../core/types.ts";
+import { randomHex } from "../../core/crypto.ts";
 
 /**
  * Creates an IPFS (InterPlanetary File System) decentralized storage adapter.
@@ -25,8 +26,7 @@ export function createIPFSAdapter(gatewayUrl: string): StorageAdapter {
     upload: async (path: string, data: Uint8Array, _contentType: string): Promise<string> => {
       // Mock: En un entorno real usaríamos ipfs-http-client o Pinata
       console.log(`[IPFS] Uploading to decentralized storage: ${path} (${data.length} bytes)`);
-      const mockCid = "Qm" + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-         .map(b => b.toString(16).padStart(2, '0')).join('');
+      const mockCid = "Qm" + randomHex(32);
       return `ipfs://${mockCid}/${path}`;
     },
 

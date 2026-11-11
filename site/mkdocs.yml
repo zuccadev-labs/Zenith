@@ -93,6 +93,7 @@ nav:
       - ADR-013 composición y acceso: architecture-decisions/ADR-013-composition-and-access.md
       - ADR-014 clases para usuarios: architecture-decisions/ADR-014-classes-for-users.md
       - ADR-015 política de API keys: architecture-decisions/ADR-015-api-key-access-policy.md
+      - ADR-016 criptografía compartida y una sola API de keys: architecture-decisions/ADR-016-shared-crypto-and-single-api-keys.md
       - ADR-002 mTLS: architecture-decisions/ADR-002-mtls.md
       - ADR-003 API keys: architecture-decisions/ADR-003-api-keys.md
       - ADR-004 firma de plugins: architecture-decisions/ADR-004-plugin-signing.md

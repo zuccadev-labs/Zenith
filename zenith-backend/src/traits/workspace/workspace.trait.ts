@@ -1,10 +1,13 @@
 // deno-lint-ignore-file no-unused-vars
 /**
- * Workspace Trait — Gestión de miembros, roles, invitaciones y API Keys.
+ * Workspace Trait — Gestión de miembros, roles e invitaciones.
  *
  * Equivalente al sistema de Workspace Members de Twenty CRM.
  * Roles: admin | member | guest
- * API Keys: sk_live_* | sk_test_* con scopes y última vez usado.
+ *
+ * Las API keys no viven aquí: hay un solo sistema, `security/api-keys` (`/zen/api-keys`, ADR-015).
+ * Este trait tenía otro (`/zen/apikeys`, clase ZenithApiKey): las keys se guardaban con SHA-256 sin
+ * sal y ningún middleware las aceptaba.
  *
  * @barrits-trait
  * @barrits-summary ZenithWorkspace
@@ -17,6 +20,7 @@
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, ptr, now } from "../../core/trait-utils.ts";
+import { randomHex, sha256Hex } from "../../core/crypto.ts";
 
 const WORKSPACE_SCHEMAS = {
   WorkspaceMember: {
@@ -32,23 +36,11 @@ const WORKSPACE_SCHEMAS = {
     email:       { type: "String", required: true },
     role:        { type: "String", defaultValue: "member" },
     workspaceId: { type: "String", required: true },
-    token:       { type: "String", required: true },
+    tokenHash:   { type: "String", required: true }, // SHA-256 del token: el token solo se entrega una vez
     invitedBy:   { type: "Pointer", targetClass: "_User" },
     expiresAt:   { type: "Date", required: true },
     acceptedAt:  { type: "Date" },
     status:      { type: "String", defaultValue: "pending" }, // pending|accepted|expired|revoked
-  },
-  ZenithApiKey: {
-    name:        { type: "String", required: true },
-    prefix:      { type: "String", required: true }, // sk_live | sk_test
-    keyHash:     { type: "String", required: true }, // SHA-256 del key — nunca se almacena el key completo
-    scopes:      { type: "Array",  defaultValue: ["read", "write"] },
-    workspaceId: { type: "String" },
-    owner:       { type: "Pointer", targetClass: "_User" },
-    lastUsedAt:  { type: "Date" },
-    expiresAt:   { type: "Date" },
-    revokedAt:   { type: "Date" },
-    status:      { type: "String", defaultValue: "active" }, // active|revoked|expired
   },
 } as const;
 
@@ -60,7 +52,7 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
   state: [],
   runtimes: ["deno"],
 
-  summary: "Workspace Members (roles Admin/Member/Guest), Invitations by email with token, API Key CRUD (HMAC-hashed, never stored plain).",
+  summary: "Workspace Members (roles Admin/Member/Guest) and Invitations by email with a one-time token (stored hashed).",
 
   create: (deps: Record<string, any>) => {
     const db     = deps.traits["db"];
@@ -71,24 +63,6 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
       for (const [name, fields] of Object.entries(WORKSPACE_SCHEMAS)) {
         cloud.defineSchema(name, fields, {});
       }
-    }
-
-    // ── API Key generation ─────────────────────────────────────────────────────
-
-    async function generateApiKey(env: "live" | "test"): Promise<{ key: string; prefix: string; hash: string }> {
-      const raw    = crypto.getRandomValues(new Uint8Array(32));
-      const hex    = Array.from(raw).map(b => b.toString(16).padStart(2, "0")).join("");
-      const prefix = `sk_${env}_`;
-      const key    = `${prefix}${hex}`;
-      const encoder = new TextEncoder();
-      const hashBuf = await crypto.subtle.digest("SHA-256", encoder.encode(key));
-      const hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, "0")).join("");
-      return { key, prefix, hash };
-    }
-
-    async function generateInviteToken(): Promise<string> {
-      const raw = crypto.getRandomValues(new Uint8Array(16));
-      return Array.from(raw).map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
     // ── traitApi ──────────────────────────────────────────────────────────────
@@ -125,20 +99,22 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
 
       async invite(workspaceId: string, email: string, role: string, ctx: any) {
         if (!email) throw ZenithErrors.validationFailed("email es obligatorio para invitar.");
-        const token = await generateInviteToken();
+        const token = randomHex(32);
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 días
         const invitation = await db.create("WorkspaceInvitation", {
           email, role: role ?? "member", workspaceId,
-          token, expiresAt, status: "pending",
+          tokenHash: await sha256Hex(token), expiresAt, status: "pending",
           invitedBy: ctx.user ? ptr("_User", ctx.user.objectId) : null,
           createdAt: now(), updatedAt: now(),
         });
         if (events) events.emit("Workspace.invited", { email, role, workspaceId, token });
         // token se retorna SOLO en la respuesta inicial — nunca más
-        return { ...invitation, inviteUrl: `/zen/workspace/invitations/accept?token=${token}` };
+        const { tokenHash: _hash, ...safe } = invitation;
+        return { ...safe, inviteUrl: `/zen/workspace/invitations/accept?token=${token}` };
       },
       async acceptInvitation(token: string, userId: string) {
-        const invitations = await db.find("WorkspaceInvitation", { token, status: "pending" });
+        if (typeof token !== "string" || !token) throw ZenithErrors.validationFailed("token es obligatorio.");
+        const invitations = await db.find("WorkspaceInvitation", { tokenHash: await sha256Hex(token), status: "pending" });
         const inv = invitations[0];
         if (!inv) throw ZenithErrors.notFound("WorkspaceInvitation");
         if (new Date(inv.expiresAt) < new Date()) {
@@ -154,36 +130,6 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
         if (events) events.emit("Workspace.memberJoined", member);
         return member;
       },
-
-      // ── API Keys ──────────────────────────────────────────────────────────────
-
-      async listApiKeys(ctx: any) {
-        const where: Record<string, any> = {};
-        if (ctx.user) where["owner.objectId"] = ctx.user.objectId;
-        const results = (await db.find("ZenithApiKey", where)).map((k: any) => {
-          const { keyHash, ...safe } = k; // nunca exponer el hash
-          return { ...safe, prefix: k.prefix };
-        });
-        return { results };
-      },
-      async createApiKey(name: string, scopes: string[], env: "live" | "test" = "live", ctx: any) {
-        if (!name) throw ZenithErrors.validationFailed("name es obligatorio para crear una API Key.");
-        const { key, prefix, hash } = await generateApiKey(env);
-        const record = await db.create("ZenithApiKey", {
-          name, prefix, keyHash: hash, scopes: scopes ?? ["read", "write"],
-          owner: ctx.user ? ptr("_User", ctx.user.objectId) : null,
-          status: "active", createdAt: now(), updatedAt: now(),
-        });
-        // key solo se retorna UNA VEZ — nunca más visible
-        return { ...record, key, keyHash: undefined, _warning: "Guarda este key de forma segura. No se mostrará de nuevo." };
-      },
-      async revokeApiKey(objectId: string, ctx: any) {
-        const existing = await db.read("ZenithApiKey", objectId);
-        if (!existing) throw ZenithErrors.notFound("ZenithApiKey", objectId);
-        if (!ctx.master && existing.owner?.objectId !== ctx.user?.objectId) throw ZenithErrors.forbidden();
-        await db.update("ZenithApiKey", { objectId }, { status: "revoked", revokedAt: now(), updatedAt: now() });
-        return { success: true };
-      },
     };
 
     // ── Rutas ─────────────────────────────────────────────────────────────────
@@ -197,10 +143,6 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
       // Invitations
       { method: "POST"   as const, path: "/zen/workspace/:workspaceId/invitations",  _openapi: { summary: "Invitar Miembro al Workspace",     tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/workspace/:workspaceId/invitations", req.url)!; const b = await req.json(); return jsonRes(await api.invite(p.workspaceId, b.email, b.role, ctx), 201); } catch(e) { return errRes(e); } } },
       { method: "POST"   as const, path: "/zen/workspace/invitations/accept",        _openapi: { summary: "Aceptar Invitación",               tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const b = await req.json(); return jsonRes(await api.acceptInvitation(b.token, b.userId ?? ctx.user?.objectId)); } catch(e) { return errRes(e); } } },
-      // API Keys
-      { method: "GET"    as const, path: "/zen/apikeys",                             _openapi: { summary: "Listar API Keys",                  tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { return jsonRes(await api.listApiKeys(ctx)); } catch(e) { return errRes(e); } } },
-      { method: "POST"   as const, path: "/zen/apikeys",                             _openapi: { summary: "Crear API Key (retorna key UNA VEZ)", tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const b = await req.json(); return jsonRes(await api.createApiKey(b.name, b.scopes, b.env, ctx), 201); } catch(e) { return errRes(e); } } },
-      { method: "DELETE" as const, path: "/zen/apikeys/:objectId",                   _openapi: { summary: "Revocar API Key",                  tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/apikeys/:objectId", req.url)!; return jsonRes(await api.revokeApiKey(p.objectId, ctx)); } catch(e) { return errRes(e); } } },
     ];
 
     return { workspace_routes, workspace: api };

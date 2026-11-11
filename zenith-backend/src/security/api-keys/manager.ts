@@ -18,6 +18,7 @@
  */
 
 import { checkKeyPolicy, ipAllowed, isUnrestricted } from "./policy.ts";
+import { randomString } from "../../core/crypto.ts";
 import { hash as argon2Hash, verify as argon2Verify } from "@node-rs/argon2";
 import { DEFAULT_RATE_LIMITS } from "./scopes.ts";
 import type {
@@ -45,42 +46,14 @@ const ARGON2_OPTS = {
 
 // ─── Random generation ────────────────────────────────────────────────────────
 
-/**
- * Genera bytes aleatorios criptográficamente seguros.
- */
-function randomBytes(n: number): Uint8Array {
-  const buf = new Uint8Array(n);
-  crypto.getRandomValues(buf);
-  return buf;
-}
+/** Id público: 8 caracteres sin ambiguos (sin 0/O/1/l/I). */
+const PUBLIC_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** Secreto: 32 caracteres alfanuméricos (~190 bits). */
+const SECRET_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-/**
- * Genera un id público de 8 chars alfanuméricos (sin 0/O/1/l/I para
- * evitar confusiones). Usa CSPRNG.
- */
-function generatePublicId(): string {
-  // 32 chars sin ambiguos: ABCDEFGHJKLMNPQRSTUVWXYZ23456789
-  const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(8);
-  let id = "";
-  for (let i = 0; i < 8; i++) {
-    id += ALPHABET[bytes[i] % ALPHABET.length];
-  }
-  return id;
-}
-
-/**
- * Genera un secreto de 32 chars alfanuméricos (con todos los chars seguros).
- */
-function generateSecret(): string {
-  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = randomBytes(32);
-  let s = "";
-  for (let i = 0; i < 32; i++) {
-    s += ALPHABET[bytes[i] % ALPHABET.length];
-  }
-  return s;
-}
+const generatePublicId = (): string => randomString(8, PUBLIC_ID_ALPHABET);
+// Uniforme (core/crypto.ts): con `byte % 62`, 8 de los 62 caracteres salían un 25 % más.
+const generateSecret = (): string => randomString(32, SECRET_ALPHABET);
 
 /**
  * Parsea una duración estilo Stripe: "30d", "24h", "1y", "90m" → Date futuro.

@@ -110,7 +110,7 @@ const features = [
   },
   {
     title: "API Keys (M2M)",
-    description: "Create scoped API keys for machine-to-machine integrations with one-time reveal.",
+    description: "How to manage machine-to-machine keys: CLI or a server-side script (master key, never in the browser).",
     icon: <Key size={28} color="#fff" />,
     gradient: "linear-gradient(135deg, #6366f1, #4f46e5)",
     path: "/apikeys",

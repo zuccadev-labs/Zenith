@@ -24,6 +24,7 @@
 
 import { createHash } from "node:crypto";
 import { encodeBase64, decodeBase64 } from "@std/encoding";
+import { sha256 } from "../../core/crypto.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,8 +70,7 @@ export async function computeSpkiPin(certPem: string): Promise<string> {
   // Parse X.509 cert to extract the SPKI bytes
   const spkiDer = extractSpkiFromCertDer(der);
   // SHA-256
-  const hashBuf = await crypto.subtle.digest("SHA-256", spkiDer as BufferSource);
-  return `sha256-${encodeBase64(new Uint8Array(hashBuf))}`;
+  return `sha256-${encodeBase64(await sha256(spkiDer))}`;
 }
 
 /**

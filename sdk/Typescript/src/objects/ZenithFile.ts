@@ -84,77 +84,108 @@ export class ZenithFile {
 
 /**
  * @class ZenithAPIKey
- * Manages API keys for machine-to-machine (M2M) integrations and business models.
+ * API keys of the app (`/zen/api-keys`), for machine-to-machine integrations.
+ *
+ * Server-side only. The server manages keys with the master key alone, which it accepts only from
+ * localhost (ADR-015): never ship the master key to a browser or a mobile app. The same API is
+ * available as `zen api-keys list|create|revoke|rotate`.
  *
  * @example
- * // Create a new scoped API key
- * const key = await ZenithAPIKey.create("Mobile App v2", ["read:*", "functions"]);
- * console.log(key.value); // ⚠️ Only shown once — store securely
+ * // Node script on the server, with Zenith.initialize(appId, { masterKey, ... })
+ * const key = await ZenithAPIKey.create({ name: "crm sync", scopes: ["data:read"], expiresIn: "90d" });
+ * console.log(key.value); // shown once: store it in a secret manager
  *
- * // List all keys for the current user
+ * // Scope "*" needs an IP allowlist and an expiry of at most 90 days.
+ * await ZenithAPIKey.create({ name: "ops", scopes: ["*"], allowedIps: ["10.0.0.0/24"], expiresIn: "30d" });
+ *
  * const keys = await ZenithAPIKey.list();
- *
- * // Revoke a key
- * await key.revoke();
+ * await keys[0].revoke("leaked in a log");
  */
 export class ZenithAPIKey {
+  /** Public id (the 8 characters after `sk_live_`). */
   public readonly keyId: string;
   public readonly name: string;
+  public readonly prefix: "sk" | "pk" | "rk";
+  public readonly env: "live" | "test";
   public readonly scopes: string[];
-  /** Present only immediately after creation. Never stored server-side as plaintext. */
+  public readonly allowedIps?: string[];
+  /** Present only in the result of `create` and `rotate`. Never stored server-side as plaintext. */
   public readonly value?: string;
   public readonly createdAt: Date;
   public readonly lastUsedAt?: Date;
+  public readonly expiresAt?: Date;
+  public readonly revokedAt?: Date;
 
-  constructor(data: any) {
-    this.keyId = data.keyId ?? data.objectId;
-    this.name = data.name;
-    this.scopes = Array.isArray(data.scopes) ? data.scopes : ["*"];
-    this.value = data.value;
-    this.createdAt = new Date(data.createdAt);
-    if (data.lastUsedAt) this.lastUsedAt = new Date(data.lastUsedAt);
+  constructor(record: any, value?: string) {
+    this.keyId = record.id;
+    this.name = record.name;
+    this.prefix = record.prefix;
+    this.env = record.env;
+    this.scopes = Array.isArray(record.scopes) ? record.scopes : [];
+    if (Array.isArray(record.allowedIps)) this.allowedIps = record.allowedIps;
+    this.value = value;
+    this.createdAt = new Date(record.createdAt);
+    if (record.lastUsedAt) this.lastUsedAt = new Date(record.lastUsedAt);
+    if (record.expiresAt) this.expiresAt = new Date(record.expiresAt);
+    if (record.revokedAt) this.revokedAt = new Date(record.revokedAt);
+  }
+
+  private static master() {
+    if (!Zenith.getConfig().masterKey) {
+      throw new Error("ZenithAPIKey needs the master key (server-side only): Zenith.initialize(appId, { masterKey }).");
+    }
+    return { useMasterKey: true };
+  }
+
+  /** Creates a key. The plaintext comes back once, in `value`. */
+  public static async create(options: {
+    name: string;
+    scopes?: string[];
+    prefix?: "sk" | "pk" | "rk";
+    env?: "live" | "test";
+    /** ISO 8601 date or duration such as "90d". */
+    expiresIn?: string;
+    /** IPv4/IPv6 addresses or CIDR ranges the key may be used from. */
+    allowedIps?: string[];
+    requestsPerMinute?: number;
+  }): Promise<ZenithAPIKey> {
+    const res = await RESTController.request("POST", "/zen/api-keys", options, ZenithAPIKey.master());
+    return new ZenithAPIKey(res.record, res.key);
+  }
+
+  /** The app's keys (metadata only, never secrets). */
+  public static async list(): Promise<ZenithAPIKey[]> {
+    const res = await RESTController.request("GET", "/zen/api-keys", undefined, ZenithAPIKey.master());
+    return (res.results ?? []).map((r: any) => new ZenithAPIKey(r));
+  }
+
+  /** Revokes this key at once. */
+  public async revoke(reason?: string): Promise<void> {
+    await RESTController.request("POST", `/zen/api-keys/${encodeURIComponent(this.keyId)}/revoke`, reason ? { reason } : {}, ZenithAPIKey.master());
   }
 
   /**
-   * Creates a new API key.
-   * The `value` field is returned only once — save it immediately.
-   *
-   * @param name  Human-readable label for the key.
-   * @param scopes  Permission scopes (e.g. ["read:*"], ["write:GameScore"], ["*"]).
+   * Issues a replacement with the same scopes, IP allowlist and lifetime. This key keeps working
+   * for `graceHours` (default 24) so clients can switch.
    */
-  public static async create(
-    name: string,
-    scopes: string[] = ["*"],
-    options?: { useMasterKey?: boolean }
-  ): Promise<ZenithAPIKey> {
-    const res = await RESTController.request("POST", "/zen/apikeys", { name, scopes }, options);
-    // The server returns the plaintext once, as `key`.
-    return new ZenithAPIKey({ ...res, value: res.key });
-  }
-
-  /**
-   * Lists all API keys owned by the current user.
-   * With `useMasterKey: true`, returns all keys across all users.
-   */
-  public static async list(options?: { useMasterKey?: boolean }): Promise<ZenithAPIKey[]> {
-    const res = await RESTController.request("GET", "/zen/apikeys", undefined, options);
-    return (res.results ?? []).map((k: any) => new ZenithAPIKey(k));
-  }
-
-  /**
-   * Permanently revokes this API key.
-   */
-  public async revoke(options?: { useMasterKey?: boolean }): Promise<void> {
-    await RESTController.request("DELETE", `/zen/apikeys/${encodeURIComponent(this.keyId)}`, undefined, options);
+  public async rotate(graceHours?: number): Promise<ZenithAPIKey> {
+    const body = graceHours === undefined ? {} : { graceHours };
+    const res = await RESTController.request("POST", `/zen/api-keys/${encodeURIComponent(this.keyId)}/rotate`, body, ZenithAPIKey.master());
+    return new ZenithAPIKey(res.record, res.key);
   }
 
   public toJSON() {
     return {
       keyId: this.keyId,
       name: this.name,
+      prefix: this.prefix,
+      env: this.env,
       scopes: this.scopes,
+      allowedIps: this.allowedIps,
       createdAt: this.createdAt.toISOString(),
       lastUsedAt: this.lastUsedAt?.toISOString(),
+      expiresAt: this.expiresAt?.toISOString(),
+      revokedAt: this.revokedAt?.toISOString(),
     };
   }
 }

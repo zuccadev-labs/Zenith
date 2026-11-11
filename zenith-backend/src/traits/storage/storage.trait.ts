@@ -11,6 +11,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { hmacSha256Hex, signingKey } from "../../core/crypto.ts";
 
 export const FileStorageTrait = createTraitDescriptor({
   name: "ZenithFileStorage",
@@ -92,8 +93,9 @@ export const FileStorageTrait = createTraitDescriptor({
         if (files.length === 0) return null;
         const file = files[0];
         const expires = Date.now() + expiresIn * 1000;
-        const sig = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${file.objectId}:${expires}:${Deno.env.get("FILE_SIGNING_KEY") || "default"}`));
-        const sigHex = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+        // HMAC-SHA256 truncado a 128 bits (core/crypto.ts). Antes: sha256(datos + clave) con la clave
+        // "default" si faltaba FILE_SIGNING_KEY, así que cualquiera podía firmar una URL.
+        const sigHex = (await hmacSha256Hex(signingKey("FILE_SIGNING_KEY"), `${file.objectId}:${expires}`)).slice(0, 32);
         return `/files/${file.objectId}/${encodeURIComponent(name)}?expires=${expires}&sig=${sigHex}`;
       },
     };
