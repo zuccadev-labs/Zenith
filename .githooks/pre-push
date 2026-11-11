@@ -12,6 +12,9 @@ export TMPDIR="${ZENITH_TEST_TMP:-$HOME/.cache/zenith-tests-tmp}"
 mkdir -p "$TMPDIR"
 step() { printf '\n▶ %s\n' "$1"; }
 
+step "engine and cli: format"
+(cd "$root/zenith-backend" && deno fmt --check src/ tests/)
+(cd "$root/zenith-cli" && deno fmt --check)
 step "engine: lint"
 (cd "$root/zenith-backend" && deno lint src/)
 step "engine: typecheck (frozen lock)"

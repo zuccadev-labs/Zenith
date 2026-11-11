@@ -254,6 +254,21 @@ Deno.test({
         su.body.objectId,
         li.body.sessionToken,
       ]);
+      // Parse's GET /sessions/me: the session in Parse's shape, never its sealed refresh token.
+      const sess = await z.call("GET", "/sessions/me", { token: li.body.sessionToken });
+      assertEquals(sess.status, 200, JSON.stringify(sess.body));
+      assertEquals([sess.body.sessionToken, sess.body.user.objectId, sess.body.expiresAt.__type], [
+        li.body.sessionToken,
+        su.body.objectId,
+        "Date",
+      ]);
+      for (const k of ["refresh", "tokenHash", "leaseUntil", "sub"]) {
+        assertEquals(sess.body[k], undefined, k);
+      }
+      assertEquals(
+        (await z.call("GET", "/sessions/me", { token: "r:" + "0".repeat(64) })).body.code,
+        209,
+      );
       const who = await z.call("GET", "/whoami", { token: li.body.sessionToken });
       assertEquals([who.body.userId, who.body.via], [su.body.objectId, "session"]);
       assertEquals(

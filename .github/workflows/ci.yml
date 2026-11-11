@@ -1,6 +1,6 @@
 # Zenith CI: the same gates that pass locally, so a red CI means a real regression.
 #
-# - engine:      lint, typecheck and unit tests of zenith-backend with deno.lock frozen; JSR dry-run.
+# - engine:      format, lint, typecheck and unit tests of zenith-backend with deno.lock frozen; JSR dry-run.
 # - integration: integration tests against MongoDB 9.0.4 (standalone, and a one-node replica set for
 #                change streams), SurrealDB 4 and Vault 2 (TLS). The ones that also need engine-auth
 #                (boot, pieces-e2e) need its binary and are run locally: see zenith-backend/docs/testing.md.
@@ -40,6 +40,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: ${{ env.DENO_VERSION }}
+      - name: Format
+        run: deno fmt --check src/ tests/
       - name: Lint
         run: deno lint src/
       - name: Typecheck
@@ -89,10 +91,51 @@ jobs:
           ZENITH_TEST_SURREAL_URL: http://127.0.0.1:28800
           VAULT_TEST_ADDR: https://127.0.0.1:28200
           VAULT_TEST_TOKEN: root
+          ZENITH_STRESS: "1"
+          ZENITH_STRESS_MONGO_CONTAINER: mongors
         run: |
           export DENO_CERT="$RUNNER_TEMP/vault-ca.pem"
           deno test --allow-all --no-check --unstable-kv --frozen \
             tests/integration/ tests/unit/mongodb-store.test.ts tests/unit/vault-client.test.ts
+
+  # End to end with the real engine-auth: it builds engine-auth and libzutool_auth from devzucca/zutool
+  # (private, another account). Enabled with the repository variable ZUTOOL_E2E=true and the secret
+  # ZUTOOL_READ_TOKEN (fine-grained token, read-only Contents on devzucca/zutool).
+  e2e-engine-auth:
+    name: e2e (engine-auth, MongoDB)
+    runs-on: ubuntu-24.04
+    needs: engine
+    if: vars.ZUTOOL_E2E == 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: devzucca/zutool
+          token: ${{ secrets.ZUTOOL_READ_TOKEN }}
+          path: zutool
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: zutool
+      - name: Build engine-auth and libzutool_auth
+        working-directory: zutool
+        run: cargo build -p engine-auth -p zutool-auth
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
+          until docker exec mongo mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; do sleep 1; done
+      - name: End-to-end tests
+        working-directory: zenith-backend
+        env:
+          ZENITH_TEST_MONGO: mongodb://127.0.0.1:27999
+          ENGINE_AUTH_BIN: ${{ github.workspace }}/zutool/target/debug/engine-auth
+          ZUTOOL_LIB_DIR: ${{ github.workspace }}/zutool/target/debug
+        run: |
+          deno test --allow-all --no-check --unstable-kv --frozen tests/integration/engine-auth.test.ts \
+            tests/integration/boot.test.ts tests/integration/classes.test.ts tests/integration/pieces-e2e.test.ts
 
   cli:
     name: cli
@@ -105,6 +148,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: ${{ env.DENO_VERSION }}
+      - name: Format
+        run: deno fmt --check
       - name: Typecheck
         run: deno check --frozen zen.ts mod.ts
       - name: Start MongoDB (zen init + zen dev end to end)

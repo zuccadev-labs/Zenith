@@ -10,6 +10,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { fromFileUrl, toFileUrl } from "@std/path";
 import type {
   CloudAfterFindHandler,
   CloudBeforeFindRequest,
@@ -227,11 +228,13 @@ export const CloudCodeTrait = createTraitDescriptor({
       },
 
       loadCloudCode: async (cloudCodePath: string) => {
-        const path = cloudCodePath.endsWith(".ts") ? cloudCodePath : `${cloudCodePath}/main.ts`;
+        // A path or a file:// URL: realPath only takes paths (a URL used to be reported "not found").
+        const base = cloudCodePath.startsWith("file:") ? fromFileUrl(cloudCodePath) : cloudCodePath;
+        const path = base.endsWith(".ts") ? base : `${base}/main.ts`;
         try {
           const resolved = await Deno.realPath(path);
           console.log(`[CloudCode] Loading cloud code from: ${resolved}`);
-          await import(resolved);
+          await import(toFileUrl(resolved).href);
           const loaded = _cloudCodeRegistry.listFunctions();
           if (loaded.length > 0) {
             console.log(
