@@ -1,0 +1,11 @@
+# Checkov (CI job "chart"): reviewed checks that do not apply, each with its reason. Resource-specific skips are
+# annotations on the resource (checkov.io/skipN).
+skip-check:
+  # The tag is immutable and image.digest pins the signed image at deploy time (supply-chain.md).
+  - CKV_K8S_43
+  # IfNotPresent is safe with an immutable tag plus digest; Always only adds registry load and an outage risk.
+  - CKV_K8S_15
+  # Zenith reads its configuration from the environment (12-factor); with Vault enabled the agent renders files.
+  - CKV_K8S_35
+  # The image has no shell or HTTP client by design; Kubernetes probes check health (startup/liveness/readiness).
+  - CKV_DOCKER_2

@@ -28,4 +28,4 @@ if command -v docker >/dev/null 2>&1; then
   docker run --rm -v "$root:/repo:ro" zricethezav/gitleaks:v8.30.1 git /repo --no-banner --redact \
     --gitleaks-ignore-path /repo/.gitleaksignore
 fi
-printf '\n✅ pre-push: all checks passed. After pushing, run the full CI: gh workflow run ci.yml\n'
+printf "\n✅ pre-push: all checks passed. tools/ship.sh pushes and waits for the full CI.\n"

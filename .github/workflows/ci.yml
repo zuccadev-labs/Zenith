@@ -8,7 +8,8 @@
 # - sdk:         clean install (npm ci) and typecheck of @zuccadev-labs/zenith-client.
 # - image:       Docker build, Trivy scan (CRITICAL/HIGH with a fix available fail the build) and SBOM.
 # - chart:       Helm lint/render, kubeconform, promtool on the alert rules, and the rules copy in sync.
-# - security:    gitleaks over the whole history and Semgrep OSS (WARNING and above fail).
+# - security:    gitleaks (whole history), Semgrep OSS, zizmor + actionlint, hadolint, Trivy config, Checkov and
+#                OSV-Scanner: open-source stand-ins for what GitHub sells for private repositories.
 name: CI
 
 on:
@@ -37,8 +38,10 @@ jobs:
       run:
         working-directory: zenith-backend
     steps:
-      - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: ${{ env.DENO_VERSION }}
       - name: Format
@@ -47,6 +50,8 @@ jobs:
         run: deno lint src/
       - name: Typecheck
         run: deno check --frozen src/mod.ts
+      - name: Dependency vulnerabilities (deno audit; OSV-Scanner cannot read deno.lock)
+        run: deno audit --lock=deno.lock
       - name: Unit tests
         run: deno test --allow-all --no-check --unstable-kv --frozen tests/unit/
       - name: JSR package (dry run)
@@ -60,8 +65,10 @@ jobs:
       run:
         working-directory: zenith-backend
     steps:
-      - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: ${{ env.DENO_VERSION }}
       - name: Start MongoDB (standalone and replica set)
@@ -108,20 +115,23 @@ jobs:
     needs: engine
     if: vars.ZUTOOL_E2E == 'true'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
           repository: devzucca/zutool
           token: ${{ secrets.ZUTOOL_READ_TOKEN }}
           path: zutool
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: zutool
       - name: Build engine-auth and libzutool_auth
         working-directory: zutool
         run: cargo build -p engine-auth -p zutool-auth
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: ${{ env.DENO_VERSION }}
       - name: Start MongoDB
@@ -145,14 +155,18 @@ jobs:
       run:
         working-directory: zenith-cli
     steps:
-      - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: ${{ env.DENO_VERSION }}
       - name: Format
         run: deno fmt --check
       - name: Typecheck
         run: deno check --frozen zen.ts mod.ts
+      - name: Dependency vulnerabilities (deno audit)
+        run: deno audit --lock=deno.lock
       - name: Start MongoDB (zen init + zen dev end to end)
         run: |
           docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
@@ -171,8 +185,10 @@ jobs:
       run:
         working-directory: sdk/Typescript
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -189,12 +205,16 @@ jobs:
       # Optional: with this secret the SBOM and the image ID are signed (docs/architecture/supply-chain.md).
       COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
       COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+      # Optional: the registry the image is published to from main (repository variable).
+      REGISTRY: ${{ vars.ZENITH_REGISTRY }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build
         run: docker build -t zenith-backend:${{ github.sha }} zenith-backend/
       - name: Trivy (CRITICAL/HIGH with a fix available)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: zenith-backend:${{ github.sha }}
           format: table
@@ -203,7 +223,7 @@ jobs:
           vuln-type: os,library
           severity: CRITICAL,HIGH
       - name: SBOM (CycloneDX) of the image
-        uses: anchore/sbom-action@v0.24.3
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: zenith-backend:${{ github.sha }}
           format: cyclonedx-json
@@ -211,11 +231,11 @@ jobs:
           upload-artifact: false
       - name: Image ID (what the signature covers)
         run: docker image inspect zenith-backend:${{ github.sha }} --format '{{.Id}}' > zenith-backend.image-id
-      - uses: sigstore/cosign-installer@v4.1.3
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         if: env.COSIGN_PRIVATE_KEY != ''
         with:
           cosign-release: v3.1.4
-      - name: Sign SBOM and image ID (cosign, own key, no public transparency log)
+      - name: Sign SBOM and image ID, attest SLSA provenance (cosign, own key, no public transparency log)
         if: env.COSIGN_PRIVATE_KEY != ''
         run: |
           # The private repository's name would be published in Sigstore's public log with keyless signing.
@@ -225,13 +245,48 @@ jobs:
               --bundle "$f.sigstore.json" "$f"
             cosign verify-blob --key zenith-backend/cosign.pub --insecure-ignore-tlog=true --bundle "$f.sigstore.json" "$f"
           done
-          rm -f "$RUNNER_TEMP/cosign.key"
-      - uses: actions/upload-artifact@v7
+          # SLSA v1 build provenance (GitHub's attestations need Enterprise on private repositories).
+          tools/supply-chain/slsa-provenance.sh zenith-backend/Dockerfile > zenith-backend.provenance.json
+          cosign attest-blob --yes --key "$RUNNER_TEMP/cosign.key" --type slsaprovenance1 \
+            --predicate zenith-backend.provenance.json --use-signing-config=false --tlog-upload=false \
+            --bundle zenith-backend.image-id.provenance.sigstore.json zenith-backend.image-id
+          cosign verify-blob-attestation --key zenith-backend/cosign.pub --insecure-ignore-tlog=true \
+            --type slsaprovenance1 --bundle zenith-backend.image-id.provenance.sigstore.json zenith-backend.image-id
+      # Our own registry (Zot, open source; docs/architecture/registry.md): the image is pushed from main, and its
+      # signature, SLSA provenance and SBOM are attached to its digest (OCI referrers).
+      - name: Publish, sign and attest the image in the registry
+        if: env.COSIGN_PRIVATE_KEY != '' && env.REGISTRY != '' && github.ref == 'refs/heads/main'
+        env:
+          REGISTRY_USER: ${{ secrets.ZENITH_REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.ZENITH_REGISTRY_PASSWORD }}
+          SHA: ${{ github.sha }}
+        run: |
+          printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+          repo="$REGISTRY/zenith/zenith-backend"
+          docker tag "zenith-backend:$SHA" "$repo:$SHA"
+          docker push "$repo:$SHA"
+          img="$repo@$(docker inspect --format '{{index .RepoDigests 0}}' "$repo:$SHA" | sed 's/.*@//')"
+          key="$RUNNER_TEMP/cosign.key"; pub=zenith-backend/cosign.pub
+          cosign sign --yes --key "$key" --tlog-upload=false --use-signing-config=false "$img"
+          cosign attest --yes --key "$key" --type slsaprovenance1 --predicate zenith-backend.provenance.json \
+            --tlog-upload=false --use-signing-config=false "$img"
+          cosign attest --yes --key "$key" --type cyclonedx --predicate zenith-backend.cdx.json \
+            --tlog-upload=false --use-signing-config=false "$img"
+          cosign verify --key "$pub" --insecure-ignore-tlog=true "$img" > /dev/null
+          cosign verify-attestation --key "$pub" --insecure-ignore-tlog=true --type slsaprovenance1 "$img" > /dev/null
+          echo "$img" | tee zenith-backend.image-ref
+          docker logout "$REGISTRY"
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cosign.key"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom-zenith-backend-${{ github.sha }}
           path: |
             zenith-backend.cdx.json
             zenith-backend.image-id
+            zenith-backend.provenance.json
+            zenith-backend.image-ref
             *.sigstore.json
           if-no-files-found: error
 
@@ -242,7 +297,9 @@ jobs:
     name: Helm chart and alert rules
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: The chart's copy of the alert rules is the canonical file
         run: cmp observability/prometheus/zenith-alerts.yaml k8s/helm/zenith/files/zenith-alerts.yaml
       - name: Lint and render (default and production values)
@@ -265,6 +322,11 @@ jobs:
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             /m/values.yaml /m/values-prod.yaml
+      - name: Kubernetes policies (Checkov on the rendered manifests; reviewed skips in .checkov.yaml)
+        run: |
+          cp .checkov.yaml "$RUNNER_TEMP/chart/"
+          docker run --rm -v "$RUNNER_TEMP/chart:/m:ro" bridgecrew/checkov:3.4.3 \
+            --config-file /m/.checkov.yaml -d /m --framework kubernetes --quiet --compact
       - name: Alert rules (promtool)
         run: |
           docker run --rm -v "$PWD/observability/prometheus:/r:ro" -v "$RUNNER_TEMP/chart:/m:ro" \
@@ -275,8 +337,9 @@ jobs:
     name: secrets and static analysis
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0 # the whole history: a secret removed later is still leaked
       - name: Secrets (gitleaks, whole history)
         run: |
@@ -287,3 +350,21 @@ jobs:
           docker run --rm -v "$PWD:/src" semgrep/semgrep:1.185.0 semgrep scan --config p/default \
             --metrics=off --severity WARNING --severity ERROR --error \
             /src/zenith-backend/src /src/zenith-cli /src/sdk/Typescript/src
+      # Free and open source, in place of what GitHub sells for private repositories (supply-chain.md).
+      - name: Workflows (zizmor and actionlint)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src ghcr.io/zizmorcore/zizmor:1.32.0 \
+            --offline --min-severity medium .github/workflows
+          docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:1.7.12 -color=false
+      - name: Dockerfile (hadolint)
+        run: docker run --rm -i hadolint/hadolint:v2.15.1 < zenith-backend/Dockerfile
+      - name: Infrastructure as code (Trivy config; reviewed exceptions in .trivyignore.yaml)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" aquasec/trivy:0.76.2 config --quiet --severity HIGH,CRITICAL \
+            --ignorefile /src/.trivyignore.yaml --exit-code 1 /src
+      - name: Dockerfile and workflows (Checkov)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" bridgecrew/checkov:3.4.3 --config-file /src/.checkov.yaml \
+            -d /src --framework dockerfile github_actions --quiet --compact
+      - name: npm dependencies (OSV-Scanner; per-directory osv-scanner.toml for reviewed exceptions)
+        run: docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.1 scan source -r /src

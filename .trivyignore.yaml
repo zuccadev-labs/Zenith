@@ -1,0 +1,10 @@
+# Reviewed Trivy misconfiguration findings that are intended, each with its reason.
+misconfigurations:
+  - id: AWS-0053
+    paths:
+      - "terraform-aws-modules/alb/aws/main.tf"
+    statement: "The ALB is the public entry point of the API (HTTPS, HTTP redirects to it); it must be internet-facing."
+  - id: AWS-0104
+    paths:
+      - "terraform-aws-modules/eks/aws/node_groups.tf"
+    statement: "EKS nodes need egress to ECR, the AWS APIs and the image registries, through the NAT gateway."

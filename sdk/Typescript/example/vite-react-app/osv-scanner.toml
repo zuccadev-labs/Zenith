@@ -1,0 +1,20 @@
+# Reviewed OSV findings with no fix reachable yet; each expires so it is reviewed again.
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-11
+reason = "minimatch 10.x through eslint/typescript-eslint (dev tooling only, never shipped); fixed only in 11, which they do not accept yet."
+
+[[IgnoredVulns]]
+id = "GHSA-528h-pc64-c93x"
+ignoreUntil = 2027-02-11
+reason = "stream-json 1.x through jayson 4 (required by @solana/web3.js 1.x): only jayson's server stream parser uses it; the browser client does not."
+
+[[IgnoredVulns]]
+id = "GHSA-hqr4-qq8f-hg3x"
+ignoreUntil = 2027-02-11
+reason = "Same as GHSA-528h-pc64-c93x (stream-json through jayson 4, server-only code path)."
+
+[[IgnoredVulns]]
+id = "GHSA-mjw6-4jj6-33hc"
+ignoreUntil = 2027-02-11
+reason = "Same as GHSA-528h-pc64-c93x (stream-json through jayson 4, server-only code path)."

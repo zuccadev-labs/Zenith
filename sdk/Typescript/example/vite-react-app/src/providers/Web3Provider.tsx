@@ -5,7 +5,7 @@ import { mainnet, polygon, sepolia } from 'viem/chains';
 import { injected } from 'wagmi/connectors';
 
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
