@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-unused-vars
 /**
  * Email Sync Trait — Sincronización IMAP/SMTP con hilos CRM.
  *

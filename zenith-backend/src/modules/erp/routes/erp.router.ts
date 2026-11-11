@@ -9,7 +9,7 @@ export function createERPRouter(Zen: any) {
     {
       method: "POST",
       path: "/zen/erp/products",
-      handler: async (req: Request, ctx: any) => {
+      handler: async (req: Request, _ctx: any) => {
         try {
           const body = await req.json();
           if (!body.sku || !body.name || body.salePrice === undefined) {
@@ -31,7 +31,7 @@ export function createERPRouter(Zen: any) {
     {
       method: "GET",
       path: "/zen/erp/inventory/:productId/stock",
-      handler: async (req: Request, ctx: any) => {
+      handler: async (req: Request, _ctx: any) => {
          try {
            const urlPattern = new URLPattern({ pathname: "/zen/erp/inventory/:productId/stock" });
            const match = urlPattern.exec(req.url);

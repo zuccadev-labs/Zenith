@@ -14,8 +14,8 @@
 
 Esa lista la usan tanto el router (`buildDynamicRouter`) como el generador
 (`generateOpenApiFromState`). La prueba `tests/unit/openapi-parity.test.ts` compara lo que monta el
-router con lo que documenta la spec. Lo hace con las features por defecto (231 rutas) y con todas
-(275). Falla si sobra o falta una ruta, o si la seguridad documentada no coincide con la exigida.
+router con lo que documenta la spec. Lo hace con las features por defecto (234 rutas) y con todas
+(278). Falla si sobra o falta una ruta, o si la seguridad documentada no coincide con la exigida.
 
 ## Seguridad documentada = seguridad aplicada
 

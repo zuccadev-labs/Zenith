@@ -546,6 +546,38 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Download a file through a signed URL (expires, sig); 403 if the signature is invalid or expired",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/files/{objectId}/{filename}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files",
+                "{objectId}",
+                "{filename}"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -6190,6 +6222,44 @@
       ]
     },
     {
+      "name": "Files",
+      "item": [
+        {
+          "name": "Create a signed download URL (?expiresIn=seconds, default 3600, max 7 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/files/{filename}/url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "files",
+                "{filename}",
+                "url"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Forum",
       "item": [
         {
@@ -8377,6 +8447,48 @@
                 "webhooks",
                 "{objectId}",
                 "test"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Endpoint verification (Standard Webhooks): send a challenge; a correct answer activates an unverified endpoint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/webhooks/{objectId}/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "webhooks",
+                "{objectId}",
+                "verify"
               ]
             }
           },

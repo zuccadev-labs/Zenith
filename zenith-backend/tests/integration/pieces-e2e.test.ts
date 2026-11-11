@@ -14,6 +14,7 @@ import { assert, assertEquals } from "@std/assert";
 import { Webhook } from "standardwebhooks";
 import { MongoClient, ObjectId } from "mongodb";
 import { createZenithApp } from "../../src/mod.ts";
+import { endpointVerificationResponse } from "../../src/security/webhook-signature.ts";
 import { AUD, BIN, EngineAuth, LIB_DIR } from "./_engine_auth_lab.ts";
 
 const MONGO = Deno.env.get("ZENITH_TEST_MONGO");
@@ -31,12 +32,18 @@ async function waitFor<T>(check: () => Promise<T | undefined | null | false>, wh
 
 /** A receiver on 127.0.0.1: /webhook records deliveries, /before multiplies `score` by 10 (a Parse hook). */
 function receiver() {
+  const secret = { value: "" }; // the endpoint secret, once Zenith has given it
   const deliveries: Array<{ headers: Record<string, string>; body: string }> = [];
   const hookCalls: any[] = [];
   const ac = new AbortController();
   const server = Deno.serve({ hostname: "127.0.0.1", port: 0, signal: ac.signal, onListen: () => {} }, async (req) => {
     const path = new URL(req.url).pathname;
     const body = await req.text();
+    const challenge = req.headers.get("webhook-challenge");
+    if (path === "/webhook" && challenge) {
+      // Endpoint verification: answer with the key derived from the secret, never process the body.
+      return new Response(null, { status: 204, headers: { "webhook-challenge-response": await endpointVerificationResponse(secret.value, challenge) } });
+    }
     if (path === "/webhook") {
       deliveries.push({ headers: Object.fromEntries(req.headers), body });
       return new Response(null, { status: 204 });
@@ -45,7 +52,7 @@ function receiver() {
     hookCalls.push(call);
     return Response.json({ success: { ...call.object, score: (call.object.score ?? 0) * 10 } });
   });
-  return { base: `http://127.0.0.1:${server.addr.port}`, deliveries, hookCalls, stop: async () => { ac.abort(); await server.finished; } };
+  return { base: `http://127.0.0.1:${server.addr.port}`, secret, deliveries, hookCalls, stop: async () => { ac.abort(); await server.finished; } };
 }
 
 Deno.test({ name: "e2e: feature toggles, webhooks, Parse hooks and the durable queue in the real engine", ignore, sanitizeResources: false, sanitizeOps: false, fn: async () => {
@@ -96,6 +103,10 @@ Deno.test({ name: "e2e: feature toggles, webhooks, Parse hooks and the durable q
     assertEquals((await api("POST", "/schemas/GameScore", { fields: { player: { type: "String" }, score: { type: "Number" } } })).status, 200);
     const ep = await api("POST", "/zen/webhooks", { name: "e2e", url: `${rx.base}/webhook`, events: ["GameScore.*"] });
     assertEquals(ep.status, 201, JSON.stringify(ep.body));
+    assertEquals(ep.body.status, "unverified", "a new endpoint waits for verification");
+    rx.secret.value = ep.body.secret;
+    const verified = await api("POST", `/zen/webhooks/${ep.body.objectId}/verify`);
+    assertEquals([verified.status, verified.body.verified, verified.body.status], [200, true, "active"], JSON.stringify(verified.body));
     const hook = await api("POST", "/hooks/triggers", { className: "GameScore", triggerName: "beforeSave", url: `${rx.base}/before` });
     assertEquals(hook.status, 201, JSON.stringify(hook.body));
 
@@ -123,7 +134,35 @@ Deno.test({ name: "e2e: feature toggles, webhooks, Parse hooks and the durable q
     const again = await api("GET", `/zen/webhooks/${ep.body.objectId}`);
     assertEquals([again.body.secret, again.body.secrets, again.body.secretCount], [undefined, undefined, 1], "never returned again");
 
-    // ── 5. Durable queue: enqueued by this instance, processed by one started later ──
+    // ── 5. Files: uploaded, then downloaded anonymously through a signed URL ──
+    const filesDir = await Deno.makeTempDir();
+    Deno.env.set("ZENITH_FILES_DIR", filesDir);
+    const content = new TextEncoder().encode("informe trimestral");
+    const up = await app.handler!(Object.assign(new Request("http://zenith.test/files/informe.txt", {
+      method: "POST", body: content,
+      headers: { "X-Parse-Application-Id": appId, "X-Parse-Master-Key": master, "content-type": "text/plain" },
+    }), { __socketAddr: { hostname: "127.0.0.1" } }));
+    assertEquals(up.status, 201, await up.clone().text());
+    const signed = await api("GET", "/zen/files/informe.txt/url?expiresIn=600");
+    assertEquals(signed.status, 200, JSON.stringify(signed.body));
+    const anon = async (path: string) => {
+      const req = new Request(`http://zenith.test${path}`, { headers: { "X-Parse-Application-Id": appId } });
+      (req as any).__socketAddr = { hostname: "203.0.113.70" }; // anyone, from anywhere, no key
+      return await app.handler!(req);
+    };
+    const dl = await anon(signed.body.url);
+    assertEquals(dl.status, 200);
+    assertEquals(new Uint8Array(await dl.arrayBuffer()), content, "the bytes stored on upload");
+    assertEquals(dl.headers.get("x-content-type-options"), "nosniff");
+    const tampered = signed.body.url.replace(/sig=([0-9a-f])/, (_: string, c: string) => `sig=${c === "0" ? "1" : "0"}`);
+    assertEquals((await anon(tampered)).status, 403, "a tampered signature is refused");
+    assertEquals((await anon(signed.body.url.replace(/expires=\d+/, `expires=${Date.now() - 1000}`))).status, 403, "expired");
+    assertEquals((await anon("/files/informe.txt")).status, 401, "without a signature the file is master-only");
+    assertEquals((await api("GET", "/zen/files/informe.txt/url?expiresIn=99999999")).status, 400, "at most 7 days");
+    Deno.env.delete("ZENITH_FILES_DIR");
+    await Deno.remove(filesDir, { recursive: true });
+
+    // ── 6. Durable queue: enqueued by this instance, processed by one started later ──
     const job = await api("POST", "/queue/enqueue", { type: "e2e.job", data: { n: 1 } });
     assertEquals(job.status, 201, JSON.stringify(job.body));
     assertEquals((await db.collection("_Job").findOne({ jobId: job.body.jobId }))?.status, "pending", "no worker here: it waits");

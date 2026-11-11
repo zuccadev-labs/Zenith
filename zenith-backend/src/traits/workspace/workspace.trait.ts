@@ -19,7 +19,7 @@
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, ptr, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, NO_CONTENT, pathParams, ptr, now } from "../../core/trait-utils.ts";
 import { randomHex, sha256Hex } from "../../core/crypto.ts";
 
 const WORKSPACE_SCHEMAS = {

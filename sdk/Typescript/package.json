@@ -24,6 +24,8 @@
     "build": "tsc"
   },
   "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
     "typescript": "^7.0.2"
   },
   "author": "Zuccadev Labs",

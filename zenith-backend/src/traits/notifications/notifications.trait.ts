@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-unused-vars
 /**
  * Notifications Trait — Notificaciones in-app + push via SSE/WebSocket.
  *
@@ -17,7 +16,7 @@
  */
 import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, ptr, now } from "../../core/trait-utils.ts";
+import { jsonRes, errRes, NO_CONTENT, pathParams, queryParams, parsePage, sortResults, now } from "../../core/trait-utils.ts";
 
 const NOTIFICATION_SCHEMA = {
   Notification: {

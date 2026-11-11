@@ -54,3 +54,16 @@ Deno.test("webhook-signature: tampering, other secret, replay and malformed inpu
   assert(!(await verifyWebhook(h, BODY, [], { nowMs: NOW })), "no secrets");
   await signWebhook(secret, "a.b", 1, BODY).then(() => assert(false), (e) => assertMatch(e.message, /must not contain/));
 });
+
+Deno.test("webhook-signature: endpoint verification matches the spec's test vector", async () => {
+  // spec/extensions/endpoint-verification.md § Examples
+  const challenge = "0njH7N3kV5eXPB+/eh+eoA2Ahvz2JgNp0iC/BLOl6yM=";
+  const secret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
+  const { endpointVerificationResponse, verifyEndpointVerificationResponse, generateChallenge } = await import("../../src/security/webhook-signature.ts");
+  assertEquals(await endpointVerificationResponse(secret, challenge), "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=");
+  assert(await verifyEndpointVerificationResponse([generateWebhookSecret(), secret], challenge, "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA="));
+  for (const bad of [null, "", "v1,AAAA", "v1a,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA=", "v1,2WoO4Z1kjgoudcvk4PX/8LDD6FNJDEUHMtYqZpNx/FA= v1,x"]) {
+    assert(!(await verifyEndpointVerificationResponse([secret], challenge, bad)), String(bad));
+  }
+  assertEquals((await import("../../src/core/crypto.ts")).fromBase64(generateChallenge()).length, 32);
+});

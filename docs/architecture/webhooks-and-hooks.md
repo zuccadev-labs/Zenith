@@ -18,6 +18,8 @@ Las dos son solo para la master key y se pueden apagar en caliente (`/zen/featur
 ```bash
 zen webhook create --url https://api.example.com/zenith --events "Contact.*,Deal.won" --name crm
 # ⚠️  Secret (solo visible ahora): whsec_…
+# Configura el secreto en el receptor y verifica el endpoint (hasta entonces no recibe nada):
+zen webhook verify <id>
 zen webhook messages <id>            # estado de cada mensaje
 zen webhook attempts <id> <messageId>
 zen webhook redeliver <id> <messageId>
@@ -41,6 +43,9 @@ app.post("/zenith", express.raw({ type: "application/json" }), (req, res) => {
 });
 ```
 
+- **Verificación del endpoint:** una petición con la cabecera `webhook-challenge` no es una entrega. Se responde
+  con `webhook-challenge-response: v1,base64(HMAC(HMAC(clave, "wev-v1"), desafío))`, donde `clave` son los bytes
+  del secreto (`whsec_…` decodificado). Así lo define la extensión `endpoint-verification` de Standard Webhooks.
 - **Responder rápido:** el receptor debe responder 2xx en menos de 15 s y hacer el trabajo después.
 - **Retirar un endpoint:** 410 Gone lo desactiva al momento.
 - **Throttling:** 429 o 503 con `retry-after` retrasa el siguiente intento.

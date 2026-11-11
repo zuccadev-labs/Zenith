@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-unused-vars
 /**
  * Metadata Trait — Custom Objects y Custom Fields en runtime.
  *

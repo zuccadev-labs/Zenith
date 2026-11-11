@@ -1,98 +1,153 @@
-name: Zenith CI/CD
+# Zenith CI: the same gates that pass locally, so a red CI means a real regression.
+#
+# - engine:      lint, typecheck and unit tests of zenith-backend with deno.lock frozen; JSR dry-run.
+# - integration: integration tests against MongoDB 9.0.4 (standalone, and a one-node replica set for
+#                change streams), SurrealDB 4 and Vault 2 (TLS). The ones that also need engine-auth
+#                (boot, pieces-e2e) need its binary and are run locally: see zenith-backend/docs/testing.md.
+# - cli:         typecheck and tests of zenith-cli with its lock frozen; JSR dry-run.
+# - sdk:         clean install (npm ci) and typecheck of @zuccadev-labs/zenith-client.
+# - image:       Docker build and Trivy scan (CRITICAL/HIGH with a fix available fail the build).
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DENO_VERSION: "2.9.8"
+  NODE_VERSION: "24"
 
 jobs:
-  lint:
-    name: Lint & Format
-    runs-on: ubuntu-latest
+  engine:
+    name: engine (lint, typecheck, unit tests)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: zenith-backend
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
-      - name: Verify Formatting
-        run: deno fmt --check zenith-backend/src/
-      - name: Run Linter
-        run: deno lint zenith-backend/src/
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Lint
+        run: deno lint src/
+      - name: Typecheck
+        run: deno check --frozen src/mod.ts
+      - name: Unit tests
+        run: deno test --allow-all --no-check --unstable-kv --frozen tests/unit/
+      - name: JSR package (dry run)
+        run: deno publish --dry-run --allow-dirty
 
-  typecheck:
-    name: Typecheck
-    runs-on: ubuntu-latest
+  integration:
+    name: integration (MongoDB, SurrealDB, Vault)
+    runs-on: ubuntu-24.04
+    needs: engine
+    defaults:
+      run:
+        working-directory: zenith-backend
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
-      - name: Typecheck mod.ts
-        run: deno check zenith-backend/src/mod.ts
-
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - name: Run Unit Tests
-        run: deno test --allow-env --allow-net zenith-backend/src/test/
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [lint, typecheck, unit-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - name: Run Integration Tests
-        run: deno test --allow-all zenith-backend/tests/integration/
-
-  docker-build:
-    name: Docker Build & Security Scan
-    runs-on: ubuntu-latest
-    needs: [integration-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        
-      - name: Build Docker Image
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Start MongoDB (standalone and replica set)
+        working-directory: .
         run: |
-          docker build -t zenith-backend:${{ github.sha }} -f zenith-backend/Dockerfile zenith-backend/
-          
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'zenith-backend:${{ github.sha }}'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
+          docker run -d --name mongors -p 127.0.0.1:28000:27017 mongo:9.0.4 --replSet rs0 --bind_ip_all
+          for c in mongo mongors; do
+            until docker exec $c mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; do sleep 1; done
+          done
+          docker exec mongors mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          until docker exec mongors mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true; do sleep 1; done
+      - name: Start SurrealDB and Vault (TLS)
+        working-directory: .
+        run: |
+          docker run -d --name surreal -p 127.0.0.1:28800:8000 surrealdb/surrealdb:v4.0.1 start --user root --pass root memory
+          docker run -d --name vault -p 127.0.0.1:28200:8200 --cap-add IPC_LOCK -e VAULT_DEV_ROOT_TOKEN_ID=root \
+            hashicorp/vault:2.2.1 server -dev -dev-tls -dev-listen-address=0.0.0.0:8200 -dev-tls-san=127.0.0.1
+          until curl -sf http://127.0.0.1:28800/health; do sleep 1; done
+          until docker exec vault sh -c 'ls /tmp/vault-tls*/vault-ca.pem' >/dev/null 2>&1; do sleep 1; done
+          docker exec vault sh -c 'cat /tmp/vault-tls*/vault-ca.pem' > "$RUNNER_TEMP/vault-ca.pem"
+          until curl -sf --cacert "$RUNNER_TEMP/vault-ca.pem" https://127.0.0.1:28200/v1/sys/health; do sleep 1; done
+      - name: Integration tests
+        env:
+          ZENITH_TEST_MONGO: mongodb://127.0.0.1:27999
+          ZENITH_TEST_MONGO_URI: mongodb://127.0.0.1:27999/?directConnection=true
+          MONGO_TEST_URI: mongodb://127.0.0.1:28000/?replicaSet=rs0&directConnection=true
+          ZENITH_TEST_SURREAL_URL: http://127.0.0.1:28800
+          VAULT_TEST_ADDR: https://127.0.0.1:28200
+          VAULT_TEST_TOKEN: root
+        run: |
+          export DENO_CERT="$RUNNER_TEMP/vault-ca.pem"
+          deno test --allow-all --no-check --unstable-kv --frozen --ignore=tests/integration/engine.test.ts \
+            tests/integration/ tests/unit/mongodb-store.test.ts tests/unit/vault-client.test.ts
 
-# End of CI/CD Workflow
+  cli:
+    name: cli
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: zenith-cli
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Typecheck
+        run: deno check --frozen zen.ts mod.ts
+      - name: Start MongoDB (zen init + zen dev end to end)
+        run: |
+          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
+          until docker exec mongo mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; do sleep 1; done
+      - name: Tests
+        env:
+          ZENITH_TEST_MONGO: mongodb://127.0.0.1:27999
+        run: deno test --allow-all --no-check --unstable-kv --frozen
+      - name: JSR package (dry run)
+        run: deno publish --dry-run --allow-dirty
+
+  sdk:
+    name: client SDK
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: sdk/Typescript
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: sdk/Typescript/package-lock.json
+      - run: npm ci --ignore-scripts
+      - name: Typecheck
+        run: npx tsc --noEmit -p .
+
+  image:
+    name: Docker image and Trivy scan
+    runs-on: ubuntu-24.04
+    needs: engine
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: docker build -t zenith-backend:${{ github.sha }} zenith-backend/
+      - name: Trivy (CRITICAL/HIGH with a fix available)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: zenith-backend:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH

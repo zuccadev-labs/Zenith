@@ -34,10 +34,9 @@ export const gRPCTrait = createTraitDescriptor({
 
       startServer: async (port: number, services: Record<string, unknown> = {}) => {
         const grpcModule = await import("@grpc/grpc-js");
-        const protoLoader = await import("@grpc/proto-loader");
         const server = new grpcModule.Server();
 
-        for (const [name, svc] of Object.entries(services)) {
+        for (const [, svc] of Object.entries(services)) {
           const typedSvc = svc as { definition: import("@grpc/grpc-js").ServiceDefinition; implementation: import("@grpc/grpc-js").UntypedServiceImplementation };
           server.addService(typedSvc.definition, typedSvc.implementation);
         }
