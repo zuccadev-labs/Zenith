@@ -3,9 +3,16 @@ import { assertEquals, assertExists, type assertNotEquals } from "@std/assert";
 import { createZenithApp } from "../../src/mod.ts";
 import type { ZenithConfig } from "../../src/core/types.ts";
 
+/**
+ * Needs the whole lab (MongoDB, ScyllaDB, RustFS, Redis) and its master key: ZENITH_MASTER_KEY and MONGO_URI
+ * (plus SCYLLA_URI, RUSTFS_URI, REDIS_URI). Without them every test here is skipped, like the other
+ * integration tests without their service; it used to throw while loading and fail the whole run.
+ */
+const LAB = !!Deno.env.get("ZENITH_MASTER_KEY") && !!Deno.env.get("MONGO_URI");
+
 const TEST_CONFIG: ZenithConfig = {
   appId: Deno.env.get("ZENITH_APP_ID") || "zenith-dev",
-  masterKey: Deno.env.get("ZENITH_MASTER_KEY") || (() => { throw new Error("ZENITH_MASTER_KEY is required for tests."); })(),
+  masterKey: Deno.env.get("ZENITH_MASTER_KEY") ?? "",
   serverURL: "http://localhost:1337/parse",
   port: 1337,
   allowClientClassCreation: true,
@@ -36,6 +43,7 @@ const TEST_PASSWORD = crypto.randomUUID();
 const TEST_EMAIL = `${TEST_USERNAME}@zenith-test.com`;
 
 Deno.test({
+  ignore: !LAB,
   name: "01. Boot Zenith Engine & Connect to Lab Infra",
   async fn() {
     console.log("Starting engine with Lab IP...");
@@ -60,6 +68,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "02. OpenAPI Spec (GET /openapi.json)",
   async fn() {
     const res = await fetch("http://localhost:1337/openapi.json", {
@@ -75,6 +84,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "03. User Registration (POST /users)",
   async fn() {
     const res = await fetch("http://localhost:1337/users", {
@@ -97,6 +107,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "04. Session Validation (GET /sessions/me)",
   async fn() {
     const res = await fetch("http://localhost:1337/sessions/me", {
@@ -115,6 +126,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "05. Parse Header Parity (X-Parse-Session-Token)",
   async fn() {
     const res = await fetch("http://localhost:1337/sessions/me", {
@@ -133,6 +145,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "06. Create Object (POST /classes/GameScore)",
   async fn() {
     const res = await fetch("http://localhost:1337/classes/GameScore", {
@@ -158,6 +171,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "07. Query Object (GET /classes/GameScore/:id)",
   async fn() {
     const res = await fetch(`http://localhost:1337/classes/GameScore/${createdObjectId}`, {
@@ -176,6 +190,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "08. Cloud Function: hello",
   async fn() {
     const res = await fetch("http://localhost:1337/functions/hello", {
@@ -195,6 +210,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "09. GraphQL Introspection (POST /graphql)",
   async fn() {
     const query = `
@@ -224,6 +240,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "10. User Logout (POST /logout)",
   async fn() {
     const res = await fetch("http://localhost:1337/logout", {
@@ -240,6 +257,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "11. Update Object (PUT /classes/GameScore/:id)",
   async fn() {
     const res = await fetch(`http://localhost:1337/classes/GameScore/${createdObjectId}`, {
@@ -260,6 +278,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "12. Query with Filters (GET /classes/GameScore?where=...)",
   async fn() {
     const res = await fetch(`http://localhost:1337/classes/GameScore?where=${encodeURIComponent(JSON.stringify({ score: 9999 }))}`, {
@@ -280,6 +299,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "13. Delete Object (DELETE /classes/GameScore/:id)",
   async fn() {
     const res = await fetch(`http://localhost:1337/classes/GameScore/${createdObjectId}`, {
@@ -296,6 +316,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "14. Batch Operations (POST /batch)",
   async fn() {
     const res = await fetch("http://localhost:1337/batch", {
@@ -324,6 +345,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "15. User Login (GET /login)",
   async fn() {
     const res = await fetch(`http://localhost:1337/login?username=${TEST_USERNAME}&password=${TEST_PASSWORD}`, {
@@ -343,6 +365,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "16. Fetch Schemas (GET /schemas)",
   async fn() {
     const res = await fetch("http://localhost:1337/schemas", {
@@ -361,6 +384,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "17. Cloud Code Background Jobs (POST /jobs/:jobName)",
   async fn() {
     const res = await fetch("http://localhost:1337/jobs/cleanupStaleSessions", {
@@ -380,6 +404,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "18. Webhook Compatibility (POST /webhooks/function/:functionName)",
   async fn() {
     const res = await fetch("http://localhost:1337/webhooks/function/hello", {
@@ -399,6 +424,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "19. File Upload (POST /files/:filename)",
   async fn() {
     const res = await fetch("http://localhost:1337/files/hello.png", {
@@ -425,6 +451,7 @@ Deno.test({
 });
 
 Deno.test({
+  ignore: !LAB,
   name: "99. Teardown",
   async fn() {
     abortController.abort();
