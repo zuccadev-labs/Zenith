@@ -17,7 +17,16 @@ import type {
   CloudFunctionRequest,
   CloudTriggerRequest,
 } from "../../core/cloud.ts";
+import type { CloudValidator } from "../../core/cloud.ts";
 import { _cloudCodeRegistry } from "../../core/cloud.ts";
+import { denied } from "../../core/router.ts";
+import {
+  checkValidator,
+  CloudValidationError,
+  functionAccess,
+  triggerFailure,
+} from "./validator.ts";
+import { runRegistryTrigger, type TriggerRequest, validateTrigger } from "./registry-triggers.ts";
 
 export interface CloudFunctionHandler {
   (request: CloudFunctionRequest, status?: (code: number, message: string) => never): unknown;
@@ -48,7 +57,54 @@ export const CloudCodeTrait = createTraitDescriptor({
     "Parse Server-compatible Cloud Code: define/register functions, before/after triggers on collections, custom REST routes with security policies (Parse Server master key replacement via API keys).",
   // deno-lint-ignore no-explicit-any
   create: (_deps: Record<string, any>) => {
-    const registeredFunctions = new Map<string, CloudFunctionHandler>();
+    const registeredFunctions = new Map<
+      string,
+      { fn: CloudFunctionHandler; validator?: CloudValidator }
+    >();
+    /** A function defined on this trait, or else through Zen.Cloud (the global registry, also in compiled apps). */
+    const functionEntry = (name: string) => {
+      const local = registeredFunctions.get(name);
+      if (local) return local;
+      const global = _cloudCodeRegistry.getFunction(name);
+      return global
+        ? { fn: global.handler as CloudFunctionHandler, validator: global.validator }
+        : undefined;
+    };
+    type Category =
+      | "beforeSave"
+      | "afterSave"
+      | "beforeFind"
+      | "afterFind"
+      | "beforeDelete"
+      | "afterDelete";
+    type AnyRequest = TriggerRequest;
+    const validate = validateTrigger;
+    /** Wraps a handler so its validator runs first. */
+    const guarded = <F extends (r: AnyRequest) => unknown>(
+      category: Category,
+      fn: F,
+      v?: CloudValidator,
+    ) => (v
+      ? (async (r: AnyRequest) => (await validate(v, category, r), fn(r))) as unknown as F
+      : fn);
+    /**
+     * Triggers registered with Zen.Cloud.beforeSave() & co. live in the global registry (registry-triggers.ts).
+     * Before, nothing read it: they never ran. They run first, then the trait's.
+     */
+    const runGlobal = async (category: Category, className: string, r: AnyRequest) => {
+      const request = category === "afterFind"
+        ? { ...r, objects: r.results ?? (r.object ? [r.object] : []) }
+        : r;
+      const { out } = await runRegistryTrigger(category, className, request);
+      // afterFind may return the objects to answer with (Parse Server): they replace the results.
+      if (category === "afterFind" && Array.isArray(out)) {
+        if (Array.isArray(r.results)) r.results.splice(0, r.results.length, ...out);
+        else if (r.object && out[0] && typeof out[0] === "object") {
+          for (const k of Object.keys(r.object)) delete r.object[k];
+          Object.assign(r.object, out[0]);
+        }
+      }
+    };
     const beforeSaveTriggers = new Map<string, CloudTriggerHandler[]>();
     const afterSaveTriggers = new Map<string, CloudTriggerHandler[]>();
     const beforeFindTriggers = new Map<string, CloudBeforeFindHandler[]>();
@@ -86,11 +142,11 @@ export const CloudCodeTrait = createTraitDescriptor({
     };
 
     const traitApi = {
-      define: (name: string, fn: CloudFunctionHandler) => {
+      define: (name: string, fn: CloudFunctionHandler, validator?: CloudValidator) => {
         if (typeof name !== "string" || typeof fn !== "function") {
           throw new Error("define(name, fn): both required");
         }
-        registeredFunctions.set(name, fn);
+        registeredFunctions.set(name, { fn, validator });
         return { name, registeredAt: new Date().toISOString() };
       },
 
@@ -101,9 +157,18 @@ export const CloudCodeTrait = createTraitDescriptor({
         params: Record<string, unknown>,
         context: Record<string, unknown> = {},
       ) => {
-        const fn = registeredFunctions.get(name) ??
-          _cloudCodeRegistry.getFunction(name)?.handler as CloudFunctionHandler | undefined;
-        if (!fn) throw new Error(`cloud function not found: ${name}`);
+        const entry = functionEntry(name);
+        if (!entry) {
+          throw Object.assign(new Error(`Invalid function: "${name}"`), { code: 141 });
+        }
+        const fn = entry.fn;
+        // A copy: defaults set by the validator must not leak into the caller's object.
+        params = { ...params };
+        await checkValidator(entry.validator, {
+          master: (context.master as boolean) || false,
+          user: context.user as { objectId: string; roles?: string[] } | undefined,
+          apiKey: !!context.apiKey,
+        }, params);
         const request: CloudFunctionRequest = {
           params,
           user: context.user as { objectId: string; username?: string } | undefined,
@@ -117,39 +182,50 @@ export const CloudCodeTrait = createTraitDescriptor({
             error: (...args: unknown[]) => console.error(`[Cloud:${name}]`, ...args),
           },
         };
+        // response.error(code, message), Parse style: a Parse error code, not an HTTP status.
         return await fn(request, (code: number, message: string) => {
-          throw Object.assign(new Error(message), { status: code });
+          throw Object.assign(new Error(message), { code });
         });
       },
 
-      beforeSave: (className: string, fn: CloudTriggerHandler) => {
+      beforeSave: (className: string, fn: CloudTriggerHandler, validator?: CloudValidator) => {
         if (!beforeSaveTriggers.has(className)) beforeSaveTriggers.set(className, []);
-        beforeSaveTriggers.get(className)!.push(fn);
+        // deno-lint-ignore no-explicit-any
+        beforeSaveTriggers.get(className)!.push(guarded("beforeSave", fn as any, validator) as any);
       },
 
-      afterSave: (className: string, fn: CloudTriggerHandler) => {
+      afterSave: (className: string, fn: CloudTriggerHandler, validator?: CloudValidator) => {
         if (!afterSaveTriggers.has(className)) afterSaveTriggers.set(className, []);
-        afterSaveTriggers.get(className)!.push(fn);
+        // deno-lint-ignore no-explicit-any
+        afterSaveTriggers.get(className)!.push(guarded("afterSave", fn as any, validator) as any);
       },
 
-      beforeFind: (className: string, fn: CloudBeforeFindHandler) => {
+      beforeFind: (className: string, fn: CloudBeforeFindHandler, validator?: CloudValidator) => {
         if (!beforeFindTriggers.has(className)) beforeFindTriggers.set(className, []);
-        beforeFindTriggers.get(className)!.push(fn);
+        // deno-lint-ignore no-explicit-any
+        beforeFindTriggers.get(className)!.push(guarded("beforeFind", fn as any, validator) as any);
       },
 
-      afterFind: (className: string, fn: CloudAfterFindHandler) => {
+      afterFind: (className: string, fn: CloudAfterFindHandler, validator?: CloudValidator) => {
         if (!afterFindTriggers.has(className)) afterFindTriggers.set(className, []);
-        afterFindTriggers.get(className)!.push(fn);
+        // deno-lint-ignore no-explicit-any
+        afterFindTriggers.get(className)!.push(guarded("afterFind", fn as any, validator) as any);
       },
 
-      beforeDelete: (className: string, fn: CloudTriggerHandler) => {
+      beforeDelete: (className: string, fn: CloudTriggerHandler, validator?: CloudValidator) => {
         if (!beforeDeleteTriggers.has(className)) beforeDeleteTriggers.set(className, []);
-        beforeDeleteTriggers.get(className)!.push(fn);
+        // deno-lint-ignore no-explicit-any
+        beforeDeleteTriggers.get(className)!.push(
+          guarded("beforeDelete", fn as any, validator) as any,
+        );
       },
 
-      afterDelete: (className: string, fn: CloudTriggerHandler) => {
+      afterDelete: (className: string, fn: CloudTriggerHandler, validator?: CloudValidator) => {
         if (!afterDeleteTriggers.has(className)) afterDeleteTriggers.set(className, []);
-        afterDeleteTriggers.get(className)!.push(fn);
+        // deno-lint-ignore no-explicit-any
+        afterDeleteTriggers.get(className)!.push(
+          guarded("afterDelete", fn as any, validator) as any,
+        );
       },
 
       beforeSaveFile: (fn: CloudTriggerHandler) => {
@@ -183,18 +259,34 @@ export const CloudCodeTrait = createTraitDescriptor({
       },
 
       runBeforeSave: async (className: string, request: CloudTriggerRequest) => {
-        const triggers = beforeSaveTriggers.get(className) || [];
-        for (const fn of triggers) await fn(request);
+        try {
+          await runGlobal("beforeSave", className, request as AnyRequest);
+          const triggers = beforeSaveTriggers.get(className) || [];
+          for (const fn of triggers) await fn(request);
+        } catch (e) {
+          throw triggerFailure(e);
+        }
       },
 
       runAfterSave: async (className: string, request: CloudTriggerRequest) => {
-        const triggers = afterSaveTriggers.get(className) || [];
-        for (const fn of triggers) await fn(request);
+        // The object is already saved: a failing afterSave is logged, not returned (Parse Server).
+        try {
+          await runGlobal("afterSave", className, request as AnyRequest);
+          const triggers = afterSaveTriggers.get(className) || [];
+          for (const fn of triggers) await fn(request);
+        } catch (e) {
+          console.error(`[Cloud:afterSave:${className}]`, (e as Error)?.message ?? e);
+        }
       },
 
       runBeforeFind: async (className: string, request: CloudBeforeFindRequest) => {
-        const triggers = beforeFindTriggers.get(className) || [];
-        for (const fn of triggers) await fn(request);
+        try {
+          await runGlobal("beforeFind", className, request as AnyRequest);
+          const triggers = beforeFindTriggers.get(className) || [];
+          for (const fn of triggers) await fn(request);
+        } catch (e) {
+          throw triggerFailure(e);
+        }
       },
 
       runAfterFind: async (
@@ -205,26 +297,55 @@ export const CloudCodeTrait = createTraitDescriptor({
           query: Record<string, unknown>;
         },
       ) => {
-        const triggers = afterFindTriggers.get(className) || [];
-        for (const fn of triggers) await fn(request);
+        try {
+          await runGlobal("afterFind", className, request as AnyRequest);
+          const triggers = afterFindTriggers.get(className) || [];
+          for (const fn of triggers) await fn(request);
+        } catch (e) {
+          throw triggerFailure(e);
+        }
       },
 
       runBeforeDelete: async (className: string, request: CloudTriggerRequest) => {
-        const triggers = beforeDeleteTriggers.get(className) || [];
-        for (const fn of triggers) await fn(request);
+        try {
+          await runGlobal("beforeDelete", className, request as AnyRequest);
+          const triggers = beforeDeleteTriggers.get(className) || [];
+          for (const fn of triggers) await fn(request);
+        } catch (e) {
+          throw triggerFailure(e);
+        }
       },
 
       runAfterDelete: async (className: string, request: CloudTriggerRequest) => {
-        const triggers = afterDeleteTriggers.get(className) || [];
-        for (const fn of triggers) await fn(request);
+        // The object is already saved: a failing afterDelete is logged, not returned (Parse Server).
+        try {
+          await runGlobal("afterDelete", className, request as AnyRequest);
+          const triggers = afterDeleteTriggers.get(className) || [];
+          for (const fn of triggers) await fn(request);
+        } catch (e) {
+          console.error(`[Cloud:afterDelete:${className}]`, (e as Error)?.message ?? e);
+        }
       },
 
       runFileTrigger: async (
         phase: "beforeWrite" | "afterWrite" | "beforeDelete" | "afterDelete",
         request: CloudTriggerRequest,
       ) => {
-        const triggers = fileTriggers.get("global");
-        if (triggers && triggers[phase]) await triggers[phase]!(request);
+        const category = ({
+          beforeWrite: "beforeSaveFile",
+          afterWrite: "afterSaveFile",
+          beforeDelete: "beforeDeleteFile",
+          afterDelete: "afterDeleteFile",
+        } as const)[phase];
+        try {
+          await runRegistryTrigger(category, "_File", request as AnyRequest);
+          const triggers = fileTriggers.get("global");
+          if (triggers && triggers[phase]) await triggers[phase]!(request);
+        } catch (e) {
+          // As for objects: a before* refusal reaches the client (142); an after* failure is logged.
+          if (phase.startsWith("before")) throw triggerFailure(e);
+          console.error(`[Cloud:${category}]`, (e as Error)?.message ?? e);
+        }
       },
 
       loadCloudCode: async (cloudCodePath: string) => {
@@ -243,7 +364,10 @@ export const CloudCodeTrait = createTraitDescriptor({
             for (const fn of loaded) {
               const entry = _cloudCodeRegistry.getFunction(fn);
               if (entry && !registeredFunctions.has(fn)) {
-                registeredFunctions.set(fn, entry.handler as CloudFunctionHandler);
+                registeredFunctions.set(fn, {
+                  fn: entry.handler as CloudFunctionHandler,
+                  validator: entry.validator,
+                });
               }
             }
           }
@@ -275,35 +399,45 @@ export const CloudCodeTrait = createTraitDescriptor({
             },
           },
         },
+        // Who may call it is decided per function (validator.ts, functionAccess): master-only unless its
+        // validator opens it. API keys need functions:invoke for functions open to users.
+        access: "public" as const,
         handler: async (
           req: Request,
-          ctx: {
-            user?: { objectId: string; username?: string };
-            apiKey?: { master?: boolean };
-            master?: boolean;
-          },
+          // deno-lint-ignore no-explicit-any
+          ctx: any,
         ) => {
-          const url = new URL(req.url);
-          const functionName = url.pathname.split("/").pop();
+          const functionName = decodeURIComponent(new URL(req.url).pathname.split("/").pop() ?? "");
+          const entry = functionEntry(functionName);
+          // An unknown function answers like a master-only one: a caller without the master key cannot tell
+          // which functions exist.
+          const refusal = denied(functionAccess(entry?.validator), ctx ?? {}, "functions:invoke");
+          if (refusal) return refusal;
           const body = await req.json().catch(() => ({}));
-          try {
-            const result = await traitApi.run(functionName!, body, {
-              user: ctx?.user,
-              master: ctx?.apiKey?.master || ctx?.master,
-              ip: req.headers.get("x-forwarded-for"),
-              headers: Object.fromEntries(req.headers),
-            });
-            return new Response(JSON.stringify({ result }), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            });
-          } catch (e: unknown) {
-            const err = e as { status?: number; message: string };
-            const status = err.status || 500;
-            return new Response(JSON.stringify({ code: status, error: err.message }), {
+          const json = (status: number, payload: unknown) =>
+            new Response(JSON.stringify(payload), {
               status,
               headers: { "content-type": "application/json" },
             });
+          try {
+            const result = await traitApi.run(functionName, body, {
+              user: ctx?.user,
+              master: ctx?.master === true || ctx?.masterKey === true,
+              apiKey: !!ctx?.apiKey && !ctx?.user,
+              ip: ctx?.clientIp,
+              headers: Object.fromEntries(req.headers),
+            });
+            return json(200, { result });
+          } catch (e: unknown) {
+            // Parse Server: HTTP 400 with the Parse error code (142 validation, 141 script failed or unknown
+            // function, or whatever code the function chose with response.error). Before, the code was used as
+            // the HTTP status, and new Response() throws for 141.
+            const err = e as { code?: number; message?: string };
+            if (e instanceof CloudValidationError) {
+              return json(400, { code: e.code, error: e.message });
+            }
+            const code = Number.isInteger(err.code) ? err.code! : 141;
+            return json(400, { code, error: err.message ?? "Cloud function failed." });
           }
         },
       },

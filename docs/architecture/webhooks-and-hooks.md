@@ -94,3 +94,64 @@ Respecto a Parse Server:
 - el cuerpo no lleva credenciales ni las cabeceras del cliente;
 - las llamadas tienen tiempo límite y protección SSRF;
 - un hook `after*` que falla no deshace la operación.
+
+## Cloud Code en el proceso: validadores y triggers de `Zen.Cloud`
+
+```ts
+// Solo master (por defecto, ADR-013): sin validador, o con solo `fields`.
+Zen.Cloud.define("recalcular", async () => { /* … */ });
+
+// Usuarios con sesión, y API keys con functions:invoke; los params se validan como en Parse.
+Zen.Cloud.define("comentar", async (req) => { /* … */ }, {
+  requireUser: true,
+  fields: { texto: { required: true, type: "string" }, tono: { options: ["neutro", "formal"], default: "neutro" } },
+});
+
+// Cualquiera, sin sesión.
+Zen.Cloud.define("estado", () => "ok", { public: true });
+
+// Triggers: corren en el servidor real (antes no se ejecutaban).
+Zen.Cloud.beforeSave("Todo", (req) => {
+  if (!req.object.title) throw new Error("title is required"); // → 400 { code: 142, error: "title is required" }
+  req.object.slug = String(req.object.title).toLowerCase();    // se guarda
+}, { requireUser: true, fields: { owner: { constant: true } } });
+```
+
+**Validadores** (`traits/cloud/validator.ts`) con la semántica de Parse Server:
+
+- La master key se salta el validador, salvo con `validateMasterKey: true`.
+- Comprueban `requireMaster`, `requireUser`, `requireAnyUserRoles` y `requireAllUserRoles`.
+- `fields` admite `required`, `type`, `default`, `options` (lista o función) y `constant`. En un update, un campo
+  `constant` recupera su valor original.
+- Si falla, la respuesta es 400 con `code: 142` y el texto "Validation failed. …".
+
+**Quién puede llamar a una función** es una decisión de Zenith (ADR-013):
+
+- solo master por defecto;
+- `requireUser` o roles la abren a usuarios;
+- `public: true`, a cualquiera.
+
+Una función inexistente responde como una cerrada.
+
+**Errores:**
+
+- Un error lanzado en un `before*` o en `afterFind` llega al cliente como 400 / 142 con su mensaje. Un `ZenithError`
+  conserva su código.
+- `response.error(código, mensaje)` responde 400 con ese código.
+- Un fallo en `afterSave`/`afterDelete` se registra en el log y no se devuelve, porque el objeto ya está guardado.
+
+**Qué triggers corren:**
+
+| Triggers | Dónde corren |
+|---|---|
+| `beforeSave`, `afterSave`, `beforeFind`, `afterFind`, `beforeDelete`, `afterDelete` | CRUD de `/classes` |
+| `beforeSaveFile`, `afterSaveFile`, `beforeDeleteFile`, `afterDeleteFile` | almacenamiento de archivos |
+| `beforeLogin`, `afterLogin`, `beforeLogout`, `afterLogout` | engine-auth (ver abajo) |
+
+`beforeLogin` corre después de comprobar las credenciales y antes de crear la sesión. Si rechaza el login, se revoca
+también lo que engine-auth ya había emitido. El logout no se bloquea nunca.
+
+Los de LiveQuery, media y `beforePasswordResetRequest` todavía no corren: al registrarlos se avisa en el log (ver
+`zenith-backend/docs/pending.md`).
+
+Funcionan igual en `zen dev` y en una app compilada, porque se leen del registro global en el momento de ejecutarse.

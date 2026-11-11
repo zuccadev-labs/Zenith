@@ -31,6 +31,8 @@ import {
   toBase64Url as b64u,
   toHex as hex,
 } from "../../core/crypto.ts";
+import { runRegistryTrigger } from "../cloud/registry-triggers.ts";
+import { triggerFailure } from "../cloud/validator.ts";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -320,8 +322,25 @@ export class EngineAuthFacade {
       id.sub,
       login.includes("@") ? { email: login.toLowerCase(), username: login } : { username: login },
     );
+    const user = this.#public(profile);
+    const hook = { object: user, user, master: false, ip, installationId };
+    // Zen.Cloud.beforeLogin (Parse Server): after the credentials are checked, before Zenith's session exists.
+    // A refusal also revokes what engine-auth already issued, so no session outlives it.
+    try {
+      await runRegistryTrigger("beforeLogin", "_User", hook);
+    } catch (e) {
+      await this.#form("/oauth/revoke", {
+        token: tokens.refresh_token,
+        token_type_hint: "refresh_token",
+      }).catch((r) => this.#log(`revocation after beforeLogin failed: ${(r as Error).message}`));
+      const f = triggerFailure(e);
+      throw new ParseError(f.code, f.message, f.httpStatus);
+    }
     const sessionToken = await this.#createSession(id, tokens, "login", installationId);
-    return { ...this.#public(profile), sessionToken };
+    await runRegistryTrigger("afterLogin", "_User", hook).catch((e) =>
+      this.#log(`afterLogin failed: ${(e as Error)?.message ?? e}`)
+    );
+    return { ...user, sessionToken };
   }
 
   /** Parse `POST /logout`: ends the engine-auth session too. Always succeeds for the caller. */
@@ -331,6 +350,16 @@ export class EngineAuthFacade {
     this.#cache.delete(hash);
     const doc = await this.#session(hash);
     if (!doc) return;
+    // Zen.Cloud.beforeLogout / afterLogout: they observe; a logout always happens (a failing hook must not keep a
+    // session alive).
+    const hook = {
+      object: { objectId: doc.objectId, user: doc.user },
+      user: doc.user?.objectId ? { objectId: doc.user.objectId } : undefined,
+      master: false,
+    };
+    await runRegistryTrigger("beforeLogout", "_Session", hook).catch((e) =>
+      this.#log(`beforeLogout failed: ${(e as Error)?.message ?? e}`)
+    );
     await this.#db.delete(SESSIONS, doc.objectId);
     try {
       const refresh = await this.#open(doc.refresh, hash);
@@ -338,6 +367,9 @@ export class EngineAuthFacade {
     } catch (e) {
       this.#log(`revocation of session ${doc.sid ?? "?"} failed: ${(e as Error).message}`);
     }
+    await runRegistryTrigger("afterLogout", "_Session", hook).catch((e) =>
+      this.#log(`afterLogout failed: ${(e as Error)?.message ?? e}`)
+    );
   }
 
   /** Parse `GET /users/me`. */

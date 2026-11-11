@@ -277,7 +277,10 @@ Deno.test({
     const dir = await tmp();
     await inDir(dir, () => runDevCommand("init", ["e2e"]));
     const p = join(dir, "e2e");
-    const port = 20000 + Math.floor(Math.random() * 20000);
+    // A port the OS says is free: a random one could land on another server (the lab's services use 2xxxx).
+    const probe = Deno.listen({ hostname: "127.0.0.1", port: 0 });
+    const port = (probe.addr as Deno.NetAddr).port;
+    probe.close();
     const appId = `e2e${Date.now()}`;
     const env = (await Deno.readTextFile(join(p, ".env")))
       .replace(/^ZENITH_APP_ID=.*$/m, `ZENITH_APP_ID=${appId}`)
@@ -292,6 +295,16 @@ Deno.test({
       join(p, "cloud", "main.ts"),
       `import { Zen } from "@zuccadev-labs/zenith";
 Zen.Cloud.define("hello", (req: any) => ({ message: "hola " + (req?.params?.name ?? "mundo") }));
+// Open to anyone, with its params validated (Parse validator).
+Zen.Cloud.define("greet", (req: any) => "hi " + req.params.name, {
+  public: true,
+  fields: { name: { required: true, type: "string" } },
+});
+// A Zen.Cloud trigger: before, these never ran.
+Zen.Cloud.beforeSave("Todo", (req: any) => {
+  if (!req.object.title) throw new Error("title is required");
+  req.object.slug = String(req.object.title).toLowerCase().replaceAll(" ", "-");
+});
 `,
     );
 
@@ -335,6 +348,31 @@ Zen.Cloud.define("hello", (req: any) => ({ message: "hola " + (req?.params?.name
       const text = await r.text();
       assertEquals(r.status, 200, text);
       assertMatch(text, /hola zen/);
+
+      // Without a validator a function stays master-only (ADR-013).
+      const closed = await call("/functions/hello", {});
+      await closed.body?.cancel();
+      assertEquals(closed.status, 401);
+      // public + fields: no session needed, params validated (Parse's 142).
+      const greet = await call("/functions/greet", { name: "ana" });
+      assertEquals(await greet.json(), { result: "hi ana" });
+      const bad = await call("/functions/greet", {});
+      assertEquals(bad.status, 400);
+      assertEquals((await bad.json()).code, 142);
+
+      // The project's beforeSave runs on POST /classes: it refuses and it changes the object.
+      const asMaster = { "X-Parse-Master-Key": master };
+      const refused = await call("/classes/Todo", { done: false }, asMaster);
+      const refusedText = await refused.text();
+      assert(refused.status >= 400, refusedText);
+      assertMatch(refusedText, /title is required/);
+      const created = await call("/classes/Todo", { title: "Buy Milk" }, asMaster);
+      const { objectId } = await created.json();
+      assert(objectId, "created");
+      const got = await fetch(`http://127.0.0.1:${port}/classes/Todo/${objectId}`, {
+        headers: { "X-Parse-Application-Id": appId, ...asMaster },
+      });
+      assertEquals((await got.json()).slug, "buy-milk", "the trigger's change was saved");
     } finally {
       child.kill("SIGTERM");
       await child.status;

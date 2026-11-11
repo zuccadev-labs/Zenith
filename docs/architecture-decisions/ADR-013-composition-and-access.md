@@ -53,6 +53,14 @@ permisos. Entre ellas, `/shell/exec`, `/runner/execute`, `/secrets/:path`, `/edg
 - Las rutas de negocio (CRM, ERP, CRUD `/classes`, LiveQuery, funciones Cloud…) quedan **solo con master key** hasta
   revisarlas una por una y abrirlas con `access: "user"`. Ver `zenith-backend/docs/pending.md`. Es una restricción
   deliberada: abrirlas sin revisar expondría ejecución remota y secretos.
+- **Funciones Cloud (2026-11-11): se abren una a una.** `POST /functions/:name` es `public` para el router y la
+  decisión es de cada función, por su validador (`traits/cloud/validator.ts`):
+  - sin validador, o solo con `fields`, la función sigue siendo **solo master**;
+  - con `requireUser` o roles, la pueden usar los usuarios, y las API keys con `functions:invoke`;
+  - con `public: true`, cualquiera.
+
+  Una función que no existe responde igual que una cerrada, así que sin master key no se puede averiguar qué
+  funciones hay.
 - Para añadir un trait:
   - declara en `consumes` lo obligatorio y en `uses:` lo opcional;
   - lee las capacidades de `deps.traits`;

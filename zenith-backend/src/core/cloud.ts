@@ -147,7 +147,14 @@ export type CloudJobHandler = (
 export interface CloudValidator {
   requireUser?: boolean;
   requireMaster?: boolean;
-  /** Si es true, la validación se salta si la request tiene Master Key (Parse parity) */
+  /**
+   * Functions only: anyone may call it, without a session (Parse's default). Zenith's default is master-only
+   * (ADR-013); `requireUser` or a role requirement opens it to users. See traits/cloud/validator.ts.
+   */
+  public?: boolean;
+  /** Validate master key requests too (Parse parity). By default the master key skips the validator. */
+  validateMasterKey?: boolean;
+  /** The default: the master key skips the validator. Kept for older code; `validateMasterKey` overrides it. */
   skipWithMasterKey?: boolean;
   requireAnyUserRoles?: string[];
   requireAllUserRoles?: string[];
@@ -308,6 +315,29 @@ export interface ZenCloudAPI {
   ): Promise<void>;
 }
 
+/**
+ * Triggers Zenith registers but does not run yet (LiveQuery, media streams, password reset): no trait reads them.
+ * Registering one warns once instead of failing silently. Pending in docs/pending.md.
+ */
+const NOT_WIRED = new Set([
+  "beforePasswordResetRequest",
+  "beforeConnect",
+  "beforeSubscribe",
+  "afterLiveQueryEvent",
+  "onLiveQueryEvent",
+  "beforePublish",
+  "beforeWatch",
+  "onStreamEvent",
+]);
+const warned = new Set<string>();
+function warnNotWired(category: string): void {
+  if (!NOT_WIRED.has(category) || warned.has(category)) return;
+  warned.add(category);
+  console.warn(
+    `[Zen.Cloud] ${category}: registered, but Zenith does not run this trigger yet (see docs/pending.md).`,
+  );
+}
+
 export const ZenCloud: ZenCloudAPI = {
   /**
    * Define una Cloud Function.
@@ -460,6 +490,7 @@ export const ZenCloud: ZenCloudAPI = {
    * Equivalente a `Parse.Cloud.beforePasswordResetRequest()`.
    */
   beforePasswordResetRequest(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("beforePasswordResetRequest");
     _triggers.get("beforePasswordResetRequest")!.set("_User", { handler, validator });
   },
 
@@ -469,6 +500,7 @@ export const ZenCloud: ZenCloudAPI = {
    * Equivalente a `Parse.Cloud.beforeConnect()`.
    */
   beforeConnect(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("beforeConnect");
     // "LiveQuery" as a pseudo-class name for connection events
     _triggers.get("beforeConnect")!.set("LiveQuery", { handler, validator });
   },
@@ -482,6 +514,7 @@ export const ZenCloud: ZenCloudAPI = {
     handler: CloudTriggerHandler,
     validator?: CloudValidator,
   ): void {
+    warnNotWired("beforeSubscribe");
     _triggers.get("beforeSubscribe")!.set(className, { handler, validator });
   },
 
@@ -490,11 +523,13 @@ export const ZenCloud: ZenCloudAPI = {
    * Equivalente a `Parse.Cloud.afterLiveQueryEvent()`.
    */
   afterLiveQueryEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("afterLiveQueryEvent");
     _triggers.get("afterLiveQueryEvent")!.set("LiveQuery", { handler, validator });
   },
 
   /** Alias para retrocompatibilidad con las primeras versiones de Zenith */
   onLiveQueryEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("onLiveQueryEvent");
     this.afterLiveQueryEvent(handler, validator);
   },
 
@@ -503,6 +538,7 @@ export const ZenCloud: ZenCloudAPI = {
    * Permite validar ancho de banda, tokens o rechazar la creación del stream.
    */
   beforePublish(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("beforePublish");
     _triggers.get("beforePublish")!.set("MediaStream", { handler, validator });
   },
 
@@ -511,6 +547,7 @@ export const ZenCloud: ZenCloudAPI = {
    * Útil para paywalls o restricción por geolocalización.
    */
   beforeWatch(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("beforeWatch");
     _triggers.get("beforeWatch")!.set("MediaStream", { handler, validator });
   },
 
@@ -518,6 +555,7 @@ export const ZenCloud: ZenCloudAPI = {
    * Trigger genérico para eventos del ciclo de vida del stream (inicio, parada, bitrate).
    */
   onStreamEvent(handler: CloudTriggerHandler, validator?: CloudValidator): void {
+    warnNotWired("onStreamEvent");
     _triggers.get("onStreamEvent")!.set("MediaStream", { handler, validator });
   },
 

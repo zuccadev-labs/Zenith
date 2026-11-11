@@ -190,7 +190,7 @@ Deno.test({
       await hooks.putFunction("where", { url: `${rx.base}/two` });
       assertEquals(await cloud.run("where", {}), "/two");
       await hooks.putFunction("where", { __op: "Delete" });
-      await assertRejects(() => cloud.run("where", {}), Error, "not found");
+      await assertRejects(() => cloud.run("where", {}), Error, "Invalid function");
       await hooks.createTrigger({
         className: "A",
         triggerName: "beforeDelete",
