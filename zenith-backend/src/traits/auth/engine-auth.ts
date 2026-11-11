@@ -24,6 +24,7 @@
  */
 
 import { openFeature, type Feature } from "@zuccadev-labs/zutool-ffi";
+import { fromBase64Url as unb64u, randomBytes, sha256Hex as sha256, toBase64Url as b64u, toHex as hex } from "../../core/crypto.ts";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -114,10 +115,6 @@ const RESERVED = new Set([
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
 const enc = new TextEncoder();
-const hex = (b: ArrayBuffer | Uint8Array) => Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, "0")).join("");
-const sha256 = async (s: string) => hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
-const b64u = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-const unb64u = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0));
 const nowS = () => Math.floor(Date.now() / 1000);
 const looksLikeJwt = (t: string) => t.startsWith("eyJ") && t.split(".").length === 3;
 
@@ -285,7 +282,7 @@ export class EngineAuthFacade {
   // ── Sessions ────────────────────────────────────────────────────────────────
 
   async #createSession(id: Identity, t: Tokens, action: string, installationId?: string): Promise<string> {
-    const token = `r:${hex(crypto.getRandomValues(new Uint8Array(32)))}`;
+    const token = `r:${hex(randomBytes(32))}`;
     const hash = await sha256(token);
     const exp = this.#exp(t.access_token);
     await this.#db.insert(SESSIONS, {
@@ -539,7 +536,7 @@ export class EngineAuthFacade {
   }
 
   async #seal(plain: string, hash: string): Promise<string> {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const iv = randomBytes(12);
     const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(hash) }, await this.#aes(), enc.encode(plain)));
     const out = new Uint8Array(12 + ct.length);
     out.set(iv);

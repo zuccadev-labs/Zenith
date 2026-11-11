@@ -2305,339 +2305,6 @@
       ]
     },
     {
-      "name": "Workspace",
-      "item": [
-        {
-          "name": "Listar API Keys",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/zen/apikeys",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "apikeys"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Crear API Key (retorna key UNA VEZ)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/zen/apikeys",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "apikeys"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Revocar API Key",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/zen/apikeys/{objectId}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "apikeys",
-                "{objectId}"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Aceptar Invitación",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/zen/workspace/invitations/accept",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "workspace",
-                "invitations",
-                "accept"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Obtener Miembro por ID",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/zen/workspace/members/{objectId}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "workspace",
-                "members",
-                "{objectId}"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Actualizar rol/estado del Miembro",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/zen/workspace/members/{objectId}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "workspace",
-                "members",
-                "{objectId}"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Eliminar Miembro del Workspace",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/zen/workspace/members/{objectId}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "workspace",
-                "members",
-                "{objectId}"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Invitar Miembro al Workspace",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/zen/workspace/{workspaceId}/invitations",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "workspace",
-                "{workspaceId}",
-                "invitations"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Listar Miembros del Workspace",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Parse-Application-Id",
-                "value": "{{appId}}"
-              },
-              {
-                "key": "X-Parse-Session-Token",
-                "value": "{{sessionToken}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/zen/workspace/{workspaceId}/members",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "zen",
-                "workspace",
-                "{workspaceId}",
-                "members"
-              ]
-            }
-          },
-          "response": []
-        }
-      ]
-    },
-    {
       "name": "Collaboration",
       "item": [
         {
@@ -8289,6 +7956,236 @@
                 "webhooks",
                 "{objectId}",
                 "test"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workspace",
+      "item": [
+        {
+          "name": "Aceptar Invitación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/workspace/invitations/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "workspace",
+                "invitations",
+                "accept"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Miembro por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/workspace/members/{objectId}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "workspace",
+                "members",
+                "{objectId}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar rol/estado del Miembro",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/workspace/members/{objectId}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "workspace",
+                "members",
+                "{objectId}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar Miembro del Workspace",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/workspace/members/{objectId}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "workspace",
+                "members",
+                "{objectId}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invitar Miembro al Workspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/workspace/{workspaceId}/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "workspace",
+                "{workspaceId}",
+                "invitations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Miembros del Workspace",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/workspace/{workspaceId}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "workspace",
+                "{workspaceId}",
+                "members"
               ]
             }
           },

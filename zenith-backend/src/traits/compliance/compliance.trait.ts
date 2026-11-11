@@ -11,6 +11,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { hmacSha256Hex, signingKey } from "../../core/crypto.ts";
 
 export interface AuditEntry {
   objectId: string;
@@ -52,8 +53,9 @@ export const ComplianceTrait = createTraitDescriptor({
 
       recordAudit: async (entry: Omit<AuditEntry, "objectId" | "timestamp">) => {
         const fullEntry: AuditEntry = { objectId: crypto.randomUUID(), timestamp: new Date().toISOString(), ...entry };
-        const sig = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(fullEntry) + (Deno.env.get("AUDIT_SIGNING_KEY") || "default")));
-        fullEntry.signature = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+        // HMAC-SHA256 (core/crypto.ts). Antes: sha256(entrada + clave) con la clave "default" si faltaba
+        // AUDIT_SIGNING_KEY, así que cualquiera podía falsificar la firma.
+        fullEntry.signature = await hmacSha256Hex(signingKey("AUDIT_SIGNING_KEY"), JSON.stringify(fullEntry));
         traitApi.auditLog.push(fullEntry);
         await db.create("_AuditLog", fullEntry).catch(() => {});
         return fullEntry;

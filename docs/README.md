@@ -60,7 +60,7 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [Views](./api/Views.md) (5 endpoints)
 - [Webhook](./api/Webhook.md) (4 endpoints)
 - [Webhooks](./api/Webhooks.md) (9 endpoints)
-- [Workspace](./api/Workspace.md) (9 endpoints)
+- [Workspace](./api/Workspace.md) (6 endpoints)
 
 ## Quick Start
 

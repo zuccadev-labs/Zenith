@@ -13,6 +13,7 @@ import type { ZenithRequestContext } from "./types.ts";
 import { ZenithError, ZenithErrors } from "./errors.ts";
 import type { ApiKeyManager } from "../security/api-keys/manager.ts";
 import { PerKeyRateLimiter, extractAndVerifyKey } from "../security/api-keys/middleware.ts";
+import { timingSafeEqualString } from "./crypto.ts";
 
 // ─── Tipos del Pipeline ────────────────────────────────────────────────────────
 
@@ -195,17 +196,8 @@ export function extractContext(
     if (!isLocalhost) {
       console.warn(`[SecOps] 🛡️ Bloqueado uso de MasterKey estática desde IP externa: ${resolvedClientIp}. Usa Zen-Internal-Token (JWT RSA) para acceso de red.`);
     } else {
-      // Comparación en tiempo constante (Bitwise XOR) contra timing attacks
-      const encoder = new TextEncoder();
-      const a = await crypto.subtle.digest("SHA-256", encoder.encode(providedMasterKey));
-      const b = await crypto.subtle.digest("SHA-256", encoder.encode(configMasterKey));
-      const a8 = new Uint8Array(a);
-      const b8 = new Uint8Array(b);
-      let result = 0;
-      for (let i = 0; i < a8.length; i++) {
-        result |= a8[i] ^ b8[i];
-      }
-      isMasterKeyValid = result === 0;
+      // Tiempo constante, también respecto a la longitud (core/crypto.ts).
+      isMasterKeyValid = await timingSafeEqualString(providedMasterKey, configMasterKey);
     }
   }
 

@@ -55,10 +55,25 @@ No deben abrirse nunca a usuarios: `/shell/*`, `/runner/*`, `/secrets/*`, `/edge
 `$inQuery` ejecuta su subconsulta sin ACL ni CLP sobre cualquier colección. El CRUD lo rechaza a los usuarios. Si
 se quiere ofrecer, el adaptador tiene que pasar la subconsulta por las mismas comprobaciones.
 
-### Dos sistemas de API keys
-- **Las del servidor** (`/zen/api-keys`, `ApiKeyManager` sobre MongoDB) son las que autentican peticiones.
-- **Las de workspace** (`/zen/apikeys`, colección `ZenithApiKey`) se crean, pero el pipeline no las valida.
-  Hay que unificarlas o retirar las de workspace. `ZenithAPIKey` del SDK usa las de workspace.
+### Dos sistemas de API keys: resuelto el 2026-11-11 (ADR-016)
+Queda uno solo: `/zen/api-keys` (`security/api-keys`). Se retiraron `/zen/apikeys` y la clase `ZenithApiKey` del
+trait workspace. `ZenithAPIKey` del SDK usa ya `/zen/api-keys`, con la master key. El nombre `ZenithApiKey` sigue
+reservado en `metadata`.
+
+### Dos traits de webhooks que se solapan
+`cloud/webhook.trait.ts` (`/webhooks/endpoints`, clase `WebhookEndpoint`, claves del proceso) y
+`webhooks/webhook.manager.trait.ts` (gestión por app, secreto por webhook, reintentos y registro de entregas)
+hacen lo mismo. Ya comparten la firma (`security/webhook-signature.ts`, ADR-016). Falta elegir uno y retirar el
+otro. El segundo es el más completo.
+
+### URLs firmadas de `storage` sin verificar
+`presignedUrl` firma con HMAC (ADR-016), pero ninguna ruta de `/files` comprueba `sig` ni `expires`. Las rutas son
+solo para la master key, así que hoy la firma no protege nada. Hay que verificarla, con tiempo constante y
+caducidad, o usar las URLs prefirmadas del adaptador S3 (RustFS).
+
+### `POST /zen/workspace/invitations/accept` toma `userId` del cuerpo
+Con acceso master (el valor por defecto) es una herramienta de administración. Si se abre a usuarios (ADR-013),
+el miembro debe ser `ctx.user`, nunca el `userId` del cuerpo.
 
 ### Publicación (preparada el 2026-11-10, sin publicar)
 Los paquetes ya pasan `deno publish --dry-run` y `npm pack`, con licencia MIT:

@@ -10,6 +10,8 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
+import { randomHex } from "../../core/crypto.ts";
+import { signWebhook, verifyWebhook, WEBHOOK_SIGNATURE_HEADER, WEBHOOK_TOLERANCE_SECONDS } from "../../security/webhook-signature.ts";
 
 export const WebhookTrait = createTraitDescriptor({
   name: "ZenithWebhook",
@@ -25,8 +27,7 @@ export const WebhookTrait = createTraitDescriptor({
 
       initKeys: async () => {
         if (traitApi.webhookKeys.size > 0) return;
-        const secret = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map((b) => b.toString(16).padStart(2, "0")).join("");
+        const secret = randomHex(32);
         traitApi.webhookKeys.set("primary", { secret, createdAt: Date.now(), rotatedAt: null });
       },
 
@@ -34,33 +35,14 @@ export const WebhookTrait = createTraitDescriptor({
         await traitApi.initKeys();
         const key = traitApi.webhookKeys.get(keyId) || traitApi.webhookKeys.get("primary");
         if (!key) throw new Error(`webhook key not found: ${keyId}`);
-        const encoder = new TextEncoder();
-        const cryptoKey = await crypto.subtle.importKey("raw", encoder.encode(key.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-        const sig = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(payload));
-        const sigHex = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-        return `t=${Date.now()},v1=${sigHex}`;
+        return signWebhook(key.secret, payload);
       },
 
-      verify: async (headerValue: string, payload: string, tolerance: number = 300): Promise<boolean> => {
-        if (!headerValue) return false;
-        const parts = headerValue.split(",").reduce<Record<string, string>>((acc, p) => {
-          const [k, v] = p.split("=");
-          if (k && v) acc[k.trim()] = v.trim();
-          return acc;
-        }, {});
-        const ts = parseInt(parts.t || "0", 10);
-        const sig = parts.v1;
-        if (!ts || !sig) return false;
-        if (Math.abs(Date.now() - ts) > tolerance * 1000) return false;
+      /** Verifica con la clave actual y, durante una rotación, con la anterior. */
+      verify: async (headerValue: string, payload: string, tolerance: number = WEBHOOK_TOLERANCE_SECONDS): Promise<boolean> => {
         await traitApi.initKeys();
-        const key = traitApi.webhookKeys.get("primary");
-        if (!key) return false;
-        const signed = `${ts}.${payload}`;
-        const encoder = new TextEncoder();
-        const cryptoKey = await crypto.subtle.importKey("raw", encoder.encode(key.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-        const expected = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(signed));
-        const expectedHex = Array.from(new Uint8Array(expected)).map((b) => b.toString(16).padStart(2, "0")).join("");
-        return timingSafeEqual(expectedHex, sig);
+        const secrets = ["primary", "legacy"].map((k) => traitApi.webhookKeys.get(k)?.secret).filter(Boolean) as string[];
+        return verifyWebhook(headerValue, payload, secrets, { toleranceSeconds: tolerance });
       },
 
       deliver: async (url: string, payload: Record<string, any>, options: { maxRetries?: number; timeout?: number; headers?: Record<string, string> } = {}) => {
@@ -75,7 +57,7 @@ export const WebhookTrait = createTraitDescriptor({
           try {
             const res = await fetch(url, {
               method: "POST",
-              headers: { "content-type": "application/json", "x-zenith-signature": signature, ...options.headers },
+              headers: { "content-type": "application/json", [WEBHOOK_SIGNATURE_HEADER]: signature, ...options.headers },
               body,
               signal: controller.signal,
             });
@@ -114,8 +96,7 @@ export const WebhookTrait = createTraitDescriptor({
       listEndpoints: async () => db.find("WebhookEndpoint", { active: true }),
 
       rotateKey: async () => {
-        const newSecret = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map((b) => b.toString(16).padStart(2, "0")).join("");
+        const newSecret = randomHex(32);
         const oldKey = traitApi.webhookKeys.get("primary");
         if (oldKey) {
           traitApi.webhookKeys.set("legacy", { ...oldKey });
@@ -124,13 +105,6 @@ export const WebhookTrait = createTraitDescriptor({
         return { rotated: true, newKeyCreatedAt: new Date().toISOString() };
       },
     };
-
-    function timingSafeEqual(a: string, b: string): boolean {
-      if (a.length !== b.length) return false;
-      let diff = 0;
-      for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-      return diff === 0;
-    }
 
     const webhook_routes = [
       {
