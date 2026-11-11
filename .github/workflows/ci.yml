@@ -90,7 +90,7 @@ jobs:
           VAULT_TEST_TOKEN: root
         run: |
           export DENO_CERT="$RUNNER_TEMP/vault-ca.pem"
-          deno test --allow-all --no-check --unstable-kv --frozen --ignore=tests/integration/engine.test.ts \
+          deno test --allow-all --no-check --unstable-kv --frozen \
             tests/integration/ tests/unit/mongodb-store.test.ts tests/unit/vault-client.test.ts
 
   cli:
