@@ -2,43 +2,11 @@ import { assert, assertEquals, assertRejects } from "@std/assert";
 import { Webhook } from "standardwebhooks";
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { composeZenith } from "../../src/core/compose.ts";
+import { fakeDb } from "./_fake_db.ts";
 import { isSealed } from "../../src/core/crypto.ts";
 import { EventBusTrait } from "../../src/traits/events/event-bus.trait.ts";
 import { createWebhookManagerTrait, matchesEvent, sanitizePayload } from "../../src/traits/webhooks/webhook.manager.trait.ts";
 import { classify, DISABLE_AFTER_EXHAUSTED, ENDPOINT_CLASS, MESSAGE_CLASS, nextAttemptAt, RETRY_SCHEDULE_MS } from "../../src/traits/webhooks/webhook.delivery.ts";
-
-/** In-memory db with the calls the module makes (find/read/create/update/updateIf/delete). */
-function fakeDb() {
-  const rows: Record<string, Record<string, any>[]> = {};
-  let seq = 0;
-  const eq = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
-  const match = (r: Record<string, any>, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) => eq(r[k], v));
-  const table = (c: string) => (rows[c] ??= []);
-  return {
-    rows,
-    find: async (c: string, where: Record<string, unknown> = {}) => table(c).filter((r) => match(r, where)).map((r) => structuredClone(r)),
-    read: async (c: string, id: string) => structuredClone(table(c).find((r) => r.objectId === id) ?? null),
-    create: async (c: string, data: Record<string, any>) => {
-      const row = { ...structuredClone(data), objectId: `o${++seq}`, createdAt: new Date().toISOString() };
-      table(c).push(row);
-      return structuredClone(row);
-    },
-    update: async (c: string, where: { objectId: string }, data: Record<string, any>) => {
-      const r = table(c).find((x) => x.objectId === where.objectId);
-      if (r) Object.assign(r, structuredClone(data));
-      return structuredClone(r);
-    },
-    updateIf: async (c: string, id: string, cond: Record<string, unknown>, data: Record<string, any>) => {
-      const r = table(c).find((x) => x.objectId === id);
-      if (!r || !match(r, cond)) return null;
-      Object.assign(r, structuredClone(data));
-      return structuredClone(r);
-    },
-    delete: async (c: string, where: { objectId: string }) => {
-      rows[c] = table(c).filter((r) => r.objectId !== where.objectId);
-    },
-  };
-}
 
 type Received = { headers: Record<string, string>; body: string };
 

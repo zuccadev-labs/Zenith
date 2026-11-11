@@ -27,7 +27,7 @@ import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithError, ZenithErrorCode, ZenithErrors } from "../../core/errors.ts";
 import { type DataOperation, dataScope, missingKeyScope } from "../../security/api-keys/scopes.ts";
 import {
-  aclAllows, applyOps, type Caller, clientClassName, clientFields, clientOrder, clientPaging, clientWhere,
+  aclAllows, applyOps, triggerChanges, type Caller, clientClassName, clientFields, clientOrder, clientPaging, clientWhere,
   type ClpOp, clpAllows, defaultAcl, type Doc, fieldList, isServerClass, MAX_BATCH, opsOnCreate, withReadAcl,
 } from "./crud.guard.ts";
 
@@ -159,6 +159,9 @@ export const RestCrudTrait = createTraitDescriptor({
         if (!data.ACL && !caller.master) data.ACL = defaultAcl(caller);
         validate(className, data);
         await cloud.runBeforeSave(className, { object: data, ...hooks(caller) });
+        // A beforeSave trigger may change the object (Parse Server); the result is validated again.
+        for (const k of ["objectId", "createdAt", "updatedAt"]) delete data[k];
+        validate(className, data);
         const created = await db.create(className, data);
         await cloud.runAfterSave(className, { object: created, ...hooks(caller) });
         deps.traits["events"]?.emit?.(`${className}.created`, created);
@@ -174,7 +177,11 @@ export const RestCrudTrait = createTraitDescriptor({
         const { store, result } = applyOps(existing, clientFields(body));
         const merged = { ...existing, ...result };
         validate(className, merged);
+        const given = structuredClone(merged);
         await cloud.runBeforeSave(className, { object: merged, original: existing, ...hooks(caller) });
+        // What the trigger changed is saved too (Parse Server); before, only creates kept it.
+        Object.assign(store, triggerChanges(given, merged));
+        validate(className, merged);
         const updated = await db.update(className, objectId, store);
         await cloud.runAfterSave(className, { object: updated, original: existing, ...hooks(caller) });
         deps.traits["events"]?.emit?.(`${className}.updated`, updated);

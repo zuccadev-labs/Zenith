@@ -6,7 +6,7 @@
 ## Empieza aquí
 
 - **[Quickstart](tutorials/01_quickstart.md):** un servidor con `zen` y una app con el SDK de cliente.
-- **[Referencia de la API HTTP](README.md):** generada con `zen generate docs`. Tiene las mismas rutas que monta el router (230 con las features por defecto); también está en `openapi.json`, en la colección de Postman `zenith.postman.json` y en `index.html` (Redoc).
+- **[Referencia de la API HTTP](README.md):** generada con `zen generate docs`. Tiene las mismas rutas que monta el router (231 con las features por defecto); también está en `openapi.json`, en la colección de Postman `zenith.postman.json` y en `index.html` (Redoc).
 
 ## Servidor y cliente
 

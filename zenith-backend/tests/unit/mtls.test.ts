@@ -42,12 +42,13 @@ async function generateTestCert(name: string, cn: string, isCa = false): Promise
   const keyPath = join(FIXTURE_DIR, `${name}.key`);
 
   const subj = `/CN=${cn}`;
-  const ext = isCa ? "-addext basicConstraints=critical,CA:TRUE" : "-addext basicConstraints=CA:FALSE";
+  // Option and value are two argv entries; as one string openssl reads "-addext basic…" as an unknown option.
+  const ext = ["-addext", isCa ? "basicConstraints=critical,CA:TRUE" : "basicConstraints=CA:FALSE"];
   const cmd = new Deno.Command("openssl", {
     args: [
       "req", "-x509", "-newkey", "rsa:2048", "-nodes",
       "-keyout", keyPath, "-out", certPath,
-      "-days", "30", "-subj", subj, ext,
+      "-days", "30", "-subj", subj, ...ext,
     ],
     stdout: "piped", stderr: "piped",
   });
@@ -64,6 +65,27 @@ async function generateTestCert(name: string, cn: string, isCa = false): Promise
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
+
+Deno.test({
+  name: "mTLS - the pin equals OpenSSL's RFC 7469 pin (SHA-256 of the DER SubjectPublicKeyInfo)",
+  ignore: !HAS_OPENSSL,
+  fn: async () => {
+    for (const [name, isCa] of [["oracle-leaf", false], ["oracle-ca", true]] as const) {
+      const cert = await generateTestCert(name, `${name}.local`, isCa);
+      // openssl x509 -pubkey | openssl pkey -pubin -outform der | sha256 | base64
+      const pub = await new Deno.Command("openssl", { args: ["x509", "-pubkey", "-noout"], stdin: "piped", stdout: "piped" }).spawn();
+      const w1 = pub.stdin.getWriter(); await w1.write(new TextEncoder().encode(cert.certPem)); await w1.close();
+      const pubPem = (await pub.output()).stdout;
+      const der = await new Deno.Command("openssl", { args: ["pkey", "-pubin", "-outform", "der"], stdin: "piped", stdout: "piped" }).spawn();
+      const w2 = der.stdin.getWriter(); await w2.write(pubPem); await w2.close();
+      const spki = (await der.output()).stdout;
+      const expected = `sha256-${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", spki))))}`;
+      assertEquals(cert.spkiPin, expected, name);
+      assertEquals(computeSpkiPinSync(spki), expected, "the sync path, given the same SPKI bytes");
+    }
+  },
+});
+
 
 Deno.test({
   name: "mTLS - computeSpkiPin returns sha256-<base64> format",

@@ -81,9 +81,13 @@ export function toBase64Url(data: ArrayBuffer | Uint8Array): string {
   return encodeBase64Url(data instanceof Uint8Array ? data : new Uint8Array(data));
 }
 
-/** Inverso de `toBase64Url`. Acepta la entrada con o sin relleno. */
+/**
+ * Inverso de `toBase64Url`. Acepta también base64 estándar (`+`, `/`) y la entrada con o sin relleno,
+ * como el decodificador que tenía engine-auth: sus claves de configuración (`sessionKey`) pueden venir
+ * en cualquiera de los dos alfabetos.
+ */
 export function fromBase64Url(s: string): Uint8Array<ArrayBuffer> {
-  return new Uint8Array(decodeBase64Url(s.replace(/=+$/, "")));
+  return new Uint8Array(decodeBase64Url(s.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")));
 }
 
 // ─── Hash ─────────────────────────────────────────────────────────────────────

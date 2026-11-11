@@ -66,16 +66,17 @@ reentrega, recuperación y SSRF. Se retiró `cloud/webhook.trait.ts`. El bus de 
 con la configuración por defecto, ningún webhook se disparaba. Se añadieron los Cloud Code Hooks de Parse
 (`/hooks`).
 
-### La cola de trabajos no es duradera
-`queue/job.queue.trait.ts` guarda los trabajos en un `Map` y escribe `_Job` sin volver a leerlo. Si el proceso
-se reinicia, pierde lo pendiente; además procesa uno por segundo y en una sola instancia. Los webhooks usan su
-propia outbox (`webhooks/webhook.delivery.ts`, con `updateIf` y concesión) por eso. Hay que llevar la cola a ese
-diseño y que los webhooks la reutilicen.
+### La cola de trabajos no era duradera: resuelto el 2026-11-11
+`queue/job.queue.trait.ts` guarda los trabajos en `_Job` y los reparte entre instancias con el mismo
+mecanismo que los webhooks (`core/outbox.ts`: `updateIf` con concesión). Un trabajo de una instancia que se
+cae lo retoma otra al vencer la concesión. Tiene reintentos exponenciales, una cola de mensajes muertos con
+`retry` y claves de idempotencia. Probado con MongoDB real: un trabajo encolado por una instancia lo procesa
+otra arrancada después (`tests/integration/pieces-e2e.test.ts`).
 
-### `beforeSave` no puede cambiar un objeto al actualizarlo
-`crud.trait.ts` `updateObject` pasa `merged` al trigger pero guarda `store` (las operaciones del cliente), así que
-lo que cambia un `beforeSave` (Cloud Code o hook) solo se guarda al crear. Parse Server lo aplica también al
-actualizar.
+### `beforeSave` no podía cambiar un objeto al actualizarlo: resuelto el 2026-11-11
+`updateObject` guarda también lo que cambia el trigger (`triggerChanges` en `crud.guard.ts`) y vuelve a
+validar el resultado, como Parse Server. Probado con MongoDB real y un hook de `/hooks`; la prueba falla si se
+quita el arreglo.
 
 ### Verificación de endpoints de webhooks (extensión de Standard Webhooks)
 La extensión opcional `webhook-challenge` no está implementada: verificar con un desafío firmado que el receptor
@@ -238,3 +239,12 @@ Pendiente:
   extraen y se cargan los addons nativos.
 - **`apps.config.ts`:** trae por defecto las IP del laboratorio (Scylla en `192.168.14.50:53042`). En producción
   hay que pasar todas las URI por entorno.
+
+### Pruebas de mTLS y pin SPKI: resuelto el 2026-11-11
+Las 8 pruebas de `mtls.test.ts` no fallaban por el `openssl` del sistema (3.5.7 admite `-addext`): la prueba
+pasaba `"-addext basicConstraints=…"` como un solo argumento. Al corregirlo apareció un fallo real en
+`extractSpkiFromCertDer`: leía mal la longitud de `tbsCertificate` y nunca encontraba la clave, así que
+`computeSpkiPin` fallaba con cualquier certificado. Además devolvía solo el contenido del SPKI, no la
+estructura completa que hashea RFC 7469. Ahora el pin coincide con el de OpenSSL
+(`x509 -pubkey | pkey -pubin -outform der | sha256`).
+

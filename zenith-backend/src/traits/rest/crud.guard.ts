@@ -302,6 +302,27 @@ export function applyOps(existing: Doc, data: Doc): { store: Doc; result: Doc } 
   return { store, result };
 }
 
+/** Fields a beforeSave trigger may not change: the server owns them. */
+const SERVER_OWNED = new Set(["objectId", "createdAt", "updatedAt"]);
+
+/**
+ * What a beforeSave trigger changed on the object it was given, as entries for `store` (Parse Server
+ * saves them on updates too). `given` is a copy taken before the trigger, `after` the object once it
+ * returned. A changed field is stored with its new value, replacing the client's operation on it; a
+ * field the trigger removed is deleted. `objectId`, `createdAt` and `updatedAt` are ignored.
+ */
+export function triggerChanges(given: Doc, after: Doc): Doc {
+  const changes: Doc = {};
+  for (const [k, v] of Object.entries(after)) {
+    if (SERVER_OWNED.has(k) || same(v, given[k])) continue;
+    changes[k] = v === undefined ? { __op: "Delete" } : v;
+  }
+  for (const k of Object.keys(given)) {
+    if (!SERVER_OWNED.has(k) && !(k in after) && given[k] !== undefined) changes[k] = { __op: "Delete" };
+  }
+  return changes;
+}
+
 /** On create there is nothing to operate on: operations become their values (`Increment` → amount). */
 export function opsOnCreate(data: Doc): Doc {
   const { result } = applyOps({}, data);

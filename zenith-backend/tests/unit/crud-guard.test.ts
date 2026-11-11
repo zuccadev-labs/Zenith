@@ -122,3 +122,12 @@ Deno.test("Parse operations: atomic ones stay operations, Add is computed", () =
   assertEquals(opsOnCreate({ n: { __op: "Increment", amount: 2 }, d: { __op: "Delete" }, t: 1 }), { n: 2, t: 1 });
   assertThrows(() => applyOps({}, { l: { __op: "Add", objects: [{ $x: 1 }] } }));
 });
+
+Deno.test("guard: triggerChanges keeps what a beforeSave changed on an update (Parse Server)", async () => {
+  const { triggerChanges } = await import("../../src/traits/rest/crud.guard.ts");
+  const given = { objectId: "o1", score: 1, tags: ["a"], name: "x", createdAt: "c", gone: 5 };
+  const after = { objectId: "hacked", score: 10, tags: ["a"], name: "x", createdAt: "z", extra: { k: 1 } };
+  assertEquals(triggerChanges(given, after), { score: 10, extra: { k: 1 }, gone: { __op: "Delete" } });
+  assertEquals(triggerChanges({ a: 1 }, { a: 1 }), {}, "nothing changed, nothing stored");
+  assertEquals(triggerChanges({ a: 1 }, { a: undefined }), { a: { __op: "Delete" } });
+});

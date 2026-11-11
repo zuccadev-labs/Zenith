@@ -3320,7 +3320,7 @@
     "/queue/enqueue": {
       "post": {
         "operationId": "post_queue_enqueue",
-        "summary": "Enqueue a background job",
+        "summary": "Enqueue a background job: { type, data, priority?, maxAttempts?, delayMs?, idempotencyKey? }",
         "tags": [
           "Queue"
         ],
@@ -3406,7 +3406,7 @@
     "/queue/jobs": {
       "get": {
         "operationId": "get_queue_jobs",
-        "summary": "List jobs by status",
+        "summary": "List jobs (?status=pending|running|completed|failed)",
         "tags": [
           "Queue"
         ],
@@ -3417,6 +3417,103 @@
               "application/json": {
                 "schema": {
                   "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/queue/jobs/{jobId}/retry": {
+      "post": {
+        "operationId": "post_queue_jobs_By_jobId_retry",
+        "summary": "Requeue a failed job (dead-letter)",
+        "tags": [
+          "Queue"
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "jobId"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
                 }
               }
             }
