@@ -26,7 +26,7 @@
  * @barrits-summary ZenithWebhookManager
  * @barrits-provides webhook_mgmt_routes, webhookManager
  * @barrits-consumes db
- * @barrits-tags uses:events, uses:cloud, uses:runtime-features
+ * @barrits-tags uses:events, uses:cloud, uses:runtime-features, uses:metric-registry
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -125,7 +125,7 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
     name: "ZenithWebhookManager",
     provides: ["webhook_mgmt_routes", "webhookManager"],
     consumes: ["db"],
-    tags: ["uses:events", "uses:cloud", "uses:runtime-features"],
+    tags: ["uses:events", "uses:cloud", "uses:runtime-features", "uses:metric-registry"],
     state: [],
     runtimes: ["deno"],
     summary: "Outgoing webhooks (Standard Webhooks): signed deliveries from a database outbox with ~75 h of retries, SSRF protection, secret rotation, message log, redelivery and recovery.",
@@ -134,6 +134,7 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
       const db = deps.traits["db"];
       const events = deps.traits["events"];
       const features = deps.traits["runtime-features"];
+      const metrics = deps.traits["metric-registry"];
       const clock = options.now ?? Date.now;
       const allowPrivate = envFlag("ZENITH_WEBHOOKS_ALLOW_PRIVATE") === "1";
       const policy: OutboundPolicy = options.policy ?? (allowPrivate ? { allowHttp: true, allowPrivate: true } : {});
@@ -256,7 +257,16 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
         db, secretsOf, policy,
         emit: (event, payload) => { void events?.emit?.(event, payload); },
         now: clock,
+        ...(metrics ? { metrics } : {}),
         ...(options.fetcher ? { fetcher: options.fetcher } : {}),
+      };
+      /** Backlog gauges for dashboards and alerts (every 30 s with the worker). */
+      const reportBacklog = async () => {
+        if (!metrics) return;
+        for (const status of ["pending", "failed"]) {
+          metrics.gauge("zenith_webhook_messages", (await db.find(MESSAGE_CLASS, { status })).length, { status });
+        }
+        metrics.gauge("zenith_webhook_endpoints_disabled", (await db.find(ENDPOINT_CLASS, { status: "disabled" })).length);
       };
       let running: Promise<number> | null = null;
       const runOnce = (): Promise<number> => {
@@ -277,12 +287,15 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
 
       const api = {
         publish,
+        reportBacklog,
         /** Entrega lo vencido ahora (lo usa el trabajador; útil en pruebas). */
         deliverDue: runOnce,
         startBackground() {
           if (timer !== null) return;
           timer = setInterval(() => void runOnce().catch((e) => console.warn(`[webhooks] delivery loop: ${(e as Error).message}`)), WORKER_INTERVAL_MS);
           Deno.unrefTimer(timer);
+          const gauges = setInterval(() => void reportBacklog().catch(() => {}), 30_000);
+          Deno.unrefTimer(gauges);
         },
         stopBackground() {
           if (timer !== null) clearInterval(timer);

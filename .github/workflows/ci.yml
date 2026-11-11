@@ -6,7 +6,8 @@
 #                (boot, pieces-e2e) need its binary and are run locally: see zenith-backend/docs/testing.md.
 # - cli:         typecheck and tests of zenith-cli with its lock frozen; JSR dry-run.
 # - sdk:         clean install (npm ci) and typecheck of @zuccadev-labs/zenith-client.
-# - image:       Docker build and Trivy scan (CRITICAL/HIGH with a fix available fail the build).
+# - image:       Docker build, Trivy scan (CRITICAL/HIGH with a fix available fail the build) and SBOM.
+# - security:    gitleaks over the whole history and Semgrep OSS (WARNING and above fail).
 name: CI
 
 on:
@@ -151,3 +152,31 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL,HIGH
+      - name: SBOM (CycloneDX) of the image
+        uses: anchore/sbom-action@v0.24.3
+        with:
+          image: zenith-backend:${{ github.sha }}
+          format: cyclonedx-json
+          output-file: zenith-backend.cdx.json
+          upload-artifact: false
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-zenith-backend-${{ github.sha }}
+          path: zenith-backend.cdx.json
+
+  security:
+    name: secrets and static analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the whole history: a secret removed later is still leaked
+      - name: Secrets (gitleaks, whole history)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo \
+            --no-banner --redact --gitleaks-ignore-path /repo/.gitleaksignore
+      - name: Static analysis (Semgrep OSS, p/default; WARNING and above fail)
+        run: |
+          docker run --rm -v "$PWD:/src" semgrep/semgrep:1.185.0 semgrep scan --config p/default \
+            --metrics=off --severity WARNING --severity ERROR --error \
+            /src/zenith-backend/src /src/zenith-cli /src/sdk/Typescript/src

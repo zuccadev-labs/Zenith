@@ -1,0 +1,12 @@
+# gitleaks: findings reviewed one by one (2026-11-11). Each line is the fingerprint of one occurrence;
+# a new secret, even in the same file, is still reported.
+# test vector published in the Standard Webhooks spec (endpoint-verification.md)
+2e95f050f90b4256b8251dd03aea8c48c80b6bcb:zenith-backend/tests/unit/webhook-signature.test.ts:generic-api-key:61
+# placeholder key of the DR drill script (rk_live_dr_drill)
+f4ce0c498cd7a6152ed998bdecec4f65c36c2132:tools/dr-drill/run-dr-drill.sh:curl-auth-header:59
+# placeholder key of the DR drill script (rk_live_dr_drill)
+f4ce0c498cd7a6152ed998bdecec4f65c36c2132:tools/dr-drill/run-dr-drill.sh:curl-auth-header:69
+# literal test strings, not keys
+15757530c14a6d06f48e064947ed6ca712e10b62:zenith-backend/tests/integration/pipeline-auth.test.ts:generic-api-key:168
+# literal test strings, not keys
+15757530c14a6d06f48e064947ed6ca712e10b62:zenith-backend/tests/integration/pipeline-auth.test.ts:generic-api-key:194

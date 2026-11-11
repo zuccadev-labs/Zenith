@@ -69,6 +69,15 @@ export interface DeliveryDeps {
   readonly emit?: (event: string, payload: unknown) => void;
   readonly now?: () => number;
   readonly fetcher?: typeof safeFetch;
+  /** The observability registry (`metric-registry`), when the piece is loaded. */
+  readonly metrics?: MetricSink;
+}
+
+/** The part of the metric registry the delivery uses. */
+export interface MetricSink {
+  increment(name: string, labels?: Record<string, string>, value?: number): void;
+  histogram(name: string, value: number, labels?: Record<string, string>): void;
+  gauge(name: string, value: number, labels?: Record<string, string>): void;
 }
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -104,6 +113,9 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
     outcome = { kind: "retry" };
   }
   const durationMs = now() - started;
+  const result = outcome.kind === "success" ? "success" : outcome.kind === "gone" ? "gone" : status === 0 ? "error" : "retry";
+  deps.metrics?.increment("zenith_webhook_attempts_total", { result });
+  deps.metrics?.histogram("zenith_webhook_attempt_duration_ms", durationMs, { result });
   await deps.db.create(ATTEMPT_CLASS, {
     messageId: message.messageId, endpointId: endpoint.objectId, attempt, statusCode: status, durationMs,
     ...(error ? { error } : {}), ...(snippet ? { response: snippet } : {}), at: iso(started),
@@ -132,6 +144,7 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
   await deps.db.update(MESSAGE_CLASS, { objectId: message.objectId }, {
     status: "failed", attempts: attempt, lastStatusCode: status, lastError: error, nextAttemptAt: null, leaseUntil: null,
   });
+  deps.metrics?.increment("zenith_webhook_messages_failed_total");
   const exhausted = (endpoint.exhaustedCount ?? 0) + 1;
   const disable = gone || exhausted >= DISABLE_AFTER_EXHAUSTED;
   const reason = gone ? "The endpoint answered 410 Gone." : `${exhausted} messages in a row failed after every retry.`;
@@ -139,7 +152,11 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
     exhaustedCount: exhausted, lastError: error ?? null,
     ...(disable ? { status: "disabled", disabledReason: reason, disabledAt: iso(now()) } : {}),
   });
-  if (disable) deps.emit?.("webhook.endpoint.disabled", { endpointId: endpoint.objectId, url: endpoint.url, reason, owner: endpoint.owner ?? null });
+  if (disable) {
+    deps.metrics?.increment("zenith_webhook_endpoints_disabled_total");
+    console.warn(`[webhooks] endpoint ${endpoint.objectId} (${endpoint.url}) disabled: ${reason}`);
+    deps.emit?.("webhook.endpoint.disabled", { endpointId: endpoint.objectId, url: endpoint.url, reason, owner: endpoint.owner ?? null });
+  }
   return "failed";
 }
 
