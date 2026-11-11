@@ -11,7 +11,7 @@
     "jsr:@std/path@^1.1.5": "1.1.6",
     "jsr:@std/path@^1.1.6": "1.1.6",
     "jsr:@std/streams@^1.2.0": "1.2.0",
-    "jsr:@zuccadev-labs/barrits@0.3": "0.3.0",
+    "jsr:@zuccadev-labs/barrits@~0.3.1": "0.3.1",
     "npm:@grpc/grpc-js@^1.14.7": "1.14.7",
     "npm:@grpc/proto-loader@~0.8.1": "0.8.1",
     "npm:@node-rs/argon2@1.8.3": "1.8.3",
@@ -77,8 +77,8 @@
         "jsr:@std/bytes"
       ]
     },
-    "@zuccadev-labs/barrits@0.3.0": {
-      "integrity": "d9ba1922a7a300e76ef472646d8d86b027d73b6bed7585287e82f66ea6478fb0",
+    "@zuccadev-labs/barrits@0.3.1": {
+      "integrity": "adb4815f959548944cdc27c952cd6c02a3be64063c6b9501a5cd0fd40ec32ecc",
       "dependencies": [
         "npm:typescript"
       ]
@@ -1864,7 +1864,7 @@
       "jsr:@std/fs@^1.0.24",
       "jsr:@std/path@^1.1.6",
       "jsr:@std/streams@^1.2.0",
-      "jsr:@zuccadev-labs/barrits@0.3",
+      "jsr:@zuccadev-labs/barrits@~0.3.1",
       "jsr:@zuccadev-labs/zenith@0.1"
     ],
     "links": {
@@ -1875,7 +1875,7 @@
           "jsr:@std/encoding@^1.0.11",
           "jsr:@std/fs@^1.0.24",
           "jsr:@std/path@^1.1.6",
-          "jsr:@zuccadev-labs/barrits@0.3",
+          "jsr:@zuccadev-labs/barrits@~0.3.1",
           "jsr:@zuccadev-labs/zutool-ffi@0.1",
           "npm:@anthropic-ai/sdk@^1.7.0",
           "npm:@aws-sdk/client-s3@^3.1165.0",

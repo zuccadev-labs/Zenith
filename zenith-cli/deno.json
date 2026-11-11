@@ -28,7 +28,7 @@
     "@std/fs": "jsr:@std/fs@^1.0.24",
     "@std/path": "jsr:@std/path@^1.1.6",
     "@std/streams": "jsr:@std/streams@^1.2.0",
-    "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@^0.3.0",
+    "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@^0.3.1",
     "@zuccadev-labs/zenith": "jsr:@zuccadev-labs/zenith@^0.1.0"
   },
   "links": ["../zenith-backend"],

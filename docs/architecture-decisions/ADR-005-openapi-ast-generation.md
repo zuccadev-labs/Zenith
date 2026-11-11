@@ -223,7 +223,13 @@ const description = parsed.description;
 
 ### 4. Usar `@zuccadev-labs/barrits/schema` (cuando exista v0.2+)
 
-**Aplazado para revisión.** El plan original era delegar a
+**Resuelto el 2026-11-10 con barrits 0.3.1.** `generateOpenApiSchema` documenta un endpoint por trait,
+así que no sirve. barrits 0.3.1 añade `generateOpenApiFromRoutes`, un generador por rutas, y
+`generateOpenApiFromState` delega en él: Zenith solo aporta sus valores por defecto, su seguridad y
+sus extensiones. El contrato público no cambia, salvo el formato de `operationId`, que pasa a ser el de
+barrits porque el anterior repetía ids (ver `docs/architecture/openapi-swagger.md`).
+
+Lo que sigue es el análisis original: El plan original era delegar a
 `generateOpenApiSchema(manifest)` de barrits. Investigando el package
 (JSR 0.1.7), ese export **no existe** todavía. La nota en
 `openapi.ts:7-11` lo describe como "available in Barrits v0.2+".
@@ -325,8 +331,7 @@ no cambia.
 
 ### Fase 3
 
-- [ ] Cuando barrits v0.2+ publique `generateOpenApiSchema(manifest)`,
-      evaluar si delegamos o seguimos con nuestro adaptador.
+- [x] Delegar en barrits: `generateOpenApiFromRoutes` (barrits 0.3.1), 2026-11-10.
 - [ ] Soporte para `requestBody` inferido desde TS types (usando
       `tsc --noEmit --emitDeclarationOnly` + parsing).
 - [ ] Plugin de VSCode que muestre la OpenAPI spec inline en cada

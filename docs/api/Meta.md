@@ -2,14 +2,6 @@
 
 
 
-## `GET /health`
-**Health check**
-
-### Respuestas
-- **200**: The server is up
-
----
-
 ## `GET /openapi.json`
 **OpenAPI Spec (JSON)**
 

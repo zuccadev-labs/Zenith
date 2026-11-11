@@ -37,7 +37,7 @@
   },
   "imports": {
     "@zenith/core": "./src/core/cloud.ts",
-    "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@^0.3.0",
+    "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@^0.3.1",
     "@zuccadev-labs/zutool-ffi": "jsr:@zuccadev-labs/zutool-ffi@^0.1.0",
     "mongodb": "npm:mongodb@^7.8.0",
     "cassandra-driver": "npm:cassandra-driver@^4.10.0",
