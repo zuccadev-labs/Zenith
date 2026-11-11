@@ -3,6 +3,9 @@ import { requireEnv, type ZenithAppDefinition } from "./config-loader.ts";
 
 export type { ZenithAppDefinition };
 
+/** The listening port: ZENITH_PORT (the Helm chart sets it from zenith.port), 1337 by default. */
+const PORT = Number(Deno.env.get("ZENITH_PORT") ?? 1337);
+
 export const apps: ZenithAppDefinition[] = [
   {
     mountPath: "/parse",
@@ -10,7 +13,7 @@ export const apps: ZenithAppDefinition[] = [
       appId: "myAppId1",
       masterKey: requireEnv("APP1_MASTER_KEY", { minLength: 64 }),
       serverURL: "http://localhost:1337/parse/app1",
-      port: 1337,
+      port: PORT,
       allowClientClassCreation: true,
       enableAnonymousUsers: false,
       cloudCodePath: "./cloud/main.ts",
@@ -38,7 +41,7 @@ export const apps: ZenithAppDefinition[] = [
       appId: "myAppId2",
       masterKey: requireEnv("APP2_MASTER_KEY", { minLength: 64 }),
       serverURL: "http://localhost:1337/parse/app2",
-      port: 1337,
+      port: PORT,
       allowClientClassCreation: false, // Prod app
       enableAnonymousUsers: false,
       

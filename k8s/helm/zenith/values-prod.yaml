@@ -231,7 +231,7 @@ secret:
 livenessProbe:
   httpGet:
     path: /health
-    port: 8080
+    port: http
   initialDelaySeconds: 30
   periodSeconds: 10
   timeoutSeconds: 5
@@ -241,7 +241,7 @@ livenessProbe:
 readinessProbe:
   httpGet:
     path: /health
-    port: 8080
+    port: http
   initialDelaySeconds: 10
   periodSeconds: 5
   timeoutSeconds: 3
@@ -251,7 +251,7 @@ readinessProbe:
 startupProbe:
   httpGet:
     path: /health
-    port: 8080
+    port: http
   initialDelaySeconds: 10
   periodSeconds: 5
   timeoutSeconds: 3
@@ -261,9 +261,9 @@ startupProbe:
 # ── Security Context ─────────────────────────────────────────────────────────
 podSecurityContext:
   runAsNonRoot: true
-  runAsUser: 65532
-  runAsGroup: 65532
-  fsGroup: 65532
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
   fsGroupChangePolicy: OnRootMismatch
   seccompProfile:
     type: RuntimeDefault
@@ -275,7 +275,7 @@ securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
   runAsNonRoot: true
-  runAsUser: 65532
+  runAsUser: 10001
   capabilities:
     drop:
       - ALL

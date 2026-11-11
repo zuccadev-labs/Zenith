@@ -648,6 +648,12 @@ if (import.meta.main) {
 
     Deno.serve({ port }, async (req: Request, info: Deno.ServeHandlerInfo) => {
       const url = new URL(req.url);
+      // Process health for Kubernetes probes and load balancers: no Application ID, no mount path. The server only
+      // listens once every app is composed, so answering means it is up. Before, /health outside a mount was 404
+      // and the chart's probes never passed.
+      if ((url.pathname === "/health" || url.pathname === "/healthz") && req.method === "GET") {
+        return Response.json({ status: "ok", apps: apps.length });
+      }
       const appIdHeader = req.headers.get("Zen-Application-Id") ??
         req.headers.get("X-Parse-Application-Id") ?? url.searchParams.get("appId");
 

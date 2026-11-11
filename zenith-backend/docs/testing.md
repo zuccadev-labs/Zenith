@@ -104,3 +104,45 @@ el usuario `zenith` no puede escribir.
 
 `deno.lock` (motor y CLI) y `package-lock.json` (SDK) están versionados, y el CI usa `--frozen` / `npm ci`. Si
 cambias dependencias, actualiza el lock en el mismo commit (`deno install`, `npm install`).
+
+## El chart, en un Kubernetes real (kind + Calico)
+
+Validar el chart (helm lint, kubeconform, Checkov) no basta: hay que desplegarlo. La red por defecto de kind
+(kindnet) **no aplica NetworkPolicies**, así que el clúster de prueba usa Calico.
+
+```bash
+cat > kind-calico.yaml <<'K'
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking: { disableDefaultCNI: true, podSubnet: 10.244.0.0/16 }
+K
+kind create cluster --name zenith-chart --config kind-calico.yaml
+gh api -H "Accept: application/vnd.github.raw" "repos/projectcalico/calico/contents/manifests/calico.yaml?ref=v3.33.0" > calico.yaml
+docker cp calico.yaml zenith-chart-control-plane:/calico.yaml
+docker exec zenith-chart-control-plane kubectl apply -f /calico.yaml
+kind load docker-image zenith-backend:local --name zenith-chart
+# MongoDB y ScyllaDB en la red "kind" (Scylla debe arrancar ya en ella: escucha en su IP de arranque)
+# secreto zenith-secrets con APP1/APP2_MASTER_KEY, WEBHOOK_SECRETS_KEY, MONGO_URI, SCYLLA_URI
+helm install zenith k8s/helm/zenith -n zenith --set image.repository=zenith-backend --set image.tag=local \
+  --set image.pullPolicy=Never --set autoscaling.enabled=false --set replicaCount=1 -f np-test.yaml
+helm test zenith -n zenith
+```
+
+Se comprueba:
+
+- **el pod llega a Ready**, con las sondas en `/health`;
+- **pasa `helm test`;**
+- **la NetworkPolicy se aplica** (pod con las etiquetas de Zenith frente a pod sin ellas):
+  - salida: solo DNS, las bases de datos declaradas y HTTPS;
+  - entrada: el propio namespace llega a todo, `monitoring` solo a 9090 y el resto a nada.
+
+La primera vez (2026-11-11) destapó fallos que ninguna validación estática veía:
+
+- **El pod no arrancaba.** La app escuchaba siempre en 1337 aunque el chart dijera otro puerto (producción usaba
+  8080), y `/health` fuera de un montaje daba 404, así que las sondas nunca pasaban.
+- **Las rutas de escritura.** Raíz de solo lectura sin volúmenes para `/data` ni `/tmp`, y UID 1000 frente al 10001
+  dueño de `/data` en la imagen.
+- **La NetworkPolicy solo permitía MongoDB como pod del mismo namespace**, así que una base de datos gestionada era
+  inalcanzable, y no había forma de declarar ScyllaDB o Redis.
+- **`helm test` fallaba siempre:** su pod llevaba las etiquetas selectoras de Zenith, era endpoint del Service y
+  quedaba bajo la política de Zenith.

@@ -60,10 +60,15 @@ Image reference.
 {{- $registry := .Values.image.registry -}}
 {{- $repository := .Values.image.repository -}}
 {{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- $ref := printf "%s:%s" $repository $tag -}}
+{{- /* A digest pins the exact (signed) image; the tag stays for readability. */ -}}
+{{- if .Values.image.digest -}}
+{{- $ref = printf "%s@%s" $ref .Values.image.digest -}}
+{{- end -}}
 {{- if $registry -}}
-{{- printf "%s/%s:%s" $registry $repository $tag -}}
+{{- printf "%s/%s" $registry $ref -}}
 {{- else -}}
-{{- printf "%s:%s" $repository $tag -}}
+{{- $ref -}}
 {{- end -}}
 {{- end -}}
 
