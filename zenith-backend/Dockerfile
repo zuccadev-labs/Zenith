@@ -36,7 +36,8 @@ RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --system --uid 10001 --home-dir /data --create-home zenith
+RUN groupadd --system --gid 10001 zenith \
+ && useradd --system --uid 10001 --gid 10001 --home-dir /data --create-home zenith
 WORKDIR /app
 COPY --from=builder /app/zenith-server /app/zenith-server
 
@@ -47,6 +48,7 @@ ENV ZENITH_MODE=production DENO_DIR=/data HOME=/data ZENITH_FILES_DIR=/data/file
 VOLUME ["/data"]
 # 1337: the API. 9090: Prometheus metrics, only when ZENITH_METRICS_PORT=9090 (the Helm chart sets it).
 EXPOSE 1337 9090
-USER zenith
+# Numeric, so Kubernetes can verify runAsNonRoot without reading /etc/passwd.
+USER 10001:10001
 
 ENTRYPOINT ["/app/zenith-server"]

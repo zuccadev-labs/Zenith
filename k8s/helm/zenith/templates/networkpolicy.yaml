@@ -45,15 +45,30 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    # MongoDB.
+    # MongoDB: a pod (labels, optionally in another namespace) or a CIDR for a managed database outside the cluster.
+    # Before, only a pod in this namespace was possible, so an external database was unreachable.
     {{- range (dig "egress" "mongodb" "hosts" (list) .Values.networkPolicy) }}
     - to:
+        {{- if .cidr }}
+        - ipBlock:
+            cidr: {{ .cidr }}
+        {{- else }}
         - podSelector:
             matchLabels:
               app: {{ .labels.app }}
+          {{- with .namespace }}
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+          {{- end }}
+        {{- end }}
       ports:
-        - port: {{ .labels.port | default 27017 }}
+        - port: {{ .port | default (dig "labels" "port" 27017 .) }}
           protocol: TCP
+    {{- end }}
+    # Anything else the deployment needs (ScyllaDB, Redis, engine-auth, an SMTP relay…): raw egress rules.
+    {{- with (dig "egress" "extra" (list) .Values.networkPolicy) }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
     # Vault.
     {{- with .Values.networkPolicy.egress.vault }}

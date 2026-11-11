@@ -3,16 +3,38 @@ kind: Pod
 metadata:
   name: {{ include "zenith.fullname" . }}-test-connection
   namespace: {{ .Release.Namespace }}
+  # Not zenith.labels: those include the selector labels, which made this pod an endpoint of the Service and put it
+  # under Zenith's NetworkPolicy, whose egress does not allow reaching Zenith itself (helm test always failed).
   labels:
-    {{- include "zenith.labels" . | nindent 4 }}
+    app.kubernetes.io/part-of: {{ include "zenith.name" . }}
+    app.kubernetes.io/component: helm-test
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
   annotations:
     "helm.sh/hook": test
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    checkov.io/skip1: CKV_K8S_8=A one-shot helm test pod; probes do not apply
+    checkov.io/skip2: CKV_K8S_9=A one-shot helm test pod; probes do not apply
 spec:
   restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
   containers:
     - name: wget
-      image: busybox:1.38.0
+      image: busybox:1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests: { cpu: 10m, memory: 16Mi }
+        limits: { cpu: 100m, memory: 32Mi }
       command: ['sh', '-c']
       args:
         - >-
@@ -20,3 +42,39 @@ spec:
           http://{{ include "zenith.fullname" . }}:{{ .Values.service.port }}/health
           && echo "OK: zenith is reachable"
           || (echo "FAIL: zenith is unreachable"; exit 1)
+{{- if .Values.networkPolicy.enabled }}
+---
+# The test pod's own policy: no ingress; egress only to DNS and to Zenith's HTTP port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "zenith.fullname" . }}-test-connection
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: helm-test
+      app.kubernetes.io/part-of: {{ include "zenith.name" . }}
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "zenith.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: {{ .Values.zenith.port }}
+          protocol: TCP
+{{- end }}
