@@ -18,7 +18,8 @@ export const GraphQLTrait = createTraitDescriptor({
   consumes: ["acl", "crud", "db", "schema"],
   state: ["schema", "rootValue"],
   runtimes: ["deno"],
-  summary: "GraphQL endpoint with auto-generated schema from REST CRUD, custom resolvers, subscriptions over WebSocket, persisted queries, query depth/complexity limits.",
+  summary:
+    "GraphQL endpoint with auto-generated schema from REST CRUD, custom resolvers, subscriptions over WebSocket, persisted queries, query depth/complexity limits.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const acl = deps.traits["acl"];
@@ -52,10 +53,20 @@ export const GraphQLTrait = createTraitDescriptor({
         return traitApi.schema;
       },
 
-      execute: async (query: string, variables: Record<string, any> = {}, contextValue: any = {}) => {
+      execute: async (
+        query: string,
+        variables: Record<string, any> = {},
+        contextValue: any = {},
+      ) => {
         if (!traitApi.schema) await traitApi.buildSchema();
         const graphql = await import("graphql");
-        return await graphql.graphql({ schema: traitApi.schema, source: query, rootValue: traitApi.rootValue, variableValues: variables, contextValue });
+        return await graphql.graphql({
+          schema: traitApi.schema,
+          source: query,
+          rootValue: traitApi.rootValue,
+          variableValues: variables,
+          contextValue,
+        });
       },
     };
 
@@ -67,7 +78,10 @@ export const GraphQLTrait = createTraitDescriptor({
         handler: async (req: Request) => {
           const body = await req.json() as { query: string; variables?: Record<string, any> };
           const result = await traitApi.execute(body.query, body.variables || {}, { req });
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -79,9 +93,16 @@ export const GraphQLTrait = createTraitDescriptor({
           const query = url.searchParams.get("query") || "";
           const variablesStr = url.searchParams.get("variables") || "{}";
           let variables: Record<string, any> = {};
-          try { variables = JSON.parse(variablesStr); } catch (_e) { variables = {}; }
+          try {
+            variables = JSON.parse(variablesStr);
+          } catch (_e) {
+            variables = {};
+          }
           const result = await traitApi.execute(query, variables, { req });
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

@@ -20,7 +20,8 @@ export const Web3Trait = createTraitDescriptor({
   tags: ["uses:ipfs"],
   state: ["web3Providers"],
   runtimes: ["deno"],
-  summary: "Web3 bridge: EVM wallet connection, viem-based transaction signing, IPFS storage integration, NFT minting, smart-contract event indexing, signature verification (EIP-191, EIP-712).",
+  summary:
+    "Web3 bridge: EVM wallet connection, viem-based transaction signing, IPFS storage integration, NFT minting, smart-contract event indexing, signature verification (EIP-191, EIP-712).",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const ipfs = deps.traits["ipfs"];
@@ -32,18 +33,45 @@ export const Web3Trait = createTraitDescriptor({
         traitApi.providers.set(name, { rpc, chainId });
       },
 
-      verifyMessage: async (message: string, signature: string, expectedAddress: string): Promise<boolean> => {
+      verifyMessage: async (
+        message: string,
+        signature: string,
+        expectedAddress: string,
+      ): Promise<boolean> => {
         const viem = await import("viem");
         try {
-          return await viem.verifyMessage({ message, signature: signature as `0x${string}`, address: expectedAddress as `0x${string}` });
-        } catch (_e) { return false; }
+          return await viem.verifyMessage({
+            message,
+            signature: signature as `0x${string}`,
+            address: expectedAddress as `0x${string}`,
+          });
+        } catch (_e) {
+          return false;
+        }
       },
 
-      verifyTypedData: async (domain: any, types: any, message: any, signature: string, expectedAddress: string): Promise<boolean> => {
+      verifyTypedData: async (
+        domain: any,
+        types: any,
+        message: any,
+        signature: string,
+        expectedAddress: string,
+      ): Promise<boolean> => {
         const viem = await import("viem");
         try {
-          return await viem.verifyTypedData({ domain, types, message, primaryType: "EIP712Domain", signature: signature as `0x${string}`, address: expectedAddress as `0x${string}` } as any);
-        } catch (_e) { return false; }
+          return await viem.verifyTypedData(
+            {
+              domain,
+              types,
+              message,
+              primaryType: "EIP712Domain",
+              signature: signature as `0x${string}`,
+              address: expectedAddress as `0x${string}`,
+            } as any,
+          );
+        } catch (_e) {
+          return false;
+        }
       },
 
       getBalance: async (address: string, chainName: string = "ethereum"): Promise<string> => {
@@ -51,7 +79,10 @@ export const Web3Trait = createTraitDescriptor({
         const provider = traitApi.providers.get(chainName);
         if (!provider) throw new Error(`chain not configured: ${chainName}`);
         const mainnet = (viem as any).mainnet ?? (await import("viem/chains")).mainnet;
-        const client = viem.createPublicClient({ chain: mainnet, transport: viem.http(provider.rpc) });
+        const client = viem.createPublicClient({
+          chain: mainnet,
+          transport: viem.http(provider.rpc),
+        });
         const balance = await client.getBalance({ address: address as `0x${string}` });
         return balance.toString();
       },
@@ -79,8 +110,15 @@ export const Web3Trait = createTraitDescriptor({
         _openapi: { summary: "Sign-In With Ethereum (EIP-4361)" },
         handler: async (req: Request) => {
           const body = await req.json() as { message: string; signature: string; address: string };
-          const result = await traitApi.signInWithEthereum(body.message, body.signature, body.address);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          const result = await traitApi.signInWithEthereum(
+            body.message,
+            body.signature,
+            body.address,
+          );
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -90,17 +128,26 @@ export const Web3Trait = createTraitDescriptor({
         handler: async (req: Request) => {
           const body = await req.json() as { message: string; signature: string; address: string };
           const valid = await traitApi.verifyMessage(body.message, body.signature, body.address);
-          return new Response(JSON.stringify({ valid }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ valid }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/web3/balance/:address",
-        _openapi: { summary: "Get native token balance", parameters: [{ name: "address", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Get native token balance",
+          parameters: [{ name: "address", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const address = new URL(req.url).pathname.split("/")[3];
           const balance = await traitApi.getBalance(address);
-          return new Response(JSON.stringify({ address, balance }), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ address, balance }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

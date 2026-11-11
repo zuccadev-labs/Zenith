@@ -89,13 +89,17 @@ const MAX_BACKOFF_MS = 60_000;
 export type RemoteWriteState = "running" | "stopped" | "errored";
 
 export class PrometheusRemoteWriter {
-  private readonly config: Required<Omit<RemoteWriteConfig, "bearerToken" | "basicAuth" | "tenantId" | "extraHeaders" | "logger">> & {
-    bearerToken: string | undefined;
-    basicAuth: RemoteWriteConfig["basicAuth"];
-    tenantId: string | undefined;
-    extraHeaders: Record<string, string> | undefined;
-    logger: LoggerLike;
-  };
+  private readonly config:
+    & Required<
+      Omit<RemoteWriteConfig, "bearerToken" | "basicAuth" | "tenantId" | "extraHeaders" | "logger">
+    >
+    & {
+      bearerToken: string | undefined;
+      basicAuth: RemoteWriteConfig["basicAuth"];
+      tenantId: string | undefined;
+      extraHeaders: Record<string, string> | undefined;
+      logger: LoggerLike;
+    };
   private buffer: TimeSeries[] = [];
   private timer: number | null = null;
   private state: RemoteWriteState = "stopped";
@@ -128,8 +132,14 @@ export class PrometheusRemoteWriter {
   start(): void {
     if (this.state === "running") return;
     this.state = "running";
-    this.timer = setInterval(() => this.flushSafe(), this.config.flushIntervalMs) as unknown as number;
-    this.config.logger.info("remote_write: started", { endpoint: this.url(), intervalMs: this.config.flushIntervalMs });
+    this.timer = setInterval(
+      () => this.flushSafe(),
+      this.config.flushIntervalMs,
+    ) as unknown as number;
+    this.config.logger.info("remote_write: started", {
+      endpoint: this.url(),
+      intervalMs: this.config.flushIntervalMs,
+    });
   }
 
   /** Encola TimeSeries para el próximo flush. Aplica backpressure. */
@@ -137,7 +147,9 @@ export class PrometheusRemoteWriter {
     if (this.buffer.length + series.length > this.config.maxBufferSize) {
       const dropCount = (this.buffer.length + series.length) - this.config.maxBufferSize;
       this.buffer.splice(0, dropCount);
-      this.config.logger.warn("remote_write: buffer overflow, dropped oldest", { dropped: dropCount });
+      this.config.logger.warn("remote_write: buffer overflow, dropped oldest", {
+        dropped: dropCount,
+      });
     }
     this.buffer.push(...series);
   }
@@ -228,7 +240,9 @@ export class PrometheusRemoteWriter {
     if (this.config.bearerToken) {
       headers["Authorization"] = `Bearer ${this.config.bearerToken}`;
     } else if (this.config.basicAuth) {
-      const credentials = btoa(`${this.config.basicAuth.username}:${this.config.basicAuth.password}`);
+      const credentials = btoa(
+        `${this.config.basicAuth.username}:${this.config.basicAuth.password}`,
+      );
       headers["Authorization"] = `Basic ${credentials}`;
     }
     if (this.config.tenantId) {
@@ -258,7 +272,9 @@ export class PrometheusRemoteWriter {
       throw err;
     } catch (err) {
       if ((err as Error).name === "AbortError") {
-        const e: Error & { retryable?: boolean } = new Error(`remote_write: timeout after ${this.config.requestTimeoutMs}ms`);
+        const e: Error & { retryable?: boolean } = new Error(
+          `remote_write: timeout after ${this.config.requestTimeoutMs}ms`,
+        );
         e.retryable = true;
         throw e;
       }

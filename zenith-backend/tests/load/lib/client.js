@@ -1,26 +1,26 @@
 // k6 shared helpers for Zenith load tests
 // Usage: import { createClass, login, send } from './lib/client.js';
 
-import http from 'k6/http';
-import { check, fail } from 'k6';
-import { SharedArray } from 'k6/data';
+import http from "k6/http";
+import { check, fail } from "k6";
+import { SharedArray } from "k6/data";
 
-const BASE_URL = __ENV.ZENITH_URL || 'http://localhost:8080';
-const APP_ID = __ENV.ZENITH_APP_ID || 'loadtest-app';
-const MASTER_KEY = __ENV.ZENITH_MASTER_KEY || 'loadtest-master-key';
+const BASE_URL = __ENV.ZENITH_URL || "http://localhost:8080";
+const APP_ID = __ENV.ZENITH_APP_ID || "loadtest-app";
+const MASTER_KEY = __ENV.ZENITH_MASTER_KEY || "loadtest-master-key";
 
 export const config = {
   baseUrl: BASE_URL,
   appId: APP_ID,
   masterKey: MASTER_KEY,
   headers: {
-    'X-Parse-Application-Id': APP_ID,
-    'Content-Type': 'application/json',
+    "X-Parse-Application-Id": APP_ID,
+    "Content-Type": "application/json",
   },
   masterHeaders: {
-    'X-Parse-Application-Id': APP_ID,
-    'X-Parse-Master-Key': MASTER_KEY,
-    'Content-Type': 'application/json',
+    "X-Parse-Application-Id": APP_ID,
+    "X-Parse-Master-Key": MASTER_KEY,
+    "Content-Type": "application/json",
   },
 };
 

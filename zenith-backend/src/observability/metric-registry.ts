@@ -223,20 +223,38 @@ export class MetricRegistry {
           for (const [leStr, count] of s.buckets) {
             const le = leStr === "Infinity" ? Number.POSITIVE_INFINITY : Number(leStr);
             result.push({
-              labels: [{ name: "__name__", value: `${m.name}_bucket` }, ...globalLabels, ...series.labels, { name: "le", value: formatLe(le) }],
+              labels: [
+                { name: "__name__", value: `${m.name}_bucket` },
+                ...globalLabels,
+                ...series.labels,
+                { name: "le", value: formatLe(le) },
+              ],
               value: count,
             });
           }
           result.push({
-            labels: [{ name: "__name__", value: `${m.name}_bucket` }, ...globalLabels, ...series.labels, { name: "le", value: "+Inf" }],
+            labels: [
+              { name: "__name__", value: `${m.name}_bucket` },
+              ...globalLabels,
+              ...series.labels,
+              { name: "le", value: "+Inf" },
+            ],
             value: s.count,
           });
           result.push({
-            labels: [{ name: "__name__", value: `${m.name}_sum` }, ...globalLabels, ...series.labels],
+            labels: [
+              { name: "__name__", value: `${m.name}_sum` },
+              ...globalLabels,
+              ...series.labels,
+            ],
             value: s.sum,
           });
           result.push({
-            labels: [{ name: "__name__", value: `${m.name}_count` }, ...globalLabels, ...series.labels],
+            labels: [
+              { name: "__name__", value: `${m.name}_count` },
+              ...globalLabels,
+              ...series.labels,
+            ],
             value: s.count,
           });
         }

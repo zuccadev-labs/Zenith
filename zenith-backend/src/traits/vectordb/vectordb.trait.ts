@@ -11,14 +11,22 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
-export type createOllamaEmbedProvider = (config: { endpoint?: string; model?: string }) => (text: string) => Promise<number[]>;
-export type createOpenAIEmbedProvider = (config: { apiKey: string; model?: string }) => (text: string) => Promise<number[]>;
+export type createOllamaEmbedProvider = (
+  config: { endpoint?: string; model?: string },
+) => (text: string) => Promise<number[]>;
+export type createOpenAIEmbedProvider = (
+  config: { apiKey: string; model?: string },
+) => (text: string) => Promise<number[]>;
 
 export const createOllamaEmbedProvider: createOllamaEmbedProvider = (config = {}) => {
   const endpoint = config.endpoint || "http://localhost:11434";
   const model = config.model || "nomic-embed-text";
   return async (text: string) => {
-    const res = await fetch(`${endpoint}/api/embeddings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ model, prompt: text }) });
+    const res = await fetch(`${endpoint}/api/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, prompt: text }),
+    });
     const data = await res.json() as { embedding: number[] };
     return data.embedding;
   };
@@ -27,7 +35,11 @@ export const createOllamaEmbedProvider: createOllamaEmbedProvider = (config = {}
 export const createOpenAIEmbedProvider: createOpenAIEmbedProvider = (config) => {
   const model = config.model || "text-embedding-3-small";
   return async (text: string) => {
-    const res = await fetch("https://api.openai.com/v1/embeddings", { method: "POST", headers: { "authorization": `Bearer ${config.apiKey}`, "content-type": "application/json" }, body: JSON.stringify({ input: text, model }) });
+    const res = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: { "authorization": `Bearer ${config.apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ input: text, model }),
+    });
     const data = await res.json() as { data: Array<{ embedding: number[] }> };
     return data.data[0].embedding;
   };
@@ -50,7 +62,8 @@ export const VectorDBTrait = createTraitDescriptor({
   consumes: ["db"],
   state: ["collections", "embedder", "vectorAdapter"],
   runtimes: ["deno"],
-  summary: "Vector database for semantic search and RAG: pluggable embedders (Ollama, OpenAI), Qdrant adapter, in-memory fallback, HNSW index for ANN search, metadata filtering.",
+  summary:
+    "Vector database for semantic search and RAG: pluggable embedders (Ollama, OpenAI), Qdrant adapter, in-memory fallback, HNSW index for ANN search, metadata filtering.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
@@ -67,24 +80,45 @@ export const VectorDBTrait = createTraitDescriptor({
         traitApi.adapter = adapter;
       },
 
-      createCollection: async (name: string, dimension: number, options: { distance?: "cosine" | "euclidean" | "dot" } = {}) => {
+      createCollection: async (
+        name: string,
+        dimension: number,
+        options: { distance?: "cosine" | "euclidean" | "dot" } = {},
+      ) => {
         if (!traitApi.collections.has(name)) traitApi.collections.set(name, []);
-        await db.create("_VectorCollection", { name, dimension, distance: options.distance || "cosine", createdAt: new Date().toISOString() });
+        await db.create("_VectorCollection", {
+          name,
+          dimension,
+          distance: options.distance || "cosine",
+          createdAt: new Date().toISOString(),
+        });
         return { name, dimension, distance: options.distance || "cosine" };
       },
 
       upsert: async (collection: string, id: string, vector: number[], metadata: any = {}) => {
-        if (!traitApi.collections.has(collection)) throw new Error(`collection not found: ${collection}`);
-        const items = traitApi.collections.get(collection) as Array<{ id: string; vector: number[]; metadata: any }>;
+        if (!traitApi.collections.has(collection)) {
+          throw new Error(`collection not found: ${collection}`);
+        }
+        const items = traitApi.collections.get(collection) as Array<
+          { id: string; vector: number[]; metadata: any }
+        >;
         const existing = items.findIndex((x: { id: string }) => x.id === id);
         if (existing >= 0) items[existing] = { id, vector, metadata };
         else items.push({ id, vector, metadata });
         return { upserted: true, id };
       },
 
-      search: async (collection: string, query: string | number[], options: { topK?: number; filter?: Record<string, any> } = {}) => {
-        if (!traitApi.collections.has(collection)) throw new Error(`collection not found: ${collection}`);
-        const items = traitApi.collections.get(collection) as Array<{ id: string; vector: number[]; metadata: any }>;
+      search: async (
+        collection: string,
+        query: string | number[],
+        options: { topK?: number; filter?: Record<string, any> } = {},
+      ) => {
+        if (!traitApi.collections.has(collection)) {
+          throw new Error(`collection not found: ${collection}`);
+        }
+        const items = traitApi.collections.get(collection) as Array<
+          { id: string; vector: number[]; metadata: any }
+        >;
         let queryVector: number[];
         if (typeof query === "string") {
           if (!traitApi.embedder) throw new Error("embedder not set");
@@ -98,7 +132,10 @@ export const VectorDBTrait = createTraitDescriptor({
             if (!options.filter) return true;
             return Object.entries(options.filter).every(([k, v]) => item.metadata?.[k] === v);
           })
-          .map((item: { id: string; vector: number[]; metadata: any }) => ({ ...item, score: cosineSimilarity(queryVector, item.vector) }))
+          .map((item: { id: string; vector: number[]; metadata: any }) => ({
+            ...item,
+            score: cosineSimilarity(queryVector, item.vector),
+          }))
           .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
           .slice(0, topK);
         return scored;
@@ -131,9 +168,18 @@ export const VectorDBTrait = createTraitDescriptor({
         path: "/vectordb/collections",
         _openapi: { summary: "Create a vector collection" },
         handler: async (req: Request) => {
-          const body = await req.json() as { name: string; dimension: number; distance?: "cosine" | "euclidean" | "dot" };
-          const result = await traitApi.createCollection(body.name, body.dimension, { distance: body.distance });
-          return new Response(JSON.stringify(result), { status: 201, headers: { "content-type": "application/json" } });
+          const body = await req.json() as {
+            name: string;
+            dimension: number;
+            distance?: "cosine" | "euclidean" | "dot";
+          };
+          const result = await traitApi.createCollection(body.name, body.dimension, {
+            distance: body.distance,
+          });
+          return new Response(JSON.stringify(result), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -162,7 +208,10 @@ export const VectorDBTrait = createTraitDescriptor({
           const name = new URL(req.url).pathname.split("/")[3];
           const body = await req.json() as { id: string; vector: number[]; metadata?: any };
           const result = await traitApi.upsert(name, body.id, body.vector, body.metadata);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
@@ -176,8 +225,14 @@ export const VectorDBTrait = createTraitDescriptor({
         handler: async (req: Request) => {
           const name = new URL(req.url).pathname.split("/")[3];
           const body = await req.json() as { query: string; topK?: number; filter?: any };
-          const results = await traitApi.search(name, body.query, { topK: body.topK, filter: body.filter });
-          return new Response(JSON.stringify({ results }), { status: 200, headers: { "content-type": "application/json" } });
+          const results = await traitApi.search(name, body.query, {
+            topK: body.topK,
+            filter: body.filter,
+          });
+          return new Response(JSON.stringify({ results }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

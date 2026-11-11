@@ -37,7 +37,10 @@ export function lazyStore(store: ApiKeyStore & { init(): Promise<void> }): ApiKe
   } as ApiKeyStore;
 }
 
-export function apiKeyStoreFor(config: { databaseURI?: string }, warn: (m: string) => void = console.warn): ApiKeyStore {
+export function apiKeyStoreFor(
+  config: { databaseURI?: string },
+  warn: (m: string) => void = console.warn,
+): ApiKeyStore {
   const uri = config.databaseURI ?? "";
   if (/^mongodb(\+srv)?:\/\//.test(uri)) return lazyStore(new MongoDBStore({ uri }));
   warn("[api-keys] No MongoDB: API keys live in memory and are lost on restart.");
@@ -53,7 +56,13 @@ const actorOf = (_ctx: any) => "master";
 /** Key management is for the master key only (ADR-015). */
 const masterOnly = <H extends (req: Request, ctx: any) => Promise<Response>>(handler: H) =>
   (async (req: Request, ctx: any) => {
-    if (ctx?.apiKey) throw new ZenithError(ZenithErrorCode.OPERATION_FORBIDDEN, "API keys cannot manage API keys: use the master key.", 403);
+    if (ctx?.apiKey) {
+      throw new ZenithError(
+        ZenithErrorCode.OPERATION_FORBIDDEN,
+        "API keys cannot manage API keys: use the master key.",
+        403,
+      );
+    }
     try {
       return await handler(req, ctx);
     } catch (e) {
@@ -62,7 +71,11 @@ const masterOnly = <H extends (req: Request, ctx: any) => Promise<Response>>(han
     }
   }) as H;
 const bodyOf = async (req: Request) => {
-  try { return (await req.json()) ?? {}; } catch (_e) { throw bad("Invalid JSON body."); }
+  try {
+    return (await req.json()) ?? {};
+  } catch (_e) {
+    throw bad("Invalid JSON body.");
+  }
 };
 
 /** Routes to mount with `access: "master"`. */
@@ -84,24 +97,43 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
       method: "POST" as const,
       path: "/zen/api-keys",
       access: "master" as const,
-      _openapi: { tag: "API Keys", summary: "Create an API key; the plaintext is returned once. Scope * needs allowedIps and expiresIn of at most 90 days (ADR-015)" },
+      _openapi: {
+        tag: "API Keys",
+        summary:
+          "Create an API key; the plaintext is returned once. Scope * needs allowedIps and expiresIn of at most 90 days (ADR-015)",
+      },
       handler: async (req: Request, ctx: any) => {
         const b = await bodyOf(req);
         const prefix = (b.prefix ?? "sk") as ApiKeyPrefix;
         const env = (b.env ?? "live") as ApiKeyEnv;
         if (!PREFIXES.includes(prefix)) throw bad("prefix must be sk, pk or rk.");
         if (!ENVS.includes(env)) throw bad("env must be live or test.");
-        if (typeof b.name !== "string" || !b.name.trim() || b.name.length > 100) throw bad("name: 1 to 100 characters.");
+        if (typeof b.name !== "string" || !b.name.trim() || b.name.length > 100) {
+          throw bad("name: 1 to 100 characters.");
+        }
         const scopes = (b.scopes ?? DEFAULT_SCOPES[prefix]) as ApiKeyScope[];
-        if (!Array.isArray(scopes) || scopes.length === 0 || scopes.some((s) => typeof s !== "string")) throw bad("scopes: a non-empty list.");
-        if (b.requestsPerMinute !== undefined && !(Number.isInteger(b.requestsPerMinute) && b.requestsPerMinute > 0)) {
+        if (
+          !Array.isArray(scopes) || scopes.length === 0 || scopes.some((s) => typeof s !== "string")
+        ) throw bad("scopes: a non-empty list.");
+        if (
+          b.requestsPerMinute !== undefined &&
+          !(Number.isInteger(b.requestsPerMinute) && b.requestsPerMinute > 0)
+        ) {
           throw bad("requestsPerMinute: a positive integer.");
         }
-        if (b.allowedIps !== undefined && (!Array.isArray(b.allowedIps) || b.allowedIps.some((e: unknown) => typeof e !== "string"))) {
+        if (
+          b.allowedIps !== undefined &&
+          (!Array.isArray(b.allowedIps) || b.allowedIps.some((e: unknown) => typeof e !== "string"))
+        ) {
           throw bad("allowedIps: a list of IP addresses or CIDR ranges.");
         }
         const created = await manager.create({
-          appId, prefix, env, scopes, name: b.name.trim(), createdBy: actorOf(ctx),
+          appId,
+          prefix,
+          env,
+          scopes,
+          name: b.name.trim(),
+          createdBy: actorOf(ctx),
           expiresIn: typeof b.expiresIn === "string" ? b.expiresIn : undefined,
           requestsPerMinute: b.requestsPerMinute,
           allowedIps: b.allowedIps,
@@ -118,7 +150,11 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
       handler: async (req: Request, ctx: any) => {
         const rec = await owned(ctx.params?.id);
         const b = await bodyOf(req);
-        await manager.revoke(rec.id, actorOf(ctx), typeof b.reason === "string" ? b.reason.slice(0, 500) : "");
+        await manager.revoke(
+          rec.id,
+          actorOf(ctx),
+          typeof b.reason === "string" ? b.reason.slice(0, 500) : "",
+        );
         return json({ id: rec.id, revoked: true });
       },
     },
@@ -131,8 +167,13 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
         const rec = await owned(ctx.params?.id);
         const b = await bodyOf(req);
         const hours = b.graceHours === undefined ? 24 : Number(b.graceHours);
-        if (!Number.isFinite(hours) || hours < 0 || hours > 24 * 30) throw bad("graceHours: 0 to 720.");
-        const rotated = await manager.rotate(rec.id, { createdBy: actorOf(ctx), gracePeriodMs: hours * 3_600_000 });
+        if (!Number.isFinite(hours) || hours < 0 || hours > 24 * 30) {
+          throw bad("graceHours: 0 to 720.");
+        }
+        const rotated = await manager.rotate(rec.id, {
+          createdBy: actorOf(ctx),
+          gracePeriodMs: hours * 3_600_000,
+        });
         return json({ key: rotated.plaintext, record: rotated.record, previous: rec.id }, 201);
       },
     },
@@ -144,6 +185,8 @@ export function apiKeyRoutes(appId: string, manager: ApiKeyManager, store: ApiKe
  * The /zen/api-keys routes without handlers, for the OpenAPI spec. Same list as `apiKeyRoutes`, so
  * the spec cannot document a route the server does not mount (the handlers are never called).
  */
-export function apiKeyRouteSpecs(): Array<{ method: string; path: string; access: "master"; _openapi: Record<string, unknown> }> {
+export function apiKeyRouteSpecs(): Array<
+  { method: string; path: string; access: "master"; _openapi: Record<string, unknown> }
+> {
   return apiKeyRoutes("", null as never, null as never).map(({ handler: _h, ...spec }) => spec);
 }

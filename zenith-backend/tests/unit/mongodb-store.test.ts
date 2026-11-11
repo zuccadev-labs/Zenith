@@ -254,7 +254,10 @@ if (!HAS_MONGO) {
       // Wait for the event to propagate (typical: 50-200ms)
       await new Promise((r) => setTimeout(r, 1000));
       const inserts = events.filter((e) => e.type === "insert" && e.id === "stream-test");
-      assert(inserts.length >= 1, `Expected insert event, got ${events.length} events: ${JSON.stringify(events)}`);
+      assert(
+        inserts.length >= 1,
+        `Expected insert event, got ${events.length} events: ${JSON.stringify(events)}`,
+      );
     } finally {
       await store.close();
     }

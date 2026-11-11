@@ -1,4 +1,4 @@
-import { ZenPlugins, ZenLogger } from "../core/cloud.ts";
+import { ZenLogger, ZenPlugins } from "../core/cloud.ts";
 import { VaultClient, type VaultConfig } from "../security/secrets/vault-client.ts";
 
 /**
@@ -60,7 +60,9 @@ if (VAULT_ADDR) {
   _client = new VaultClient(cfg);
   ZenLogger.info(`[Plugin:Vault] Activated against ${VAULT_ADDR} (HTTP API)`);
 } else {
-  ZenLogger.debug?.(`[Plugin:Vault] Inactive (VAULT_ADDR not set). Use legacy CLI methods if needed.`);
+  ZenLogger.debug?.(
+    `[Plugin:Vault] Inactive (VAULT_ADDR not set). Use legacy CLI methods if needed.`,
+  );
 }
 
 /**
@@ -119,7 +121,11 @@ ZenPlugins.Vault = {
 
   // ── PKI (proxy) ─────────────────────────────────────────────────────────
 
-  pkiIssue: async (role: string, commonName: string, opts?: { altNames?: string[]; ipSans?: string[]; ttl?: string }) => {
+  pkiIssue: async (
+    role: string,
+    commonName: string,
+    opts?: { altNames?: string[]; ipSans?: string[]; ttl?: string },
+  ) => {
     return await getClient().pkiIssue(role, commonName, opts);
   },
 
@@ -138,7 +144,9 @@ ZenPlugins.Vault = {
    * NOT recommended — use `loginAppRole` instead.
    */
   authenticate: async (username: string, password: string): Promise<string> => {
-    ZenLogger.warn("[Plugin:Vault] Legacy CLI authenticate() called. Prefer loginUserpass() over HTTP API.");
+    ZenLogger.warn(
+      "[Plugin:Vault] Legacy CLI authenticate() called. Prefer loginUserpass() over HTTP API.",
+    );
     // Lazy import to avoid loading ZenShell in Vault-only deployments.
     const { ZenShell } = await import("../core/cloud.ts");
     const result = await ZenShell.exec("vault", [

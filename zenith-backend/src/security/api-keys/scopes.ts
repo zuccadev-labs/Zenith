@@ -35,15 +35,21 @@ export function hasScope(granted: readonly ApiKeyScope[], required: ApiKeyScope)
 /**
  * Verifica múltiples scopes requeridos (AND lógico).
  */
-export function hasAllScopes(granted: readonly ApiKeyScope[], required: readonly ApiKeyScope[]): boolean {
-  return required.every(r => hasScope(granted, r));
+export function hasAllScopes(
+  granted: readonly ApiKeyScope[],
+  required: readonly ApiKeyScope[],
+): boolean {
+  return required.every((r) => hasScope(granted, r));
 }
 
 /**
  * Verifica múltiples scopes requeridos (OR lógico).
  */
-export function hasAnyScope(granted: readonly ApiKeyScope[], required: readonly ApiKeyScope[]): boolean {
-  return required.some(r => hasScope(granted, r));
+export function hasAnyScope(
+  granted: readonly ApiKeyScope[],
+  required: readonly ApiKeyScope[],
+): boolean {
+  return required.some((r) => hasScope(granted, r));
 }
 
 /**
@@ -54,7 +60,7 @@ export function normalizeScopes(scopes: readonly ApiKeyScope[]): ApiKeyScope[] {
   const set = new Set(scopes);
   if (set.has("*")) return ["*"];
   // Si hay wildcards de recurso, se pueden quitar los específicos
-  const wildcards = [...set].filter(s => s.endsWith(":*"));
+  const wildcards = [...set].filter((s) => s.endsWith(":*"));
   for (const w of wildcards) {
     const resource = w.slice(0, -2);
     for (const specific of [...set]) {
@@ -72,10 +78,17 @@ export function normalizeScopes(scopes: readonly ApiKeyScope[]): ApiKeyScope[] {
 export const DEFAULT_SCOPES: Record<"sk" | "pk" | "rk", ApiKeyScope[]> = {
   // Server key: control total del backend (CRUD, users, functions)
   sk: [
-    "data:read", "data:write", "data:create", "data:delete",
-    "users:read", "users:write",
-    "files:read", "files:write", "files:delete",
-    "functions:invoke", "functions:deploy",
+    "data:read",
+    "data:write",
+    "data:create",
+    "data:delete",
+    "users:read",
+    "users:write",
+    "files:read",
+    "files:write",
+    "files:delete",
+    "functions:invoke",
+    "functions:deploy",
     "push:send",
     "analytics:read",
   ],
@@ -97,8 +110,8 @@ export const DEFAULT_SCOPES: Record<"sk" | "pk" | "rk", ApiKeyScope[]> = {
  */
 export const DEFAULT_RATE_LIMITS: Record<"sk" | "pk" | "rk", number> = {
   sk: 1000,
-  pk: 6000,    // cliente público: alto volumen pero solo lectura
-  rk: 60,      // restricted: bajo
+  pk: 6000, // cliente público: alto volumen pero solo lectura
+  rk: 60, // restricted: bajo
 };
 
 /** The data operations an API key may be scoped to. */
@@ -118,7 +131,12 @@ export function dataScope(op: DataOperation, className: string): ApiKeyScope {
  * involved: sessions and the master key are governed by ACL/CLP and `access`, not by key scopes).
  * When a session and a key arrive together, the key still limits the request.
  */
-export function missingKeyScope(ctx: { apiKey?: { scopes: readonly string[] } }, scope: ApiKeyScope): string | null {
+export function missingKeyScope(
+  ctx: { apiKey?: { scopes: readonly string[] } },
+  scope: ApiKeyScope,
+): string | null {
   if (!ctx.apiKey) return null;
-  return hasScope(ctx.apiKey.scopes as ApiKeyScope[], scope) ? null : `This API key lacks the scope ${scope}.`;
+  return hasScope(ctx.apiKey.scopes as ApiKeyScope[], scope)
+    ? null
+    : `This API key lacks the scope ${scope}.`;
 }

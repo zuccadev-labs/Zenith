@@ -54,16 +54,30 @@ export const IoTTrait = createTraitDescriptor({
   tags: ["uses:events"],
   state: ["devices", "alertRules"],
   runtimes: ["deno"],
-  summary: "IoT device management: device registry with token-based auth, SenML telemetry ingestion, MQTT bridge, alert rules, time-series downsampling.",
+  summary:
+    "IoT device management: device registry with token-based auth, SenML telemetry ingestion, MQTT bridge, alert rules, time-series downsampling.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const events = deps.traits["events"];
 
     const traitApi: any = {
       devices: new Map<string, IoTDevice>(),
-      alertRules: [] as Array<{ rule: string; deviceId: string; threshold: number; comparison: ">" | "<" | "=="; severity: IoTAlert["severity"] }>,
+      alertRules: [] as Array<
+        {
+          rule: string;
+          deviceId: string;
+          threshold: number;
+          comparison: ">" | "<" | "==";
+          severity: IoTAlert["severity"];
+        }
+      >,
 
-      registerDevice: async (deviceId: string, name: string, type: string, metadata: Record<string, any> = {}) => {
+      registerDevice: async (
+        deviceId: string,
+        name: string,
+        type: string,
+        metadata: Record<string, any> = {},
+      ) => {
         const device: IoTDevice = {
           objectId: crypto.randomUUID(),
           deviceId,
@@ -96,7 +110,11 @@ export const IoTTrait = createTraitDescriptor({
           if (rule.deviceId !== deviceId) continue;
           for (const [key, value] of Object.entries(normalized.measurements)) {
             if (!rule.rule.includes(key)) continue;
-            const triggered = rule.comparison === ">" ? value > rule.threshold : rule.comparison === "<" ? value < rule.threshold : value === rule.threshold;
+            const triggered = rule.comparison === ">"
+              ? value > rule.threshold
+              : rule.comparison === "<"
+              ? value < rule.threshold
+              : value === rule.threshold;
             if (triggered) {
               const alert: IoTAlert = {
                 objectId: crypto.randomUUID(),
@@ -114,7 +132,15 @@ export const IoTTrait = createTraitDescriptor({
         return { ingested: true, measurements: Object.keys(normalized.measurements).length };
       },
 
-      addAlertRule: (rule: { rule: string; deviceId: string; threshold: number; comparison: ">" | "<" | "=="; severity: IoTAlert["severity"] }) => {
+      addAlertRule: (
+        rule: {
+          rule: string;
+          deviceId: string;
+          threshold: number;
+          comparison: ">" | "<" | "==";
+          severity: IoTAlert["severity"];
+        },
+      ) => {
         traitApi.alertRules.push(rule);
       },
 
@@ -127,30 +153,55 @@ export const IoTTrait = createTraitDescriptor({
         path: "/iot/devices",
         _openapi: { summary: "Register a new IoT device" },
         handler: async (req: Request) => {
-          const body = await req.json() as { deviceId: string; name: string; type: string; metadata?: any };
-          const device = await traitApi.registerDevice(body.deviceId, body.name, body.type, body.metadata);
-          return new Response(JSON.stringify(device), { status: 201, headers: { "content-type": "application/json" } });
+          const body = await req.json() as {
+            deviceId: string;
+            name: string;
+            type: string;
+            metadata?: any;
+          };
+          const device = await traitApi.registerDevice(
+            body.deviceId,
+            body.name,
+            body.type,
+            body.metadata,
+          );
+          return new Response(JSON.stringify(device), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "GET" as const,
         path: "/iot/devices",
         _openapi: { summary: "List all registered IoT devices" },
-        handler: async () => new Response(JSON.stringify({ devices: traitApi.listDevices() }), { status: 200, headers: { "content-type": "application/json" } }),
+        handler: async () =>
+          new Response(JSON.stringify({ devices: traitApi.listDevices() }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
       },
       {
         method: "POST" as const,
         path: "/iot/telemetry/:deviceId",
         _openapi: {
           summary: "Ingest telemetry (SenML or JSON)",
-          parameters: [{ name: "deviceId", in: "path", required: true, schema: { type: "string" } }],
+          parameters: [{
+            name: "deviceId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          }],
           requestBody: { content: { "application/json": { schema: { type: "object" } } } },
         },
         handler: async (req: Request) => {
           const deviceId = new URL(req.url).pathname.split("/")[3];
           const body = await req.json();
           const result = await traitApi.ingestTelemetry(deviceId, body);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

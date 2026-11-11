@@ -7,14 +7,21 @@ export function fakeDb() {
   const rows: Record<string, Record<string, any>[]> = {};
   let seq = 0;
   const eq = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
-  const match = (r: Record<string, any>, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) => eq(r[k], v));
+  const match = (r: Record<string, any>, where: Record<string, unknown>) =>
+    Object.entries(where).every(([k, v]) => eq(r[k], v));
   const table = (c: string) => (rows[c] ??= []);
   const db = {
     rows,
-    find: async (c: string, where: Record<string, unknown> = {}) => table(c).filter((r) => match(r, where)).map((r) => structuredClone(r)),
-    read: async (c: string, id: string) => structuredClone(table(c).find((r) => r.objectId === id) ?? null),
+    find: async (c: string, where: Record<string, unknown> = {}) =>
+      table(c).filter((r) => match(r, where)).map((r) => structuredClone(r)),
+    read: async (c: string, id: string) =>
+      structuredClone(table(c).find((r) => r.objectId === id) ?? null),
     create: async (c: string, data: Record<string, any>) => {
-      const row = { ...structuredClone(data), objectId: `o${++seq}`, createdAt: new Date(Date.now() + seq).toISOString() };
+      const row = {
+        ...structuredClone(data),
+        objectId: `o${++seq}`,
+        createdAt: new Date(Date.now() + seq).toISOString(),
+      };
       table(c).push(row);
       return structuredClone(row);
     },
@@ -23,7 +30,12 @@ export function fakeDb() {
       if (r) Object.assign(r, structuredClone(data));
       return structuredClone(r);
     },
-    updateIf: async (c: string, id: string, cond: Record<string, unknown>, data: Record<string, any>) => {
+    updateIf: async (
+      c: string,
+      id: string,
+      cond: Record<string, unknown>,
+      data: Record<string, any>,
+    ) => {
       const r = table(c).find((x) => x.objectId === id);
       if (!r || !match(r, cond)) return null;
       Object.assign(r, structuredClone(data));

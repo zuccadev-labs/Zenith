@@ -37,7 +37,7 @@ const ARGON2ID = 2;
 
 const ARGON2_OPTS = {
   algorithm: ARGON2ID as 0 | 1 | 2,
-  memoryCost: 65536,   // 64 MiB
+  memoryCost: 65536, // 64 MiB
   timeCost: 3,
   parallelism: 4,
   hashLength: 32,
@@ -61,7 +61,7 @@ const generateSecret = (): string => randomString(32, SECRET_ALPHABET);
  */
 export function parseExpiresIn(value: string | undefined | null): string | null {
   if (!value) return null;
-  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return value;  // ISO 8601 ya
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return value; // ISO 8601 ya
 
   const match = value.match(/^(\d+)([smhdwMy])$/);
   if (!match) {
@@ -71,16 +71,21 @@ export function parseExpiresIn(value: string | undefined | null): string | null 
   }
   const n = parseInt(match[1], 10);
   const unit = match[2];
-  const ms = (
-    unit === "s" ? n * 1000 :
-    unit === "m" ? n * 60 * 1000 :
-    unit === "h" ? n * 60 * 60 * 1000 :
-    unit === "d" ? n * 24 * 60 * 60 * 1000 :
-    unit === "w" ? n * 7 * 24 * 60 * 60 * 1000 :
-    unit === "M" ? n * 30 * 24 * 60 * 60 * 1000 :  // mes ≈ 30 días
-    unit === "y" ? n * 365 * 24 * 60 * 60 * 1000 :
-    0
-  );
+  const ms = unit === "s"
+    ? n * 1000
+    : unit === "m"
+    ? n * 60 * 1000
+    : unit === "h"
+    ? n * 60 * 60 * 1000
+    : unit === "d"
+    ? n * 24 * 60 * 60 * 1000
+    : unit === "w"
+    ? n * 7 * 24 * 60 * 60 * 1000
+    : unit === "M"
+    ? n * 30 * 24 * 60 * 60 * 1000 // mes ≈ 30 días
+    : unit === "y"
+    ? n * 365 * 24 * 60 * 60 * 1000
+    : 0;
   return new Date(Date.now() + ms).toISOString();
 }
 
@@ -164,7 +169,12 @@ export class ApiKeyManager {
   async create(opts: ApiKeyCreateOptions): Promise<ApiKeyCreateResult> {
     const expiresAt = parseExpiresIn(opts.expiresIn) ?? undefined;
     // Before any secret exists: a key that breaks the policy is never created.
-    const allowedIps = checkKeyPolicy({ prefix: opts.prefix, scopes: opts.scopes, allowedIps: opts.allowedIps, expiresAt });
+    const allowedIps = checkKeyPolicy({
+      prefix: opts.prefix,
+      scopes: opts.scopes,
+      allowedIps: opts.allowedIps,
+      expiresAt,
+    });
     const id = generatePublicId();
     const secret = generateSecret();
     const plaintext = buildKey(opts.prefix, opts.env, id, secret);
@@ -226,7 +236,9 @@ export class ApiKeyManager {
 
     // Access policy (policy.ts): checked last, so a wrong secret never reveals the policy.
     if (record.allowedIps?.length) {
-      if (!ipAllowed(clientIp, record.allowedIps)) return { valid: false, reason: "ip_not_allowed", keyId: parsed.id };
+      if (!ipAllowed(clientIp, record.allowedIps)) {
+        return { valid: false, reason: "ip_not_allowed", keyId: parsed.id };
+      }
     } else if (isUnrestricted(record.scopes)) {
       return { valid: false, reason: "policy_missing", keyId: parsed.id };
     }
@@ -262,7 +274,9 @@ export class ApiKeyManager {
 
     // The new key keeps the old one's policy and lifetime: rotating must never widen a key
     // (before, a key that expired rotated into one that never did).
-    const lifetimeMs = old.expiresAt ? new Date(old.expiresAt).getTime() - new Date(old.createdAt).getTime() : undefined;
+    const lifetimeMs = old.expiresAt
+      ? new Date(old.expiresAt).getTime() - new Date(old.createdAt).getTime()
+      : undefined;
     const newKey = await this.create({
       appId: old.appId,
       prefix: old.prefix,
@@ -271,7 +285,9 @@ export class ApiKeyManager {
       name: `${old.name} (rotated)`,
       createdBy: opts.createdBy,
       requestsPerMinute: old.rateLimit.requestsPerMinute,
-      ...(lifetimeMs !== undefined ? { expiresIn: new Date(Date.now() + Math.max(lifetimeMs, 60_000)).toISOString() } : {}),
+      ...(lifetimeMs !== undefined
+        ? { expiresIn: new Date(Date.now() + Math.max(lifetimeMs, 60_000)).toISOString() }
+        : {}),
       ...(old.allowedIps?.length ? { allowedIps: old.allowedIps } : {}),
       metadata: { ...old.metadata, rotatedFrom: oldId },
     });

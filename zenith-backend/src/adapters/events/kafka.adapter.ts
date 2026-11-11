@@ -18,10 +18,17 @@ export function createKafkaAdapter(_clientId: string): EventBusAdapter {
       isConnected = true;
     },
 
-    publish: async (topic: string, event: { type: string; payload: any; timestamp: Date }): Promise<void> => {
+    publish: async (
+      topic: string,
+      event: { type: string; payload: any; timestamp: Date },
+    ): Promise<void> => {
       if (!isConnected) return;
       // En producción: await producer.send({ topic, messages: [{ value: JSON.stringify(event) }] });
-      console.log(`[Kafka] Emitiendo Evento [${topic}]: ${event.type} -> ${JSON.stringify(event.payload).substring(0, 50)}...`);
+      console.log(
+        `[Kafka] Emitiendo Evento [${topic}]: ${event.type} -> ${
+          JSON.stringify(event.payload).substring(0, 50)
+        }...`,
+      );
     },
 
     subscribe: async (topic: string, _handler: (event: any) => Promise<void>): Promise<void> => {
@@ -33,6 +40,6 @@ export function createKafkaAdapter(_clientId: string): EventBusAdapter {
     disconnect: async (): Promise<void> => {
       isConnected = false;
       console.log(`[KafkaAdapter] Desconectado.`);
-    }
+    },
   };
 }

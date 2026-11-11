@@ -18,7 +18,11 @@ import { FEATURE_CATALOG } from "./traits/catalog.ts";
 import { runtimeFeaturesTrait } from "./core/runtime-features.ts";
 import { startBackground } from "./core/lifecycle.ts";
 import { generateOpenApiSchema } from "./core/openapi.ts";
-import { loadMergedTrustStore, parseManifest, verifyPlugin } from "./security/plugin-signing/mod.ts";
+import {
+  loadMergedTrustStore,
+  parseManifest,
+  verifyPlugin,
+} from "./security/plugin-signing/mod.ts";
 import { createMongoAdapter } from "./adapters/database/mongo.adapter.ts";
 import { createScyllaAdapter } from "./adapters/database/scylla.adapter.ts";
 import { createRustFSAdapter } from "./adapters/storage/rustfs.adapter.ts";
@@ -35,12 +39,15 @@ import "./adapters/git.adapter.ts";
 import "./adapters/vault.adapter.ts";
 import "./adapters/lux-cache.adapter.ts";
 import type { ZenithConfig } from "./core/types.ts";
-import type { EngineAPI, CloudFunctionService, BillingMeteringService } from "./core/engine-api.ts";
+import type { BillingMeteringService, CloudFunctionService, EngineAPI } from "./core/engine-api.ts";
 import { _cloudCodeRegistry, ZENITH_ENGINE } from "./core/cloud.ts";
 
 export { createSurrealAdapter, SurrealClient } from "./adapters/database/surreal.adapter.ts";
 export { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
-export { createOllamaEmbedProvider, createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
+export {
+  createOllamaEmbedProvider,
+  createOpenAIEmbedProvider,
+} from "./traits/vectordb/vectordb.trait.ts";
 // The namespace cloud code uses: `import { Zen } from "@zuccadev-labs/zenith"` (cloud/main.ts).
 export { Zen } from "./core/cloud.ts";
 export { installERPPlugin } from "./plugins/erp.plugin.ts";
@@ -57,31 +64,58 @@ export { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
 export { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
 export { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
 export { PluginMarketplaceTrait } from "./traits/marketplace/marketplace.trait.ts";
-export type { MetaObject, MetaField, FieldType } from "./traits/metadata/metadata.trait.ts";
-export type { ADKAgentDef, ADKTool, ADKSession } from "./traits/agents/adk.agents.trait.ts";
-export type { PluginManifest, InstalledPlugin } from "./traits/marketplace/marketplace.trait.ts";
+export type { FieldType, MetaField, MetaObject } from "./traits/metadata/metadata.trait.ts";
+export type { ADKAgentDef, ADKSession, ADKTool } from "./traits/agents/adk.agents.trait.ts";
+export type { InstalledPlugin, PluginManifest } from "./traits/marketplace/marketplace.trait.ts";
 export { NotificationsTrait } from "./traits/notifications/notifications.trait.ts";
 export { FavoritesTagsTrait } from "./traits/favtags/favtags.trait.ts";
 export { WebhookManagerTrait } from "./traits/webhooks/webhook.manager.trait.ts";
 export { CSVTrait } from "./traits/csv/csv.trait.ts";
 export { EmailSyncTrait } from "./traits/email/email.sync.trait.ts";
-export type { EmailChannel, MessageThread, EmailMessage, EmailAdapterDef } from "./traits/email/email.sync.trait.ts";
+export type {
+  EmailAdapterDef,
+  EmailChannel,
+  EmailMessage,
+  MessageThread,
+} from "./traits/email/email.sync.trait.ts";
 export { CalendarSyncTrait } from "./traits/calendar/calendar.sync.trait.ts";
-export type { CalendarChannel, CalendarEvent, CalendarSlot, CalendarAdapterDef } from "./traits/calendar/calendar.sync.trait.ts";
+export type {
+  CalendarAdapterDef,
+  CalendarChannel,
+  CalendarEvent,
+  CalendarSlot,
+} from "./traits/calendar/calendar.sync.trait.ts";
 export { AutomationTrait } from "./traits/automation/automation.trait.ts";
-export type { AutomationRule, AutoAction, AutoCondition, AutoConditionGroup, ActionType } from "./traits/automation/automation.trait.ts";
+export type {
+  ActionType,
+  AutoAction,
+  AutoCondition,
+  AutoConditionGroup,
+  AutomationRule,
+} from "./traits/automation/automation.trait.ts";
 export { CacheTrait } from "./traits/cache/cache.trait.ts";
 export { PushTrait } from "./traits/push/push.trait.ts";
 export { JobQueueTrait } from "./traits/queue/job.queue.trait.ts";
 export { CircuitBreakerTrait } from "./traits/resilience/circuit.breaker.trait.ts";
 export { createScyllaTimeSeriesAdapter } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
-export type { TimeSeriesPoint, TimeSeriesQuery } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
-export type { IoTDevice, TelemetryPayload, IoTAlert, SenMLRecord } from "./traits/iot/iot.trait.ts";
-export type { AgentDefinition, AgentTool, AgentRunResult } from "./traits/agents/agent.orchestrator.trait.ts";
-export { PLAN_LIMITS, FEATURE_FLAGS } from "./traits/featureflags/featureflags.trait.ts";
+export type {
+  TimeSeriesPoint,
+  TimeSeriesQuery,
+} from "./adapters/timeseries/scylla.timeseries.adapter.ts";
+export type { IoTAlert, IoTDevice, SenMLRecord, TelemetryPayload } from "./traits/iot/iot.trait.ts";
+export type {
+  AgentDefinition,
+  AgentRunResult,
+  AgentTool,
+} from "./traits/agents/agent.orchestrator.trait.ts";
+export { FEATURE_FLAGS, PLAN_LIMITS } from "./traits/featureflags/featureflags.trait.ts";
 export type { Plan, PlanLimits } from "./traits/featureflags/featureflags.trait.ts";
 export type { TenantConfig } from "./traits/tenant/tenant.trait.ts";
-export type { AuditEntry, PII_Field, DataClassification } from "./traits/compliance/compliance.trait.ts";
+export type {
+  AuditEntry,
+  DataClassification,
+  PII_Field,
+} from "./traits/compliance/compliance.trait.ts";
 
 function optionalCall<T>(obj: unknown, key: string, ...args: unknown[]): unknown {
   const fn = (obj as Record<string, unknown>)[key];
@@ -137,11 +171,11 @@ export async function createZenithApp(
     };
 
     const buildLiveOpenApiSpec = () => {
-      const dynamicFnRoutes = _cloudCodeRegistry.listFunctions().map(fnName => ({
+      const dynamicFnRoutes = _cloudCodeRegistry.listFunctions().map((fnName) => ({
         method: "POST",
         path: `/functions/${fnName}`,
       }));
-      const dynamicJobRoutes = _cloudCodeRegistry.listJobs().map(jobName => ({
+      const dynamicJobRoutes = _cloudCodeRegistry.listJobs().map((jobName) => ({
         method: "POST",
         path: `/jobs/${jobName}`,
       }));
@@ -188,12 +222,20 @@ export async function createZenithApp(
       engine.routes = metaRoutes;
     }
 
-    console.log(`✅ Zenith Engine Composed for ${config.appId}. OpenAPI spec ready at /openapi.json`);
+    console.log(
+      `✅ Zenith Engine Composed for ${config.appId}. OpenAPI spec ready at /openapi.json`,
+    );
 
     const allowedCommands = config.allowedShellCommands || ["git", "vault", "kubectl", "lux-db"];
     if (engine.Plugins && (engine as unknown as Record<string, unknown>).Shell) {
-      optionalCall((engine as unknown as Record<string, unknown>).Shell, "setAllowedCommands", allowedCommands);
-      console.log(`[ZenithBoot] 🛡️ Zen.Shell allowlist configured: [${allowedCommands.join(", ")}]`);
+      optionalCall(
+        (engine as unknown as Record<string, unknown>).Shell,
+        "setAllowedCommands",
+        allowedCommands,
+      );
+      console.log(
+        `[ZenithBoot] 🛡️ Zen.Shell allowlist configured: [${allowedCommands.join(", ")}]`,
+      );
     }
 
     const mongoUri = config.databaseURI || "mongodb://localhost:27614";
@@ -203,15 +245,16 @@ export async function createZenithApp(
 
     // ScyllaDB only when this app uses it (database or auth/time-series store): an unconfigured
     // Scylla used to block every boot.
-    const scyllaUri = (config as unknown as Record<string, unknown>).authDatabaseURI as string | undefined
-      ?? (config.databaseURI?.match(/^(?:cassandra|scylla):\/\/(.+)$/)?.[1]);
+    const scyllaUri =
+      (config as unknown as Record<string, unknown>).authDatabaseURI as string | undefined ??
+        (config.databaseURI?.match(/^(?:cassandra|scylla):\/\/(.+)$/)?.[1]);
     if (scyllaUri) {
       const scyllaHost = scyllaUri.split(":")[0];
       const scyllaPort = parseInt(scyllaUri.split(":")[1] || "9042", 10);
       const scyllaClient = new cassandra.Client({
         contactPoints: [scyllaHost],
         protocolOptions: { port: scyllaPort },
-        localDataCenter: 'datacenter1'
+        localDataCenter: "datacenter1",
       });
       await scyllaClient.connect();
       optionalCall(engine, "injectScyllaPlugin", createScyllaAdapter(scyllaClient));
@@ -221,19 +264,26 @@ export async function createZenithApp(
 
     // engine-auth: users, sessions and token verification. A bad configuration stops the boot
     // (fail closed); without one the user routes answer 503 and every request is anonymous.
-    const userManager = (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["user-manager"];
+    const userManager =
+      (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["user-manager"];
     if (config.engineAuth && userManager?.configure) {
       userManager.configure(config.engineAuth);
-      console.log(`[ZenithBoot] 🔐 engine-auth: issuer ${config.engineAuth.issuer}, audience ${config.engineAuth.audience}`);
+      console.log(
+        `[ZenithBoot] 🔐 engine-auth: issuer ${config.engineAuth.issuer}, audience ${config.engineAuth.audience}`,
+      );
     } else {
-      console.warn("[ZenithBoot] ⚠️ engineAuth not configured: user routes answer 503, all requests are anonymous.");
+      console.warn(
+        "[ZenithBoot] ⚠️ engineAuth not configured: user routes answer 503, all requests are anonymous.",
+      );
     }
 
     // /classes for users: only schema-defined classes unless the app opts into client class creation.
-    const crud = (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["crud"];
+    const crud =
+      (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["crud"];
     crud?.configure?.({ allowClientClassCreation: config.allowClientClassCreation === true });
 
-    const s3Uri = (config as unknown as Record<string, unknown>).mediaStorageURI as string || "http://localhost:8614";
+    const s3Uri = (config as unknown as Record<string, unknown>).mediaStorageURI as string ||
+      "http://localhost:8614";
     const s3Client = new S3Client({
       region: "us-east-1",
       endpoint: s3Uri,
@@ -241,48 +291,56 @@ export async function createZenithApp(
       credentials: {
         accessKeyId: Deno.env.get("RUSTFS_ACCESS_KEY") || "admin",
         secretAccessKey: Deno.env.get("RUSTFS_SECRET_KEY") || "admin",
-      }
+      },
     });
     const rustfsPlugin = createRustFSAdapter(s3Client, `${config.appId}-storage`);
     optionalCall(engine, "injectRustFSPlugin", rustfsPlugin);
 
     if (config.features?.events) {
-       const kafkaPlugin = createKafkaAdapter(config.appId);
-       optionalCall(engine, "injectEventPlugin", kafkaPlugin);
-       await kafkaPlugin.connect(["localhost:9092"]);
+      const kafkaPlugin = createKafkaAdapter(config.appId);
+      optionalCall(engine, "injectEventPlugin", kafkaPlugin);
+      await kafkaPlugin.connect(["localhost:9092"]);
     }
 
     if (config.features?.web3) {
-       const ipfsPlugin = createIPFSAdapter("https://ipfs.io");
-       optionalCall(engine, "injectIPFSPlugin", ipfsPlugin);
+      const ipfsPlugin = createIPFSAdapter("https://ipfs.io");
+      optionalCall(engine, "injectIPFSPlugin", ipfsPlugin);
     }
 
     if (config.features?.graph) {
-       const neo4jPlugin = createNeo4jAdapter();
-       const neo4jUri = Deno.env.get("NEO4J_URI") || "bolt://localhost:7687";
-       const neo4jUser = Deno.env.get("NEO4J_USER") || "neo4j";
-       const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
-       if (!neo4jPassword) {
-         console.warn("[ZenithBoot] Warning: NEO4J_PASSWORD is not set. Neo4j graph capabilities might fail to authenticate.");
-       }
-       await neo4jPlugin.connect(neo4jUri, neo4jUser, neo4jPassword || "unsafe_default");
+      const neo4jPlugin = createNeo4jAdapter();
+      const neo4jUri = Deno.env.get("NEO4J_URI") || "bolt://localhost:7687";
+      const neo4jUser = Deno.env.get("NEO4J_USER") || "neo4j";
+      const neo4jPassword = Deno.env.get("NEO4J_PASSWORD");
+      if (!neo4jPassword) {
+        console.warn(
+          "[ZenithBoot] Warning: NEO4J_PASSWORD is not set. Neo4j graph capabilities might fail to authenticate.",
+        );
+      }
+      await neo4jPlugin.connect(neo4jUri, neo4jUser, neo4jPassword || "unsafe_default");
     }
 
     if (config.features?.saas) {
-       const stripePlugin = createStripeAdapter(Deno.env.get("STRIPE_API_KEY") || "sk_test_mock");
-       const billing = engine["billing-metering"] as BillingMeteringService | undefined;
-       if (billing?.injectAdapter) billing.injectAdapter(stripePlugin);
+      const stripePlugin = createStripeAdapter(Deno.env.get("STRIPE_API_KEY") || "sk_test_mock");
+      const billing = engine["billing-metering"] as BillingMeteringService | undefined;
+      if (billing?.injectAdapter) billing.injectAdapter(stripePlugin);
     }
 
     if (config.features?.e2ee_media) {
-       console.log(`[Zenith] Loading E2EE Media Module (Mode: ${config.features.e2ee_mode || "strict_sframe"})`);
-       if (engine.setE2EEMode) engine.setE2EEMode(config.features.e2ee_mode || "strict_sframe");
+      console.log(
+        `[Zenith] Loading E2EE Media Module (Mode: ${
+          config.features.e2ee_mode || "strict_sframe"
+        })`,
+      );
+      if (engine.setE2EEMode) engine.setE2EEMode(config.features.e2ee_mode || "strict_sframe");
     }
 
     // Background work (webhook deliveries…) starts once, with the data adapters connected.
     startBackground(engine as unknown as Record<string, unknown>);
 
-    const globalConfigCol = mongoClient.db(config.appId).collection<{ _id: string; [k: string]: unknown }>("_GlobalConfig");
+    const globalConfigCol = mongoClient.db(config.appId).collection<
+      { _id: string; [k: string]: unknown }
+    >("_GlobalConfig");
     let privateKeyStr: string;
     let publicKeyStr: string;
 
@@ -293,26 +351,32 @@ export async function createZenithApp(
       if (!ZenPlugins.Vault?.isActive()) {
         throw new Error(
           "[ZenithBoot] VAULT_ADDR is set but Vault plugin is not active. " +
-          "Check VAULT_TOKEN or AppRole credentials in environment.",
+            "Check VAULT_TOKEN or AppRole credentials in environment.",
         );
       }
       const vaultClient = ZenPlugins.Vault.client() as {
-        kvGet: (path: string) => Promise<{
-          data?: { privateKey?: string; publicKey?: string };
-          metadata?: { version: number };
-        } | null>;
+        kvGet: (path: string) => Promise<
+          {
+            data?: { privateKey?: string; publicKey?: string };
+            metadata?: { version: number };
+          } | null
+        >;
       };
       const secret = await vaultClient.kvGet(`zenith/${config.appId}/jwt-keys`);
       if (secret?.data?.privateKey && secret?.data?.publicKey) {
         privateKeyStr = secret.data.privateKey;
         publicKeyStr = secret.data.publicKey;
-        console.log(`[ZenithBoot] 🔑 Llaves RSA cargadas desde Vault (v${secret.metadata?.version ?? "?"}).`);
+        console.log(
+          `[ZenithBoot] 🔑 Llaves RSA cargadas desde Vault (v${secret.metadata?.version ?? "?"}).`,
+        );
       } else {
-        console.log(`[ZenithBoot] 🔑 No se encontraron llaves en Vault. Generando nuevas y guardando...`);
-        const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+        console.log(
+          `[ZenithBoot] 🔑 No se encontraron llaves en Vault. Generando nuevas y guardando...`,
+        );
+        const { publicKey, privateKey } = generateKeyPairSync("rsa", {
           modulusLength: 2048,
-          publicKeyEncoding: { type: 'spki', format: 'pem' },
-          privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          publicKeyEncoding: { type: "spki", format: "pem" },
+          privateKeyEncoding: { type: "pkcs8", format: "pem" },
         });
         privateKeyStr = privateKey;
         publicKeyStr = publicKey;
@@ -327,10 +391,10 @@ export async function createZenithApp(
       const jwtKeys = await globalConfigCol.findOne({ _id: "jwt_keys" });
       if (!jwtKeys) {
         console.log(`[ZenithBoot] 🔑 Generando nuevas llaves RSA para App: ${config.appId}...`);
-        const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+        const { publicKey, privateKey } = generateKeyPairSync("rsa", {
           modulusLength: 2048,
-          publicKeyEncoding: { type: 'spki', format: 'pem' },
-          privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+          publicKeyEncoding: { type: "spki", format: "pem" },
+          privateKeyEncoding: { type: "pkcs8", format: "pem" },
         });
         privateKeyStr = privateKey;
         publicKeyStr = publicKey;
@@ -339,7 +403,7 @@ export async function createZenithApp(
           _id: "jwt_keys",
           privateKey: privateKeyStr,
           publicKey: publicKeyStr,
-          createdAt: new Date()
+          createdAt: new Date(),
         });
       } else {
         console.log(`[ZenithBoot] 🔑 Llaves RSA cargadas desde base de datos.`);
@@ -365,11 +429,15 @@ export async function createZenithApp(
         try {
           const lockContent = await Deno.readTextFile(lockfilePath);
           lockfile = JSON.parse(lockContent);
-          console.log(`[SecOps] ✅ plugins.lock.json cargado desde raíz del proyecto (${lockfilePath})`);
+          console.log(
+            `[SecOps] ✅ plugins.lock.json cargado desde raíz del proyecto (${lockfilePath})`,
+          );
         } catch (_e) {
           console.warn(`[SecOps] ⚠️ No se encontró plugins.lock.json en ${lockfilePath}.`);
           if (Deno.args.includes("--mode=production")) {
-            throw new Error(`[SecOps] ABORT: Missing plugins.lock.json at project root in Production Mode. ACE Prevention. Run 'zenith plugins:lock' to generate it.`);
+            throw new Error(
+              `[SecOps] ABORT: Missing plugins.lock.json at project root in Production Mode. ACE Prevention. Run 'zenith plugins:lock' to generate it.`,
+            );
           }
         }
 
@@ -377,7 +445,9 @@ export async function createZenithApp(
         try {
           trust = await loadMergedTrustStore();
           if (trust.keys.length > 0) {
-            console.log(`[SecOps H-05] ✅ Trust store cargado: ${trust.keys.length} clave(s) de autor confiable(s).`);
+            console.log(
+              `[SecOps H-05] ✅ Trust store cargado: ${trust.keys.length} clave(s) de autor confiable(s).`,
+            );
           }
         } catch (e) {
           console.warn(`[SecOps H-05] ⚠️ No se pudo cargar trust store: ${(e as Error).message}`);
@@ -399,13 +469,15 @@ export async function createZenithApp(
             if (lockfile[entry.name] && lockfile[entry.name] !== hash) {
               throw new Error(
                 `[SecOps] ABORT: Plugin integrity check FAILED for '${entry.name}'. ` +
-                `Expected ${lockfile[entry.name].substring(0, 16)}... but got ${hash.substring(0, 16)}...`,
+                  `Expected ${lockfile[entry.name].substring(0, 16)}... but got ${
+                    hash.substring(0, 16)
+                  }...`,
               );
             }
             if (!lockfile[entry.name] && isProduction) {
               throw new Error(
                 `[SecOps] ABORT: Plugin '${entry.name}' not found in plugins.lock.json. ` +
-                `Run 'zenith plugins:lock' to register it.`,
+                  `Run 'zenith plugins:lock' to register it.`,
               );
             }
 
@@ -422,12 +494,14 @@ export async function createZenithApp(
                     }`,
                   );
                 }
-                console.log(`  [H-05] ✅ ${entry.name} signed by ${result.author} (keyId: ${result.keyId})`);
+                console.log(
+                  `  [H-05] ✅ ${entry.name} signed by ${result.author} (keyId: ${result.keyId})`,
+                );
               } catch (e) {
                 if (e instanceof Deno.errors.NotFound) {
                   throw new Error(
                     `[SecOps H-05] ABORT: Plugin '${entry.name}' has no .manifest.json but trust store is configured. ` +
-                    `Run 'zenith plugin sign ${entry.name}' to sign it.`,
+                      `Run 'zenith plugin sign ${entry.name}' to sign it.`,
                   );
                 }
                 throw e;
@@ -435,7 +509,9 @@ export async function createZenithApp(
             }
 
             const pluginUrl = `file:///${absPath.replace(/\\/g, "/")}`;
-            console.log(`  -> Loading plugin: ${entry.name} [SHA-256: ${hash.substring(0, 16)}...]`);
+            console.log(
+              `  -> Loading plugin: ${entry.name} [SHA-256: ${hash.substring(0, 16)}...]`,
+            );
             await import(pluginUrl);
             console.log(`  ✅ Loaded plugin: ${entry.name}`);
           } catch (err) {
@@ -444,13 +520,17 @@ export async function createZenithApp(
               console.error(msg);
               throw err;
             }
-            console.warn(`${msg} — skipping. Set ZENITH_STRICT_PLUGINS=true to abort on plugin errors.`);
+            console.warn(
+              `${msg} — skipping. Set ZENITH_STRICT_PLUGINS=true to abort on plugin errors.`,
+            );
             if (Deno.env.get("ZENITH_STRICT_PLUGINS") === "true") throw err;
           }
         }
       } catch (err) {
         if (err instanceof Deno.errors.NotFound) {
-          console.log(`[ZenithBoot] 🔌 Plugin directory '${config.pluginsPath}' not found, skipping.`);
+          console.log(
+            `[ZenithBoot] 🔌 Plugin directory '${config.pluginsPath}' not found, skipping.`,
+          );
         } else {
           console.error(`[ZenithBoot] ❌ Error loading plugins:`, err);
           throw err;
@@ -467,7 +547,9 @@ export async function createZenithApp(
           await cloudFunctions.loadCloudCode(config.cloudCodePath);
         }
       } else {
-        console.log(`[ZenithBoot] 🔒 Production Mode: Dynamic import skipped. Relying on statically linked manifest by CLI.`);
+        console.log(
+          `[ZenithBoot] 🔒 Production Mode: Dynamic import skipped. Relying on statically linked manifest by CLI.`,
+        );
       }
     }
 
@@ -494,12 +576,22 @@ if (import.meta.main) {
   if (RuntimeMode.isProduction) {
     console.log("[Zenith] 🔒 Production mode — fail-closed security enforced.");
   }
-  
-  const mountedApps = new Map<string, Map<string, {
-    httpHandler: (req: Request) => Promise<Response>;
-    liveQueryWsHandler?: (socket: WebSocket, authPayload: { appId: string; sessionToken: string | undefined }) => void;
-    mediaWsHandler?: (socket: WebSocket, roomId: string, authPayload: { appId: string; sessionToken: string | undefined }) => void;
-  }>>();
+
+  const mountedApps = new Map<
+    string,
+    Map<string, {
+      httpHandler: (req: Request) => Promise<Response>;
+      liveQueryWsHandler?: (
+        socket: WebSocket,
+        authPayload: { appId: string; sessionToken: string | undefined },
+      ) => void;
+      mediaWsHandler?: (
+        socket: WebSocket,
+        roomId: string,
+        authPayload: { appId: string; sessionToken: string | undefined },
+      ) => void;
+    }>
+  >();
 
   for (const appDef of apps) {
     const { engine, handler } = await createZenithApp(appDef.config);
@@ -507,7 +599,7 @@ if (import.meta.main) {
       if (!mountedApps.has(appDef.mountPath)) {
         mountedApps.set(appDef.mountPath, new Map());
       }
-      
+
       const realtimeApi = engine["realtime-pubsub"];
       const liveQueryWsHandler = realtimeApi?.handleWebSocket;
 
@@ -520,7 +612,11 @@ if (import.meta.main) {
       });
       console.log(`🔗 Mounted App ID '${appDef.config.appId}' at ${appDef.mountPath}`);
     } else {
-      console.log(`⚙️  Node ${appDef.config.appId} started without HTTP routing (Topology: ${appDef.config.topology?.join(',')})`);
+      console.log(
+        `⚙️  Node ${appDef.config.appId} started without HTTP routing (Topology: ${
+          appDef.config.topology?.join(",")
+        })`,
+      );
     }
 
     if (engine.runPendingMigrations) {
@@ -533,8 +629,9 @@ if (import.meta.main) {
 
     Deno.serve({ port }, async (req: Request, info: Deno.ServeHandlerInfo) => {
       const url = new URL(req.url);
-      const appIdHeader = req.headers.get("Zen-Application-Id") ?? req.headers.get("X-Parse-Application-Id") ?? url.searchParams.get("appId");
-      
+      const appIdHeader = req.headers.get("Zen-Application-Id") ??
+        req.headers.get("X-Parse-Application-Id") ?? url.searchParams.get("appId");
+
       if (req.method !== "OPTIONS") {
         console.log(`[RouterDebug] ${req.method} ${url.pathname} - appIdHeader: ${appIdHeader}`);
       }
@@ -542,14 +639,15 @@ if (import.meta.main) {
       for (const [mountPath, appHandlers] of mountedApps.entries()) {
         if (url.pathname.startsWith(mountPath)) {
           if (req.method === "OPTIONS") {
-             return new Response(null, {
-               status: 204,
-               headers: {
-                 "Access-Control-Allow-Origin": "*",
-                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                 "Access-Control-Allow-Headers": "Content-Type, Authorization, Zen-Application-Id, Zen-Master-Key, Zen-Session-Token, Zen-Api-Key, Zen-Tenant-Id, Zen-Workspace-Id, Zen-Client-Version, Zen-Installation-Id, Zen-JavaScript-Key, Zen-Client-Key, X-Parse-Application-Id, X-Parse-Master-Key, X-Parse-Session-Token, X-Parse-REST-API-Key, X-Parse-JavaScript-Key, X-Parse-Client-Key, X-Parse-Installation-Id, X-Parse-Client-Version"
-               }
-             });
+            return new Response(null, {
+              status: 204,
+              headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers":
+                  "Content-Type, Authorization, Zen-Application-Id, Zen-Master-Key, Zen-Session-Token, Zen-Api-Key, Zen-Tenant-Id, Zen-Workspace-Id, Zen-Client-Version, Zen-Installation-Id, Zen-JavaScript-Key, Zen-Client-Key, X-Parse-Application-Id, X-Parse-Master-Key, X-Parse-Session-Token, X-Parse-REST-API-Key, X-Parse-JavaScript-Key, X-Parse-Client-Key, X-Parse-Installation-Id, X-Parse-Client-Version",
+              },
+            });
           }
 
           let appEntry: typeof appHandlers extends Map<string, infer V> ? V : never = null as never;
@@ -561,13 +659,12 @@ if (import.meta.main) {
 
           if (appEntry) {
             if (req.headers.get("upgrade") === "websocket") {
-              const sessionToken =
-                req.headers.get("Zen-Session-Token") ??
+              const sessionToken = req.headers.get("Zen-Session-Token") ??
                 req.headers.get("X-Parse-Session-Token") ??
                 url.searchParams.get("sessionToken") ??
                 undefined;
 
-              const authPayload = { appId: appIdHeader ?? '', sessionToken };
+              const authPayload = { appId: appIdHeader ?? "", sessionToken };
 
               if (url.pathname.includes("/media/") && appEntry.mediaWsHandler) {
                 const { socket, response } = Deno.upgradeWebSocket(req);
@@ -584,7 +681,7 @@ if (import.meta.main) {
 
               return new Response(
                 JSON.stringify({ code: 107, error: "WebSocket endpoint not found or disabled." }),
-                { status: 400, headers: { "Content-Type": "application/json" } }
+                { status: 400, headers: { "Content-Type": "application/json" } },
               );
             }
 
@@ -594,37 +691,51 @@ if (import.meta.main) {
             // returns, such as signed file URLs). Set here, overwriting any value from the client.
             const forwardedHeaders = new Headers(req.headers);
             forwardedHeaders.set("x-forwarded-prefix", mountPath);
-            const newReq = new Request(newUrl.href, {
-              method: req.method,
-              headers: forwardedHeaders,
-              body: req.body,
-              duplex: "half",
-            } as RequestInit & { duplex: "half" });
+            const newReq = new Request(
+              newUrl.href,
+              {
+                method: req.method,
+                headers: forwardedHeaders,
+                body: req.body,
+                duplex: "half",
+              } as RequestInit & { duplex: "half" },
+            );
             // The pipeline reads the client address from here (master key only from localhost,
             // rate limits per client). Without it every request looked local.
-            (newReq as unknown as { __socketAddr: Deno.NetAddr }).__socketAddr = info.remoteAddr as Deno.NetAddr;
+            (newReq as unknown as { __socketAddr: Deno.NetAddr }).__socketAddr = info
+              .remoteAddr as Deno.NetAddr;
             return await appEntry.httpHandler(newReq);
           } else {
-             return new Response(JSON.stringify({ code: 212, error: "Invalid or missing Application ID for this mount path." }), { 
-               status: 403, 
-               headers: { 
-                 "Content-Type": "application/json",
-                 "Access-Control-Allow-Origin": "*",
-                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                 "Access-Control-Allow-Headers": "Content-Type, Authorization, Zen-Application-Id, Zen-Master-Key, Zen-Session-Token"
-               } 
-             });
+            return new Response(
+              JSON.stringify({
+                code: 212,
+                error: "Invalid or missing Application ID for this mount path.",
+              }),
+              {
+                status: 403,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                  "Access-Control-Allow-Headers":
+                    "Content-Type, Authorization, Zen-Application-Id, Zen-Master-Key, Zen-Session-Token",
+                },
+              },
+            );
           }
         }
       }
 
-      return new Response(JSON.stringify({ code: 101, error: "No Zenith App mounted at this path." }), { 
-        status: 404,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
-      });
+      return new Response(
+        JSON.stringify({ code: 101, error: "No Zenith App mounted at this path." }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
+      );
     });
 
     console.log(`🌐 Zenith Master Server listening on http://localhost:${port}`);

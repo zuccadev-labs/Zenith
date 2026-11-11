@@ -43,7 +43,9 @@ function isRoute(r: unknown): r is TraitRoute {
 }
 
 /** Every route the composed traits expose, with the capability it came from. */
-export function collectTraitRoutes(traits: Record<string, unknown>): Array<{ provider: string; route: TraitRoute }> {
+export function collectTraitRoutes(
+  traits: Record<string, unknown>,
+): Array<{ provider: string; route: TraitRoute }> {
   const out: Array<{ provider: string; route: TraitRoute }> = [];
   for (const [key, value] of Object.entries(traits)) {
     if (!isRoutesKey(key) || !Array.isArray(value)) continue;
@@ -57,10 +59,16 @@ export const HEALTH_ROUTE: TraitRoute = {
   method: "GET",
   path: "/health",
   access: "public",
-  _openapi: { tag: "Meta", summary: "Health check", responses: { "200": { description: "The server is up" } } },
+  _openapi: {
+    tag: "Meta",
+    summary: "Health check",
+    responses: { "200": { description: "The server is up" } },
+  },
 };
 
 /** Whether a trait already serves `GET /health` (then the router does not mount {@link HEALTH_ROUTE}). */
 export function hasTraitHealthRoute(routes: Array<{ route: TraitRoute }>): boolean {
-  return routes.some(({ route }) => route.method.toUpperCase() === "GET" && route.path === HEALTH_ROUTE.path);
+  return routes.some(({ route }) =>
+    route.method.toUpperCase() === "GET" && route.path === HEALTH_ROUTE.path
+  );
 }

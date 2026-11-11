@@ -25,7 +25,8 @@ export interface Caller {
   user: { objectId: string; roles: string[] } | null;
 }
 
-const fail = (code: ZenithErrorCode, msg: string, status = 400) => new ZenithError(code, msg, status);
+const fail = (code: ZenithErrorCode, msg: string, status = 400) =>
+  new ZenithError(code, msg, status);
 
 /** Parse class names; a leading `_` marks the server's own classes (`_User`, `_Session`…). */
 const CLASS_NAME = /^_?[A-Za-z][A-Za-z0-9_]{0,63}$/;
@@ -55,18 +56,41 @@ export const isServerClass = (name: string) => name.startsWith("_");
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
-const FIELD_OPS = new Set(["$lt", "$lte", "$gt", "$gte", "$ne", "$eq", "$in", "$nin", "$all", "$exists", "$regex", "$options"]);
-const GEO_OPS = new Set(["$nearSphere", "$maxDistanceInMiles", "$maxDistanceInKilometers", "$maxDistanceInRadians", "$within"]);
+const FIELD_OPS = new Set([
+  "$lt",
+  "$lte",
+  "$gt",
+  "$gte",
+  "$ne",
+  "$eq",
+  "$in",
+  "$nin",
+  "$all",
+  "$exists",
+  "$regex",
+  "$options",
+]);
+const GEO_OPS = new Set([
+  "$nearSphere",
+  "$maxDistanceInMiles",
+  "$maxDistanceInKilometers",
+  "$maxDistanceInRadians",
+  "$within",
+]);
 const LOGIC_OPS = new Set(["$or", "$and", "$nor"]);
 
 function checkValue(v: unknown, depth: number): void {
   if (depth > MAX_DEPTH) throw fail(ZenithErrorCode.INVALID_QUERY, "Query nested too deeply.");
   if (Array.isArray(v)) {
-    if (v.length > MAX_IN) throw fail(ZenithErrorCode.INVALID_QUERY, `At most ${MAX_IN} values per list.`);
+    if (v.length > MAX_IN) {
+      throw fail(ZenithErrorCode.INVALID_QUERY, `At most ${MAX_IN} values per list.`);
+    }
     for (const x of v) checkValue(x, depth + 1);
   } else if (v && typeof v === "object") {
     for (const [k, x] of Object.entries(v)) {
-      if (k.startsWith("$")) throw fail(ZenithErrorCode.INVALID_QUERY, `Operator ${k} is not allowed here.`);
+      if (k.startsWith("$")) {
+        throw fail(ZenithErrorCode.INVALID_QUERY, `Operator ${k} is not allowed here.`);
+      }
       checkValue(x, depth + 1);
     }
   }
@@ -84,9 +108,14 @@ function checkCondition(field: string, cond: unknown, depth: number): void {
       checkValue(op === "$within" ? { box: (v as Doc)?.$box } : v, depth + 1);
       continue;
     }
-    if (!FIELD_OPS.has(op)) throw fail(ZenithErrorCode.INVALID_QUERY, `Operator ${op} is not allowed.`);
+    if (!FIELD_OPS.has(op)) {
+      throw fail(ZenithErrorCode.INVALID_QUERY, `Operator ${op} is not allowed.`);
+    }
     if (op === "$regex" && (typeof v !== "string" || v.length > MAX_REGEX)) {
-      throw fail(ZenithErrorCode.INVALID_QUERY, `$regex must be a string of at most ${MAX_REGEX} characters.`);
+      throw fail(
+        ZenithErrorCode.INVALID_QUERY,
+        `$regex must be a string of at most ${MAX_REGEX} characters.`,
+      );
     }
     if (op === "$options" && (typeof v !== "string" || !/^[imxs]{0,4}$/.test(v))) {
       throw fail(ZenithErrorCode.INVALID_QUERY, "$options accepts i, m, x and s.");
@@ -98,12 +127,16 @@ function checkCondition(field: string, cond: unknown, depth: number): void {
 /** Validates a client `where`. Returns it unchanged (a fresh object) or throws 102/105. */
 export function clientWhere(where: unknown, depth = 0): Doc {
   if (where === undefined || where === null) return {};
-  if (typeof where !== "object" || Array.isArray(where)) throw fail(ZenithErrorCode.INVALID_QUERY, "where must be an object.");
+  if (typeof where !== "object" || Array.isArray(where)) {
+    throw fail(ZenithErrorCode.INVALID_QUERY, "where must be an object.");
+  }
   if (depth > MAX_DEPTH) throw fail(ZenithErrorCode.INVALID_QUERY, "Query nested too deeply.");
   const out: Doc = {};
   for (const [k, v] of Object.entries(where as Doc)) {
     if (LOGIC_OPS.has(k)) {
-      if (!Array.isArray(v) || v.length === 0 || v.length > 50) throw fail(ZenithErrorCode.INVALID_QUERY, `${k} takes 1 to 50 subqueries.`);
+      if (!Array.isArray(v) || v.length === 0 || v.length > 50) {
+        throw fail(ZenithErrorCode.INVALID_QUERY, `${k} takes 1 to 50 subqueries.`);
+      }
       out[k] = v.map((sub) => clientWhere(sub, depth + 1));
     } else if (k.startsWith("$")) {
       throw fail(ZenithErrorCode.INVALID_QUERY, `Operator ${k} is not allowed.`);
@@ -118,10 +151,14 @@ export function clientWhere(where: unknown, depth = 0): Doc {
 /** `order` as Parse sends it (`"-score,name"`), validated. */
 export function clientOrder(order: unknown): string | undefined {
   if (order === undefined || order === "") return undefined;
-  if (typeof order !== "string") throw fail(ZenithErrorCode.INVALID_QUERY, "order must be a string.");
+  if (typeof order !== "string") {
+    throw fail(ZenithErrorCode.INVALID_QUERY, "order must be a string.");
+  }
   for (const f of order.split(",")) {
     const name = f.replace(/^-/, "");
-    if (!FIELD_PATH.test(name) || name === "ACL") throw fail(ZenithErrorCode.INVALID_KEY_NAME, `Invalid order key: ${JSON.stringify(f)}.`);
+    if (!FIELD_PATH.test(name) || name === "ACL") {
+      throw fail(ZenithErrorCode.INVALID_KEY_NAME, `Invalid order key: ${JSON.stringify(f)}.`);
+    }
   }
   return order;
 }
@@ -129,17 +166,30 @@ export function clientOrder(order: unknown): string | undefined {
 export function clientPaging(limit: unknown, skip: unknown): { limit: number; skip: number } {
   const l = limit === undefined || limit === "" ? DEFAULT_LIMIT : Number(limit);
   const s = skip === undefined || skip === "" ? 0 : Number(skip);
-  if (!Number.isInteger(l) || l < 0) throw fail(ZenithErrorCode.INVALID_LIMIT_ERROR, "limit must be a non-negative integer.");
-  if (!Number.isInteger(s) || s < 0 || s > MAX_SKIP) throw fail(ZenithErrorCode.INVALID_SKIP_ERROR, `skip must be an integer from 0 to ${MAX_SKIP}.`);
+  if (!Number.isInteger(l) || l < 0) {
+    throw fail(ZenithErrorCode.INVALID_LIMIT_ERROR, "limit must be a non-negative integer.");
+  }
+  if (!Number.isInteger(s) || s < 0 || s > MAX_SKIP) {
+    throw fail(
+      ZenithErrorCode.INVALID_SKIP_ERROR,
+      `skip must be an integer from 0 to ${MAX_SKIP}.`,
+    );
+  }
   return { limit: Math.min(l, MAX_LIMIT), skip: s };
 }
 
 /** `include` / `keys` lists: comma-separated field names. */
 export function fieldList(v: unknown): string[] {
   if (v === undefined || v === "") return [];
-  if (typeof v !== "string") throw fail(ZenithErrorCode.INVALID_QUERY, "Expected a comma-separated list of fields.");
+  if (typeof v !== "string") {
+    throw fail(ZenithErrorCode.INVALID_QUERY, "Expected a comma-separated list of fields.");
+  }
   const names = v.split(",").map((s) => s.trim()).filter(Boolean);
-  for (const n of names) if (!FIELD_NAME.test(n)) throw fail(ZenithErrorCode.INVALID_KEY_NAME, `Invalid key: ${JSON.stringify(n)}.`);
+  for (const n of names) {
+    if (!FIELD_NAME.test(n)) {
+      throw fail(ZenithErrorCode.INVALID_KEY_NAME, `Invalid key: ${JSON.stringify(n)}.`);
+    }
+  }
   return names;
 }
 
@@ -147,17 +197,23 @@ export function fieldList(v: unknown): string[] {
 
 /** A Parse ACL, normalised to `true` flags only. Throws 123 if it is malformed. */
 export function normalizeAcl(acl: unknown): Acl {
-  if (!acl || typeof acl !== "object" || Array.isArray(acl)) throw fail(ZenithErrorCode.INVALID_ACL, "ACL must be an object.");
+  if (!acl || typeof acl !== "object" || Array.isArray(acl)) {
+    throw fail(ZenithErrorCode.INVALID_ACL, "ACL must be an object.");
+  }
   const out: Acl = {};
   for (const [who, perm] of Object.entries(acl as Doc)) {
-    const okWho = who === "*" || (who.startsWith("role:") ? ROLE_NAME.test(who.slice(5)) : /^[A-Za-z0-9_-]{1,128}$/.test(who));
+    const okWho = who === "*" ||
+      (who.startsWith("role:") ? ROLE_NAME.test(who.slice(5)) : /^[A-Za-z0-9_-]{1,128}$/.test(who));
     if (!okWho || !perm || typeof perm !== "object" || Array.isArray(perm)) {
       throw fail(ZenithErrorCode.INVALID_ACL, `Invalid ACL entry: ${JSON.stringify(who)}.`);
     }
     const e: { r?: true; w?: true } = {};
     for (const [k, v] of Object.entries(perm as Doc)) {
       if ((k !== "read" && k !== "write" && k !== "r" && k !== "w") || typeof v !== "boolean") {
-        throw fail(ZenithErrorCode.INVALID_ACL, `Invalid ACL permission for ${JSON.stringify(who)}.`);
+        throw fail(
+          ZenithErrorCode.INVALID_ACL,
+          `Invalid ACL permission for ${JSON.stringify(who)}.`,
+        );
       }
       if (v) e[k[0] as "r" | "w"] = true;
     }
@@ -176,7 +232,13 @@ export function defaultAcl(caller: Caller): Acl {
 }
 
 const principals = (caller: Caller) =>
-  caller.user ? ["*", caller.user.objectId, ...caller.user.roles.filter((r) => ROLE_NAME.test(r)).map((r) => `role:${r}`)] : ["*"];
+  caller.user
+    ? [
+      "*",
+      caller.user.objectId,
+      ...caller.user.roles.filter((r) => ROLE_NAME.test(r)).map((r) => `role:${r}`),
+    ]
+    : ["*"];
 
 /** Does `caller` hold `perm` on an object with `acl`? No ACL means public, as in Parse. */
 export function aclAllows(acl: unknown, perm: "r" | "w", caller: Caller): boolean {
@@ -189,7 +251,10 @@ export function aclAllows(acl: unknown, perm: "r" | "w", caller: Caller): boolea
 
 /** The read-ACL condition as a query, so the database filters before paging. */
 export function aclReadQuery(caller: Caller): Doc[] {
-  return [{ ACL: { $exists: false } }, ...principals(caller).map((p) => ({ [`ACL.${p}.r`]: true }))];
+  return [
+    { ACL: { $exists: false } },
+    ...principals(caller).map((p) => ({ [`ACL.${p}.r`]: true })),
+  ];
 }
 
 /** `where` restricted to what `caller` may read. */
@@ -220,10 +285,12 @@ export function clpAllows(clp: Doc | undefined, op: ClpOp, caller: Caller): bool
 
 function checkStored(v: unknown, depth: number): void {
   if (depth > 32) throw fail(ZenithErrorCode.INVALID_NESTED_KEY, "Object nested too deeply.");
-  if (Array.isArray(v)) for (const x of v) checkStored(x, depth + 1);
+  if (Array.isArray(v)) { for (const x of v) checkStored(x, depth + 1); }
   else if (v && typeof v === "object") {
     for (const [k, x] of Object.entries(v)) {
-      if (k.startsWith("$") || k.includes(".")) throw fail(ZenithErrorCode.INVALID_NESTED_KEY, `Invalid nested key: ${JSON.stringify(k)}.`);
+      if (k.startsWith("$") || k.includes(".")) {
+        throw fail(ZenithErrorCode.INVALID_NESTED_KEY, `Invalid nested key: ${JSON.stringify(k)}.`);
+      }
       checkStored(x, depth + 1);
     }
   }
@@ -234,7 +301,9 @@ function checkStored(v: unknown, depth: number): void {
  * `ACL` is normalised. Parse operations (`{__op: …}`) are kept for `applyOps`.
  */
 export function clientFields(body: unknown): Doc {
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw fail(ZenithErrorCode.INVALID_JSON, "The body must be a JSON object.");
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw fail(ZenithErrorCode.INVALID_JSON, "The body must be a JSON object.");
+  }
   const out: Doc = {};
   for (const [k, v] of Object.entries(body as Doc)) {
     if (SERVER_FIELDS.has(k)) continue;
@@ -242,14 +311,17 @@ export function clientFields(body: unknown): Doc {
       out.ACL = normalizeAcl(v);
       continue;
     }
-    if (!FIELD_NAME.test(k)) throw fail(ZenithErrorCode.INVALID_KEY_NAME, `Invalid field name: ${JSON.stringify(k)}.`);
+    if (!FIELD_NAME.test(k)) {
+      throw fail(ZenithErrorCode.INVALID_KEY_NAME, `Invalid field name: ${JSON.stringify(k)}.`);
+    }
     checkStored(v, 0);
     out[k] = v;
   }
   return out;
 }
 
-const isOp = (v: unknown): v is { __op: string } & Doc => !!v && typeof v === "object" && typeof (v as Doc).__op === "string";
+const isOp = (v: unknown): v is { __op: string } & Doc =>
+  !!v && typeof v === "object" && typeof (v as Doc).__op === "string";
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /**
@@ -271,8 +343,12 @@ export function applyOps(existing: Doc, data: Doc): { store: Doc; result: Doc } 
     const objects = Array.isArray(v.objects) ? v.objects : null;
     switch (v.__op) {
       case "Increment": {
-        if (typeof v.amount !== "number" || !Number.isFinite(v.amount)) throw fail(ZenithErrorCode.INVALID_JSON, "Increment needs a finite number amount.");
-        if (cur !== undefined && cur !== null && typeof cur !== "number") throw fail(ZenithErrorCode.INCORRECT_TYPE, `${k} is not a number.`);
+        if (typeof v.amount !== "number" || !Number.isFinite(v.amount)) {
+          throw fail(ZenithErrorCode.INVALID_JSON, "Increment needs a finite number amount.");
+        }
+        if (cur !== undefined && cur !== null && typeof cur !== "number") {
+          throw fail(ZenithErrorCode.INCORRECT_TYPE, `${k} is not a number.`);
+        }
         store[k] = { __op: "Increment", amount: v.amount };
         result[k] = (cur ?? 0) + v.amount;
         break;
@@ -284,19 +360,32 @@ export function applyOps(existing: Doc, data: Doc): { store: Doc; result: Doc } 
       case "Add":
       case "AddUnique":
       case "Remove": {
-        if (!objects || objects.length > MAX_IN) throw fail(ZenithErrorCode.INVALID_JSON, `${v.__op} needs an objects array of at most ${MAX_IN} items.`);
+        if (!objects || objects.length > MAX_IN) {
+          throw fail(
+            ZenithErrorCode.INVALID_JSON,
+            `${v.__op} needs an objects array of at most ${MAX_IN} items.`,
+          );
+        }
         checkStored(objects, 0);
-        if (cur !== undefined && cur !== null && !Array.isArray(cur)) throw fail(ZenithErrorCode.INCORRECT_TYPE, `${k} is not an array.`);
+        if (cur !== undefined && cur !== null && !Array.isArray(cur)) {
+          throw fail(ZenithErrorCode.INCORRECT_TYPE, `${k} is not an array.`);
+        }
         const arr: unknown[] = [...(cur ?? [])];
         if (v.__op === "Add") arr.push(...objects);
-        else if (v.__op === "AddUnique") for (const o of objects) { if (!arr.some((x) => same(x, o))) arr.push(o); }
-        else for (const o of objects) for (let i = arr.length - 1; i >= 0; i--) if (same(arr[i], o)) arr.splice(i, 1);
+        else if (v.__op === "AddUnique") {
+          for (const o of objects) if (!arr.some((x) => same(x, o))) arr.push(o);
+        } else {for (const o of objects) {
+            for (let i = arr.length - 1; i >= 0; i--) if (same(arr[i], o)) arr.splice(i, 1);
+          }}
         store[k] = v.__op === "Add" ? arr : { __op: v.__op, objects };
         result[k] = arr;
         break;
       }
       default:
-        throw fail(ZenithErrorCode.INVALID_JSON, `Unsupported operation ${JSON.stringify(v.__op)} on ${k}.`);
+        throw fail(
+          ZenithErrorCode.INVALID_JSON,
+          `Unsupported operation ${JSON.stringify(v.__op)} on ${k}.`,
+        );
     }
   }
   return { store, result };
@@ -318,7 +407,9 @@ export function triggerChanges(given: Doc, after: Doc): Doc {
     changes[k] = v === undefined ? { __op: "Delete" } : v;
   }
   for (const k of Object.keys(given)) {
-    if (!SERVER_OWNED.has(k) && !(k in after) && given[k] !== undefined) changes[k] = { __op: "Delete" };
+    if (!SERVER_OWNED.has(k) && !(k in after) && given[k] !== undefined) {
+      changes[k] = { __op: "Delete" };
+    }
   }
   return changes;
 }

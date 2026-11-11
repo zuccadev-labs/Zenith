@@ -5,30 +5,30 @@
  */
 
 export {
-  MetricRegistry,
-  type MetricType,
-  type Label,
-  type MetricSample,
   type HistogramBucket,
+  type Label,
+  labelKey,
+  MetricRegistry,
+  type MetricSample,
+  type MetricType,
   type RegistryOptions,
   type TimeSeries,
-  labelKey,
   validateLabelName,
 } from "./metric-registry.ts";
 
 export {
+  type LoggerLike,
   PrometheusRemoteWriter,
-  serializeToJson,
   type RemoteWriteConfig,
   type RemoteWriteState,
-  type LoggerLike,
+  serializeToJson,
 } from "./prometheus-remote-write.ts";
 
 export {
-  LokiShipper,
-  serializeToLokiJson,
   type LokiConfig,
-  type LokiState,
   type LokiLogEntry,
+  LokiShipper,
+  type LokiState,
   type LokiStream,
+  serializeToLokiJson,
 } from "./loki-shipper.ts";

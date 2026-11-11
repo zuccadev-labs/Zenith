@@ -8,34 +8,36 @@ export const ZENITH_TOOLS = [
     type: "function",
     function: {
       name: "get_server_status",
-      description: "Obtiene el estado actual del clúster de Zenith (uso de memoria, CPU, endpoints activos).",
+      description:
+        "Obtiene el estado actual del clúster de Zenith (uso de memoria, CPU, endpoints activos).",
       parameters: {
         type: "object",
         properties: {},
-        required: []
-      }
-    }
+        required: [],
+      },
+    },
   },
   {
     type: "function",
     function: {
       name: "call_zenith_job",
-      description: "Ejecuta un Cloud Job o Tarea Background en el clúster usando RunnerTrait/Webhooks.",
+      description:
+        "Ejecuta un Cloud Job o Tarea Background en el clúster usando RunnerTrait/Webhooks.",
       parameters: {
         type: "object",
         properties: {
           jobName: {
             type: "string",
-            description: "Nombre del job a ejecutar (ej. 'create_ldap_user', 'restart_pod')"
+            description: "Nombre del job a ejecutar (ej. 'create_ldap_user', 'restart_pod')",
           },
           payload: {
             type: "object",
-            description: "Diccionario JSON con los argumentos para el job."
-          }
+            description: "Diccionario JSON con los argumentos para el job.",
+          },
         },
-        required: ["jobName"]
-      }
-    }
+        required: ["jobName"],
+      },
+    },
   },
   {
     type: "function",
@@ -47,46 +49,47 @@ export const ZENITH_TOOLS = [
         properties: {
           endpoint: {
             type: "string",
-            description: "Endpoint ZMQ destino (ej. 'tcp://10.0.0.5:5555')"
+            description: "Endpoint ZMQ destino (ej. 'tcp://10.0.0.5:5555')",
           },
           command: {
             type: "string",
-            description: "El comando a ejecutar en el nodo remoto."
-          }
+            description: "El comando a ejecutar en el nodo remoto.",
+          },
         },
-        required: ["endpoint", "command"]
-      }
-    }
+        required: ["endpoint", "command"],
+      },
+    },
   },
   {
     type: "function",
     function: {
       name: "process_payment",
-      description: "Procesa un cobro al perfil de facturación de un usuario. Útil cuando el agente toma decisiones que requieren fondos.",
+      description:
+        "Procesa un cobro al perfil de facturación de un usuario. Útil cuando el agente toma decisiones que requieren fondos.",
       parameters: {
         type: "object",
         properties: {
           userId: {
             type: "string",
-            description: "ID del usuario a cobrar"
+            description: "ID del usuario a cobrar",
           },
           amount: {
             type: "number",
-            description: "Cantidad a cobrar en centavos (ej. 500 para $5.00)"
+            description: "Cantidad a cobrar en centavos (ej. 500 para $5.00)",
           },
           currency: {
             type: "string",
-            description: "Moneda del cobro (ej. 'usd')"
+            description: "Moneda del cobro (ej. 'usd')",
           },
           description: {
             type: "string",
-            description: "Razón del cobro (ej. 'Escalado de base de datos a Tier 2')"
-          }
+            description: "Razón del cobro (ej. 'Escalado de base de datos a Tier 2')",
+          },
         },
-        required: ["userId", "amount", "currency"]
-      }
-    }
-  }
+        required: ["userId", "amount", "currency"],
+      },
+    },
+  },
 ];
 
 export class ZenithAgentHarness {
@@ -106,15 +109,20 @@ export class ZenithAgentHarness {
     try {
       switch (toolName) {
         case "get_server_status":
-           return await this.getServerStatus();
+          return await this.getServerStatus();
         case "call_zenith_job":
-           return await this.callZenithJob(args.jobName, args.payload);
+          return await this.callZenithJob(args.jobName, args.payload);
         case "send_zeromq_command":
-           return await this.sendZmqCommand(args.endpoint, args.command);
+          return await this.sendZmqCommand(args.endpoint, args.command);
         case "process_payment":
-           return await this.processPayment(args.userId, args.amount, args.currency, args.description);
+          return await this.processPayment(
+            args.userId,
+            args.amount,
+            args.currency,
+            args.description,
+          );
         default:
-           throw new Error(`Tool no reconocida: ${toolName}`);
+          throw new Error(`Tool no reconocida: ${toolName}`);
       }
     } catch (e: any) {
       console.error(`[Agent] Tool execution fallida:`, e);
@@ -122,20 +130,25 @@ export class ZenithAgentHarness {
     }
   }
 
-  private async processPayment(userId: string, amount: number, currency: string, description?: string) {
-     const res = await fetch(`${this.serverUrl}/classes/_BillingProfile`, { // Mock, idealmente llamar a un endpoint interno o cloud function
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Zen-Master-Key": this.masterKey },
-        body: JSON.stringify({
-            userId,
-            action: "AGENT_DIRECT_CHARGE",
-            amount,
-            currency,
-            description
-        })
-     });
-     // Aquí idealmente ejecutaríamos cloud code o directamente el BillingTrait si estamos in-process
-     return { status: "Payment Dispatched", amount, currency, userId, description };
+  private async processPayment(
+    userId: string,
+    amount: number,
+    currency: string,
+    description?: string,
+  ) {
+    const res = await fetch(`${this.serverUrl}/classes/_BillingProfile`, { // Mock, idealmente llamar a un endpoint interno o cloud function
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Zen-Master-Key": this.masterKey },
+      body: JSON.stringify({
+        userId,
+        action: "AGENT_DIRECT_CHARGE",
+        amount,
+        currency,
+        description,
+      }),
+    });
+    // Aquí idealmente ejecutaríamos cloud code o directamente el BillingTrait si estamos in-process
+    return { status: "Payment Dispatched", amount, currency, userId, description };
   }
 
   private async getServerStatus() {
@@ -144,21 +157,21 @@ export class ZenithAgentHarness {
   }
 
   private async callZenithJob(jobName: string, payload: any = {}) {
-     const res = await fetch(`${this.serverUrl}/runner/webhook`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            masterKey: this.masterKey,
-            jobName,
-            payload
-        })
-     });
-     return await res.json();
+    const res = await fetch(`${this.serverUrl}/runner/webhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        masterKey: this.masterKey,
+        jobName,
+        payload,
+      }),
+    });
+    return await res.json();
   }
 
   private async sendZmqCommand(endpoint: string, command: string) {
-     // A través del CLI podríamos tener cargado el Trait de ZeroMQ.
-     // Esto demuestra el poder del desacoplamiento.
-     return { status: "Command dispatched over ZeroMQ", endpoint, command };
+    // A través del CLI podríamos tener cargado el Trait de ZeroMQ.
+    // Esto demuestra el poder del desacoplamiento.
+    return { status: "Command dispatched over ZeroMQ", endpoint, command };
   }
 }

@@ -9,11 +9,7 @@
 
 import { createHash } from "node:crypto";
 import { basename } from "@std/path";
-import type {
-  SignedPluginManifest,
-  VerificationResult,
-  VerifyOptions,
-} from "./types.ts";
+import type { SignedPluginManifest, VerificationResult, VerifyOptions } from "./types.ts";
 import { validateManifest } from "./manifest.ts";
 import { findKey } from "./trust-store.ts";
 import { verifyPluginSignature } from "./manifest.ts";
@@ -92,7 +88,8 @@ export async function verifyPlugin(
     return {
       ok: false,
       reason: "key_revoked",
-      detail: `keyId=${trustedKey.keyId} revokedAt=${trustedKey.revokedAt} reason=${trustedKey.revokedReason}`,
+      detail:
+        `keyId=${trustedKey.keyId} revokedAt=${trustedKey.revokedAt} reason=${trustedKey.revokedReason}`,
     };
   }
 

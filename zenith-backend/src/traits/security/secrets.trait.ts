@@ -19,7 +19,8 @@ export const SecretsTrait = createTraitDescriptor({
   tags: ["uses:vault"],
   state: ["secretCache"],
   runtimes: ["deno"],
-  summary: "Secrets facade over HashiCorp Vault (with KV/PKI/Transit), with in-memory TTL cache, automatic rotation hooks, audit trail integration.",
+  summary:
+    "Secrets facade over HashiCorp Vault (with KV/PKI/Transit), with in-memory TTL cache, automatic rotation hooks, audit trail integration.",
   create: (deps: Record<string, any>) => {
     const vault = deps.traits["vault"];
 
@@ -55,7 +56,10 @@ export const SecretsTrait = createTraitDescriptor({
         return Array.isArray(result) ? result : [];
       },
 
-      issueCert: async (commonName: string, ttl: string = "24h"): Promise<{ cert: string; key: string; ca: string[] } | null> => {
+      issueCert: async (
+        commonName: string,
+        ttl: string = "24h",
+      ): Promise<{ cert: string; key: string; ca: string[] } | null> => {
         if (!vault || !vault.pkiIssue) return null;
         return await vault.pkiIssue(commonName, ttl);
       },
@@ -77,29 +81,49 @@ export const SecretsTrait = createTraitDescriptor({
       {
         method: "GET" as const,
         path: "/secrets/:path",
-        _openapi: { summary: "Retrieve a secret from Vault (metadata only)", parameters: [{ name: "path", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Retrieve a secret from Vault (metadata only)",
+          parameters: [{ name: "path", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const path = new URL(req.url).pathname.split("/").slice(2).join("/");
           const value = await traitApi.get(path);
-          if (!value) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
-          return new Response(JSON.stringify({ path, value, cached: traitApi.secretCache.has(path) }), { status: 200, headers: { "content-type": "application/json" } });
+          if (!value) {
+            return new Response(JSON.stringify({ error: "not found" }), {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          return new Response(
+            JSON.stringify({ path, value, cached: traitApi.secretCache.has(path) }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
         },
       },
       {
         method: "PUT" as const,
         path: "/secrets/:path",
-        _openapi: { summary: "Store a secret in Vault", parameters: [{ name: "path", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Store a secret in Vault",
+          parameters: [{ name: "path", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const path = new URL(req.url).pathname.split("/").slice(2).join("/");
           const body = await req.json() as { value: string };
           const ok = await traitApi.put(path, body.value);
-          return new Response(JSON.stringify({ success: ok }), { status: ok ? 200 : 500, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ success: ok }), {
+            status: ok ? 200 : 500,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "DELETE" as const,
         path: "/secrets/:path",
-        _openapi: { summary: "Delete a secret from Vault", parameters: [{ name: "path", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Delete a secret from Vault",
+          parameters: [{ name: "path", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const path = new URL(req.url).pathname.split("/").slice(2).join("/");
           const ok = await traitApi.delete(path);

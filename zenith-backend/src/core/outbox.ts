@@ -45,15 +45,21 @@ export function isDue(r: OutboxRecord, now: number): boolean {
 }
 
 /** Si una instancia lo tiene ahora mismo. */
-export const isLeased = (r: OutboxRecord, now: number): boolean => !!r.leaseUntil && Date.parse(r.leaseUntil) > now;
+export const isLeased = (r: OutboxRecord, now: number): boolean =>
+  !!r.leaseUntil && Date.parse(r.leaseUntil) > now;
 
 /**
  * Reclama hasta `limit` registros vencidos de `cls`. Devuelve los que esta instancia ganó, con la
  * concesión ya puesta: el llamador los procesa y después los cierra o los reprograma (dejando
  * `leaseUntil: null`).
  */
-export async function claimDue<T extends OutboxRecord>(db: any, cls: string, opts: ClaimOptions<T>): Promise<T[]> {
-  const order = opts.order ?? ((a: T, b: T) => String(a.nextAttemptAt ?? "").localeCompare(String(b.nextAttemptAt ?? "")));
+export async function claimDue<T extends OutboxRecord>(
+  db: any,
+  cls: string,
+  opts: ClaimOptions<T>,
+): Promise<T[]> {
+  const order = opts.order ??
+    ((a: T, b: T) => String(a.nextAttemptAt ?? "").localeCompare(String(b.nextAttemptAt ?? "")));
   const due = ((await db.find(cls, { status: "pending", ...(opts.where ?? {}) })) as T[])
     .filter((r) => isDue(r, opts.now))
     .sort(order);
@@ -61,7 +67,11 @@ export async function claimDue<T extends OutboxRecord>(db: any, cls: string, opt
   for (const r of due) {
     if (claimed.length >= opts.limit) break;
     if (opts.accept && !(await opts.accept(r))) continue;
-    const won = await db.updateIf(cls, r.objectId, { attempts: r.attempts ?? 0, status: "pending", leaseUntil: r.leaseUntil ?? null }, {
+    const won = await db.updateIf(cls, r.objectId, {
+      attempts: r.attempts ?? 0,
+      status: "pending",
+      leaseUntil: r.leaseUntil ?? null,
+    }, {
       leaseUntil: iso(opts.now + opts.leaseMs),
     });
     if (won) claimed.push({ ...r, ...won });

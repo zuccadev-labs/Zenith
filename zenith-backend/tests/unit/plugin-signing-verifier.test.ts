@@ -15,15 +15,13 @@
 
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
 import { generateKeyPair } from "../../src/security/plugin-signing/keys.ts";
+import { buildPluginArtifact, signPlugin } from "../../src/security/plugin-signing/manifest.ts";
 import {
-  buildPluginArtifact,
-  signPlugin,
-} from "../../src/security/plugin-signing/manifest.ts";
-import { addKey, emptyTrustStore, findKeysByAuthor } from "../../src/security/plugin-signing/trust-store.ts";
-import {
-  validatePublicKey,
-  verifyPlugin,
-} from "../../src/security/plugin-signing/verifier.ts";
+  addKey,
+  emptyTrustStore,
+  findKeysByAuthor,
+} from "../../src/security/plugin-signing/trust-store.ts";
+import { validatePublicKey, verifyPlugin } from "../../src/security/plugin-signing/verifier.ts";
 import type {
   SignedPluginManifest,
   TrustedAuthorKey,
@@ -45,7 +43,10 @@ interface Fixture {
   pluginDir: string;
 }
 
-async function setupFixture(opts: { name?: string; authorId?: string; tamper?: "sig" | "sha" | "size" | "name" | "trust" } = {}): Promise<Fixture> {
+async function setupFixture(
+  opts: { name?: string; authorId?: string; tamper?: "sig" | "sha" | "size" | "name" | "trust" } =
+    {},
+): Promise<Fixture> {
   const kp = await generateKeyPair();
   const authorId = opts.authorId ?? "acme";
   const pluginName = opts.name ?? "myplugin.js";
@@ -66,7 +67,9 @@ async function setupFixture(opts: { name?: string; authorId?: string; tamper?: "
     atob(kp.publicKey),
     (c) => c.charCodeAt(0),
   );
-  const shortHash = Array.from(publicKeyBytes).slice(0, 4).map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  const shortHash = Array.from(publicKeyBytes).slice(0, 4).map((b) =>
+    b.toString(16).padStart(2, "0")
+  ).join("").toUpperCase();
   const keyId = `${authorId}-ed25519-${shortHash}`;
 
   // Build author with proper keyId

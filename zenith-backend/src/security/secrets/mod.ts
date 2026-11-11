@@ -5,9 +5,9 @@
  */
 
 export {
+  type KvV2Response,
+  type PkiIssueResponse,
   VaultClient,
   type VaultConfig,
   type VaultLogger,
-  type KvV2Response,
-  type PkiIssueResponse,
 } from "./vault-client.ts";

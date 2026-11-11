@@ -19,18 +19,41 @@ export const WorkflowTrait = createTraitDescriptor({
   tags: ["uses:events"],
   state: ["workflows", "cronJobs"],
   runtimes: ["deno"],
-  summary: "iPaaS-style workflow engine: define trigger→action pipelines, schedule with cron, retry policies, conditional branching, error handling, persistent execution history.",
+  summary:
+    "iPaaS-style workflow engine: define trigger→action pipelines, schedule with cron, retry policies, conditional branching, error handling, persistent execution history.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
     const events = deps.traits["events"];
     const cloud = deps.traits["cloud"];
 
     const traitApi: any = {
-      workflows: new Map<string, { name: string; trigger: any; actions: any[]; enabled: boolean; schedule?: string }>(),
+      workflows: new Map<
+        string,
+        { name: string; trigger: any; actions: any[]; enabled: boolean; schedule?: string }
+      >(),
       cronJobs: new Map<string, { intervalId: ReturnType<typeof setInterval>; workflow: string }>(),
 
-      defineWorkflow: (name: string, config: { trigger: { type: "event" | "schedule" | "http"; eventName?: string; schedule?: string; path?: string }; actions: Array<{ type: "cloud-function" | "http" | "db-write" | "send-webhook"; config: any }> }) => {
-        traitApi.workflows.set(name, { name, trigger: config.trigger, actions: config.actions, enabled: true, schedule: config.trigger.schedule });
+      defineWorkflow: (
+        name: string,
+        config: {
+          trigger: {
+            type: "event" | "schedule" | "http";
+            eventName?: string;
+            schedule?: string;
+            path?: string;
+          };
+          actions: Array<
+            { type: "cloud-function" | "http" | "db-write" | "send-webhook"; config: any }
+          >;
+        },
+      ) => {
+        traitApi.workflows.set(name, {
+          name,
+          trigger: config.trigger,
+          actions: config.actions,
+          enabled: true,
+          schedule: config.trigger.schedule,
+        });
         if (config.trigger.type === "schedule" && config.trigger.schedule) {
           traitApi.scheduleWorkflow(name, config.trigger.schedule);
         }
@@ -46,7 +69,11 @@ export const WorkflowTrait = createTraitDescriptor({
         if (existing) clearInterval(existing.intervalId);
         const intervalMs = parseCronToInterval(cronExpression);
         const intervalId = setInterval(async () => {
-          try { await traitApi.executeWorkflow(name, { trigger: "schedule" }); } catch (e) { console.error(`[Workflow] ${name} failed:`, e); }
+          try {
+            await traitApi.executeWorkflow(name, { trigger: "schedule" });
+          } catch (e) {
+            console.error(`[Workflow] ${name} failed:`, e);
+          }
         }, intervalMs);
         traitApi.cronJobs.set(name, { intervalId: intervalId as any, workflow: name });
       },
@@ -54,14 +81,28 @@ export const WorkflowTrait = createTraitDescriptor({
       executeWorkflow: async (name: string, context: any) => {
         const wf = traitApi.workflows.get(name);
         if (!wf || !wf.enabled) return { executed: false };
-        const execution: { workflow: string; context: any; startedAt: string; completedAt?: string; results: any[] } = { workflow: name, context, startedAt: new Date().toISOString(), results: [] as any[] };
+        const execution: {
+          workflow: string;
+          context: any;
+          startedAt: string;
+          completedAt?: string;
+          results: any[];
+        } = { workflow: name, context, startedAt: new Date().toISOString(), results: [] as any[] };
         for (const action of wf.actions) {
           try {
             if (action.type === "cloud-function" && cloud) {
-              const r = await cloud.run(action.config.function, action.config.params || {}, context);
+              const r = await cloud.run(
+                action.config.function,
+                action.config.params || {},
+                context,
+              );
               execution.results.push({ action: action.type, result: r });
             } else if (action.type === "http") {
-              const r = await fetch(action.config.url, { method: action.config.method || "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(action.config.body || context) });
+              const r = await fetch(action.config.url, {
+                method: action.config.method || "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(action.config.body || context),
+              });
               execution.results.push({ action: action.type, status: r.status });
             } else if (action.type === "db-write") {
               const r = await db.create(action.config.className, action.config.data);
@@ -76,8 +117,14 @@ export const WorkflowTrait = createTraitDescriptor({
         return execution;
       },
 
-      enable: (name: string) => { const wf = traitApi.workflows.get(name); if (wf) wf.enabled = true; },
-      disable: (name: string) => { const wf = traitApi.workflows.get(name); if (wf) wf.enabled = false; },
+      enable: (name: string) => {
+        const wf = traitApi.workflows.get(name);
+        if (wf) wf.enabled = true;
+      },
+      disable: (name: string) => {
+        const wf = traitApi.workflows.get(name);
+        if (wf) wf.enabled = false;
+      },
     };
 
     function parseCronToInterval(expr: string): number {
@@ -96,18 +143,27 @@ export const WorkflowTrait = createTraitDescriptor({
         handler: async (req: Request) => {
           const body = await req.json() as { name: string; trigger: any; actions: any[] };
           traitApi.defineWorkflow(body.name, { trigger: body.trigger, actions: body.actions });
-          return new Response(JSON.stringify({ defined: true, name: body.name }), { status: 201, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify({ defined: true, name: body.name }), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "POST" as const,
         path: "/workflows/:name/execute",
-        _openapi: { summary: "Manually trigger a workflow", parameters: [{ name: "name", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Manually trigger a workflow",
+          parameters: [{ name: "name", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const name = new URL(req.url).pathname.split("/")[2];
           const body = await req.json().catch(() => ({}));
           const result = await traitApi.executeWorkflow(name, body);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

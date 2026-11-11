@@ -4,7 +4,7 @@
  *
  * Cada paso del pipeline es una función pura que recibe un contexto inmutable
  * y retorna un nuevo contexto transformado o lanza un ZenithError.
- * 
+ *
  * Inspirado en composePipeline de @zuccadev-labs/barrits pero especializado
  * para el ciclo de vida de una request HTTP en Zenith.
  */
@@ -12,7 +12,7 @@
 import type { ZenithRequestContext } from "./types.ts";
 import { ZenithError, ZenithErrors } from "./errors.ts";
 import type { ApiKeyManager } from "../security/api-keys/manager.ts";
-import { PerKeyRateLimiter, extractAndVerifyKey } from "../security/api-keys/middleware.ts";
+import { extractAndVerifyKey, PerKeyRateLimiter } from "../security/api-keys/middleware.ts";
 import { timingSafeEqualString } from "./crypto.ts";
 
 // ─── Tipos del Pipeline ────────────────────────────────────────────────────────
@@ -100,136 +100,154 @@ export function extractContext(
     req: Request,
     _ctx: ZenithRequestContext,
   ): Promise<ZenithRequestContext> => {
-  const headers = req.headers;
-  const url = new URL(req.url);
+    const headers = req.headers;
+    const url = new URL(req.url);
 
-  // ── Resolución Segura de IP del Cliente (H-02) ────────────────────────────
-  // La IP real viene del socket TCP, inyectada por Deno.serve como __socketAddr.
-  // NO confiamos en X-Forwarded-For a menos que la petición llegue de un proxy
-  // cuya IP esté en trustedProxies (ej. Nginx, Cloudflare, AWS ALB).
-  // Unknown address (a server that did not pass it) is "unknown", never local: before, it became
-  // 0.0.0.0, which counted as localhost, so the master key worked from anywhere.
-  const socketIp: string = (req as any).__socketAddr?.hostname ?? "unknown";
-  let resolvedClientIp = socketIp;
+    // ── Resolución Segura de IP del Cliente (H-02) ────────────────────────────
+    // La IP real viene del socket TCP, inyectada por Deno.serve como __socketAddr.
+    // NO confiamos en X-Forwarded-For a menos que la petición llegue de un proxy
+    // cuya IP esté en trustedProxies (ej. Nginx, Cloudflare, AWS ALB).
+    // Unknown address (a server that did not pass it) is "unknown", never local: before, it became
+    // 0.0.0.0, which counted as localhost, so the master key worked from anywhere.
+    const socketIp: string = (req as any).__socketAddr?.hostname ?? "unknown";
+    let resolvedClientIp = socketIp;
 
-  if (proxies.length > 0 && proxies.includes(socketIp)) {
-    // Solo confiamos en el header si viene de un proxy autorizado
-    const forwarded = headers.get("X-Forwarded-For") || headers.get("CF-Connecting-IP");
-    if (forwarded) {
-      // X-Forwarded-For puede ser una lista "client, proxy1, proxy2" — tomamos el primero
-      resolvedClientIp = forwarded.split(",")[0].trim();
+    if (proxies.length > 0 && proxies.includes(socketIp)) {
+      // Solo confiamos en el header si viene de un proxy autorizado
+      const forwarded = headers.get("X-Forwarded-For") || headers.get("CF-Connecting-IP");
+      if (forwarded) {
+        // X-Forwarded-For puede ser una lista "client, proxy1, proxy2" — tomamos el primero
+        resolvedClientIp = forwarded.split(",")[0].trim();
+      }
     }
-  }
 
-  const isLocalhost = resolvedClientIp === "127.0.0.1" || resolvedClientIp === "::1" || resolvedClientIp === "::ffff:127.0.0.1";
+    const isLocalhost = resolvedClientIp === "127.0.0.1" || resolvedClientIp === "::1" ||
+      resolvedClientIp === "::ffff:127.0.0.1";
 
-  let isMasterKeyValid = false;
-  let apiKeyCtx: Awaited<ReturnType<typeof extractAndVerifyKey>> | null = null;
+    let isMasterKeyValid = false;
+    let apiKeyCtx: Awaited<ReturnType<typeof extractAndVerifyKey>> | null = null;
 
-  // ── Zero-Trust JWT MasterKey Authentication (H-03 mejorado) ───────────────
-  const internalToken = headers.get("Zen-Internal-Token");
-  if (internalToken && publicKeyStr) {
-    try {
-      const nodeCrypto = await import("node:crypto");
-      const parts = internalToken.split('.');
-      if (parts.length === 3) {
-        // Verificar firma RSA-SHA256
-        const verify = nodeCrypto.createVerify('RSA-SHA256');
-        verify.update(`${parts[0]}.${parts[1]}`);
-        verify.end();
-        const signature = parts[2].replace(/-/g, '+').replace(/_/g, '/');
-        const isSignatureValid = verify.verify(publicKeyStr, signature, 'base64');
+    // ── Zero-Trust JWT MasterKey Authentication (H-03 mejorado) ───────────────
+    const internalToken = headers.get("Zen-Internal-Token");
+    if (internalToken && publicKeyStr) {
+      try {
+        const nodeCrypto = await import("node:crypto");
+        const parts = internalToken.split(".");
+        if (parts.length === 3) {
+          // Verificar firma RSA-SHA256
+          const verify = nodeCrypto.createVerify("RSA-SHA256");
+          verify.update(`${parts[0]}.${parts[1]}`);
+          verify.end();
+          const signature = parts[2].replace(/-/g, "+").replace(/_/g, "/");
+          const isSignatureValid = verify.verify(publicKeyStr, signature, "base64");
 
-        if (isSignatureValid) {
-          // [H-03] Decodificar y validar claims del payload
-          const payloadJson = Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');
-          const payload = JSON.parse(payloadJson);
+          if (isSignatureValid) {
+            // [H-03] Decodificar y validar claims del payload
+            const payloadJson = Buffer.from(
+              parts[1].replace(/-/g, "+").replace(/_/g, "/"),
+              "base64",
+            ).toString("utf-8");
+            const payload = JSON.parse(payloadJson);
 
-          const nowSeconds = Math.floor(Date.now() / 1000);
-          const clockSkewSeconds = 30; // Tolerancia de reloj de 30 segundos
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const clockSkewSeconds = 30; // Tolerancia de reloj de 30 segundos
 
-          // Verificar expiración (exp)
-          if (payload.exp && nowSeconds > payload.exp + clockSkewSeconds) {
-            console.warn(`[SecOps] JWT rechazado: token expirado (exp=${payload.exp}, now=${nowSeconds})`);
-          }
-          // Verificar issued-at no es del futuro (iat)
-          else if (payload.iat && payload.iat > nowSeconds + clockSkewSeconds) {
-            console.warn(`[SecOps] JWT rechazado: token emitido en el futuro (iat=${payload.iat}, now=${nowSeconds})`);
-          }
-          // Verificar sub está presente (identidad del nodo)
-          else if (!payload.sub) {
-            console.warn(`[SecOps] JWT rechazado: falta el claim 'sub' (identidad del nodo emisor)`);
-          }
-          else {
-            isMasterKeyValid = true;
+            // Verificar expiración (exp)
+            if (payload.exp && nowSeconds > payload.exp + clockSkewSeconds) {
+              console.warn(
+                `[SecOps] JWT rechazado: token expirado (exp=${payload.exp}, now=${nowSeconds})`,
+              );
+            } // Verificar issued-at no es del futuro (iat)
+            else if (payload.iat && payload.iat > nowSeconds + clockSkewSeconds) {
+              console.warn(
+                `[SecOps] JWT rechazado: token emitido en el futuro (iat=${payload.iat}, now=${nowSeconds})`,
+              );
+            } // Verificar sub está presente (identidad del nodo)
+            else if (!payload.sub) {
+              console.warn(
+                `[SecOps] JWT rechazado: falta el claim 'sub' (identidad del nodo emisor)`,
+              );
+            } else {
+              isMasterKeyValid = true;
+            }
           }
         }
+      } catch (_e) {
+        // Fallo silencioso — no conceder acceso
       }
-    } catch (_e) {
-      // Fallo silencioso — no conceder acceso
     }
-  }
 
-  // ── API Key Authentication (Stripe-style) — método preferido ────────────
-  // [H-2/H-3 mitigation] Si hay un apiKeyManager configurado, intentar
-  // autenticar primero con API key. Si es válida, setea ctx.apiKey y
-  // concede acceso. NO se requiere master key.
-  if (apiKeyManager) {
-    apiKeyCtx = await extractAndVerifyKey(
-      headers,
-      apiKeyManager,
-      rateLimiterInstance,
-      { resolveClientIp: () => resolvedClientIp, audit: doAudit },
-    );
-    if (expectedAppId && apiKeyCtx?.record && !apiKeyCtx.reason && apiKeyCtx.record.appId !== expectedAppId) {
-      apiKeyCtx = { ...apiKeyCtx, reason: "wrong_app" };
+    // ── API Key Authentication (Stripe-style) — método preferido ────────────
+    // [H-2/H-3 mitigation] Si hay un apiKeyManager configurado, intentar
+    // autenticar primero con API key. Si es válida, setea ctx.apiKey y
+    // concede acceso. NO se requiere master key.
+    if (apiKeyManager) {
+      apiKeyCtx = await extractAndVerifyKey(
+        headers,
+        apiKeyManager,
+        rateLimiterInstance,
+        { resolveClientIp: () => resolvedClientIp, audit: doAudit },
+      );
+      if (
+        expectedAppId && apiKeyCtx?.record && !apiKeyCtx.reason &&
+        apiKeyCtx.record.appId !== expectedAppId
+      ) {
+        apiKeyCtx = { ...apiKeyCtx, reason: "wrong_app" };
+      }
     }
-  }
 
-  // ── Legacy Static MasterKey (Restringida a red interna / Localhost) ────────
-  // [H-02] Ahora usamos resolvedClientIp (IP real del socket), no X-Forwarded-For.
-  // [H-3 mitigation] Si ya se autenticó vía API key, NO se considera master key.
-  // Solo aplica si la API key falló o no estaba presente.
-  const providedMasterKey = headers.get("Zen-Master-Key") ?? headers.get("X-Parse-Master-Key");
-  const authenticatedByApiKey = !!(apiKeyCtx?.record && !apiKeyCtx.reason);
-  if (!isMasterKeyValid && !authenticatedByApiKey && providedMasterKey) {
-    if (!isLocalhost) {
-      console.warn(`[SecOps] 🛡️ Bloqueado uso de MasterKey estática desde IP externa: ${resolvedClientIp}. Usa Zen-Internal-Token (JWT RSA) para acceso de red.`);
-    } else {
-      // Tiempo constante, también respecto a la longitud (core/crypto.ts).
-      isMasterKeyValid = await timingSafeEqualString(providedMasterKey, configMasterKey);
+    // ── Legacy Static MasterKey (Restringida a red interna / Localhost) ────────
+    // [H-02] Ahora usamos resolvedClientIp (IP real del socket), no X-Forwarded-For.
+    // [H-3 mitigation] Si ya se autenticó vía API key, NO se considera master key.
+    // Solo aplica si la API key falló o no estaba presente.
+    const providedMasterKey = headers.get("Zen-Master-Key") ?? headers.get("X-Parse-Master-Key");
+    const authenticatedByApiKey = !!(apiKeyCtx?.record && !apiKeyCtx.reason);
+    if (!isMasterKeyValid && !authenticatedByApiKey && providedMasterKey) {
+      if (!isLocalhost) {
+        console.warn(
+          `[SecOps] 🛡️ Bloqueado uso de MasterKey estática desde IP externa: ${resolvedClientIp}. Usa Zen-Internal-Token (JWT RSA) para acceso de red.`,
+        );
+      } else {
+        // Tiempo constante, también respecto a la longitud (core/crypto.ts).
+        isMasterKeyValid = await timingSafeEqualString(providedMasterKey, configMasterKey);
+      }
     }
-  }
 
-  return {
-    clientIp: resolvedClientIp,
-    appId: headers.get("Zen-Application-Id") ?? headers.get("X-Parse-Application-Id") ?? url.searchParams.get("appId") ?? "",
-    masterKey: isMasterKeyValid ? true : undefined,
-    apiKey: authenticatedByApiKey && apiKeyCtx?.record ? {
-      id: apiKeyCtx.record.id,
-      prefix: apiKeyCtx.record.prefix,
-      env: apiKeyCtx.record.env,
-      appId: apiKeyCtx.record.appId,
-      name: apiKeyCtx.record.name,
-      scopes: apiKeyCtx.scopes ?? apiKeyCtx.record.scopes,
-      rateLimit: apiKeyCtx.record.rateLimit,
-    } : undefined,
-    // Solo marcamos `apiKeyRejected` si la request NO se autenticó por API key
-    // (incluyendo el caso "no se proveyó key"). Si autenticó OK, queda undefined.
-    apiKeyRejected: !authenticatedByApiKey
-      ? (apiKeyManager ? (apiKeyCtx?.reason ?? "no_key_provided") : undefined)
-      : undefined,
-    sessionToken: headers.get("Zen-Session-Token") ?? headers.get("X-Parse-Session-Token") ?? undefined,
-    clientVersion: headers.get("Zen-Client-Version") ?? headers.get("X-Parse-Client-Version") ?? undefined,
-    installationId: headers.get("Zen-Installation-Id") ?? headers.get("X-Parse-Installation-Id") ?? undefined,
-    tenantId: headers.get("Zen-Tenant-Id") ?? undefined,
-    workspaceId: headers.get("Zen-Workspace-Id") ?? undefined,
-    javascriptKey: headers.get("Zen-JavaScript-Key") ?? headers.get("X-Parse-JavaScript-Key") ?? undefined,
-    clientKey: headers.get("Zen-Client-Key") ?? headers.get("X-Parse-Client-Key") ?? undefined,
+    return {
+      clientIp: resolvedClientIp,
+      appId: headers.get("Zen-Application-Id") ?? headers.get("X-Parse-Application-Id") ??
+        url.searchParams.get("appId") ?? "",
+      masterKey: isMasterKeyValid ? true : undefined,
+      apiKey: authenticatedByApiKey && apiKeyCtx?.record
+        ? {
+          id: apiKeyCtx.record.id,
+          prefix: apiKeyCtx.record.prefix,
+          env: apiKeyCtx.record.env,
+          appId: apiKeyCtx.record.appId,
+          name: apiKeyCtx.record.name,
+          scopes: apiKeyCtx.scopes ?? apiKeyCtx.record.scopes,
+          rateLimit: apiKeyCtx.record.rateLimit,
+        }
+        : undefined,
+      // Solo marcamos `apiKeyRejected` si la request NO se autenticó por API key
+      // (incluyendo el caso "no se proveyó key"). Si autenticó OK, queda undefined.
+      apiKeyRejected: !authenticatedByApiKey
+        ? (apiKeyManager ? (apiKeyCtx?.reason ?? "no_key_provided") : undefined)
+        : undefined,
+      sessionToken: headers.get("Zen-Session-Token") ?? headers.get("X-Parse-Session-Token") ??
+        undefined,
+      clientVersion: headers.get("Zen-Client-Version") ?? headers.get("X-Parse-Client-Version") ??
+        undefined,
+      installationId: headers.get("Zen-Installation-Id") ??
+        headers.get("X-Parse-Installation-Id") ?? undefined,
+      tenantId: headers.get("Zen-Tenant-Id") ?? undefined,
+      workspaceId: headers.get("Zen-Workspace-Id") ?? undefined,
+      javascriptKey: headers.get("Zen-JavaScript-Key") ?? headers.get("X-Parse-JavaScript-Key") ??
+        undefined,
+      clientKey: headers.get("Zen-Client-Key") ?? headers.get("X-Parse-Client-Key") ?? undefined,
+    };
   };
-};
 }
-
 
 /**
  * Helper para extraer el token de sesión de los headers o del contexto base.
@@ -286,7 +304,7 @@ export function validateAppId(validAppId: string): PipelineStep {
 export function resolveAuthentication(authService: any): PipelineStep {
   return async (req: Request, ctx: ZenithRequestContext) => {
     const token = extractSessionToken(req, ctx);
-    
+
     if (token) {
       try {
         // `await`: verifySession is asynchronous (engine-auth sessions); a sync result passes through.
@@ -296,8 +314,8 @@ export function resolveAuthentication(authService: any): PipelineStep {
           // Resolver recursivamente los roles (Jerarquía de Roles de Fase 16)
           let roles = payload.roles || [];
           if (authService.resolveUserRoles) {
-             const inheritedRoles = await authService.resolveUserRoles(userId);
-             roles = Array.from(new Set([...roles, ...inheritedRoles]));
+            const inheritedRoles = await authService.resolveUserRoles(userId);
+            roles = Array.from(new Set([...roles, ...inheritedRoles]));
           }
 
           return {
@@ -311,7 +329,7 @@ export function resolveAuthentication(authService: any): PipelineStep {
               sessionId: payload.sessionId,
               actor: payload.actor,
               via: payload.via,
-            }
+            },
           };
         }
       } catch (_e) {
@@ -346,11 +364,15 @@ export function applyRateLimit(rateLimiter: any): PipelineStep {
     const identifier = ctx.clientIp ?? "unknown";
 
     // Endpoints de autenticación: cuota estricta contra fuerza bruta
-    const isSensitive = url.pathname === "/login" || (url.pathname === "/users" && req.method === "POST");
+    const isSensitive = url.pathname === "/login" ||
+      (url.pathname === "/users" && req.method === "POST");
     const limit = isSensitive ? AUTH_MAX : GLOBAL_MAX;
     const bucket = `${isSensitive ? "auth" : "api"}:${identifier}`;
 
-    const r = await rateLimiter.consume(bucket, 1, { max: limit, refillPerSecond: limit / (WINDOW_MS / 1000) });
+    const r = await rateLimiter.consume(bucket, 1, {
+      max: limit,
+      refillPerSecond: limit / (WINDOW_MS / 1000),
+    });
     if (!r.allowed) throw ZenithErrors.rateLimited();
     return ctx;
   };
@@ -428,14 +450,14 @@ export function createRequestHandler(
       // Error inesperado (Sanitized for Enterprise Security)
       console.error("[ZenithRouter] Unhandled Error:", err);
       const internal = ZenithErrors.internal(
-        "An internal server error occurred. Please try again later."
+        "An internal server error occurred. Please try again later.",
       );
-      
+
       const internalHeaders = new Headers({ "Content-Type": "application/json" });
       for (const [k, v] of Object.entries(corsHeaders)) {
         internalHeaders.set(k, v);
       }
-      
+
       return new Response(JSON.stringify(internal.toJSON()), {
         status: 500,
         headers: internalHeaders,

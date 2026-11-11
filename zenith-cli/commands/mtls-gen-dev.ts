@@ -76,7 +76,9 @@ export async function runMtlsGenDev(argv: string[] = Deno.args): Promise<void> {
     console.error("❌ openssl not found on PATH.");
     console.error("");
     console.error("Install OpenSSL:");
-    console.error("  Windows:  choco install openssl   OR   download from https://slproweb.com/products/Win32OpenSSL.html");
+    console.error(
+      "  Windows:  choco install openssl   OR   download from https://slproweb.com/products/Win32OpenSSL.html",
+    );
     console.error("  macOS:    brew install openssl");
     console.error("  Linux:    sudo apt install openssl  (Debian/Ubuntu)");
     console.error("            sudo dnf install openssl  (Fedora)");
@@ -111,22 +113,41 @@ export async function runMtlsGenDev(argv: string[] = Deno.args): Promise<void> {
 
   // Step 1: CA key + self-signed CA cert
   await runOpenssl([
-    "req", "-x509", "-newkey", "rsa:4096", "-nodes",
-    "-keyout", caKey, "-out", caPem,
-    "-days", "365", "-subj", "/CN=Zenith Dev CA",
-    "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0",
+    "req",
+    "-x509",
+    "-newkey",
+    "rsa:4096",
+    "-nodes",
+    "-keyout",
+    caKey,
+    "-out",
+    caPem,
+    "-days",
+    "365",
+    "-subj",
+    "/CN=Zenith Dev CA",
+    "-addext",
+    "basicConstraints=critical,CA:TRUE,pathlen:0",
   ]);
   console.log(`✅ CA cert:           ${caPem}`);
 
   // Step 2: Server key + CSR
   await runOpenssl([
-    "req", "-newkey", "rsa:2048", "-nodes",
-    "-keyout", serverKey, "-out", serverCsr,
-    "-subj", `/CN=${cn}`,
+    "req",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-keyout",
+    serverKey,
+    "-out",
+    serverCsr,
+    "-subj",
+    `/CN=${cn}`,
   ]);
 
   // Server SAN config (localhost, 127.0.0.1, ::1)
-  await Deno.writeTextFile(serverExt,
+  await Deno.writeTextFile(
+    serverExt,
     `authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
@@ -143,21 +164,41 @@ IP.2  = ::1
 
   // Step 3: Sign server cert with CA
   await runOpenssl([
-    "x509", "-req", "-in", serverCsr, "-CA", caPem, "-CAkey", caKey,
-    "-CAcreateserial", "-out", serverPem, "-days", days,
-    "-extfile", serverExt,
+    "x509",
+    "-req",
+    "-in",
+    serverCsr,
+    "-CA",
+    caPem,
+    "-CAkey",
+    caKey,
+    "-CAcreateserial",
+    "-out",
+    serverPem,
+    "-days",
+    days,
+    "-extfile",
+    serverExt,
   ]);
   console.log(`✅ Server cert:       ${serverPem}`);
   console.log(`✅ Server key:        ${serverKey}`);
 
   // Step 4: Client key + CSR
   await runOpenssl([
-    "req", "-newkey", "rsa:2048", "-nodes",
-    "-keyout", clientKey, "-out", clientCsr,
-    "-subj", `/CN=${cn}-client`,
+    "req",
+    "-newkey",
+    "rsa:2048",
+    "-nodes",
+    "-keyout",
+    clientKey,
+    "-out",
+    clientCsr,
+    "-subj",
+    `/CN=${cn}-client`,
   ]);
 
-  await Deno.writeTextFile(clientExt,
+  await Deno.writeTextFile(
+    clientExt,
     `authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
@@ -168,9 +209,21 @@ subjectAltName = DNS:${cn}-client
 
   // Step 5: Sign client cert with CA
   await runOpenssl([
-    "x509", "-req", "-in", clientCsr, "-CA", caPem, "-CAkey", caKey,
-    "-CAcreateserial", "-out", clientPem, "-days", days,
-    "-extfile", clientExt,
+    "x509",
+    "-req",
+    "-in",
+    clientCsr,
+    "-CA",
+    caPem,
+    "-CAkey",
+    caKey,
+    "-CAcreateserial",
+    "-out",
+    clientPem,
+    "-days",
+    days,
+    "-extfile",
+    clientExt,
   ]);
   console.log(`✅ Client cert:       ${clientPem}`);
   console.log(`✅ Client key:        ${clientKey}`);
@@ -191,7 +244,9 @@ subjectAltName = DNS:${cn}-client
 
   // Cleanup CSR + ext files
   for (const f of [serverCsr, serverExt, clientCsr, clientExt, `${caPem}.srl`]) {
-    try { await Deno.remove(f); } catch { /* ignore */ }
+    try {
+      await Deno.remove(f);
+    } catch { /* ignore */ }
   }
 }
 

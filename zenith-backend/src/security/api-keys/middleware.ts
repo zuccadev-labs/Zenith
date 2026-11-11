@@ -28,7 +28,7 @@ import type { ApiKeyRecord, ApiKeyScope } from "./types.ts";
 // ─── Rate limiter (sliding window in-memory) ─────────────────────────────────
 
 interface RateLimitEntry {
-  timestamps: number[];  // últimos N timestamps
+  timestamps: number[]; // últimos N timestamps
 }
 
 /**
@@ -43,7 +43,7 @@ export class PerKeyRateLimiter {
    */
   check(record: ApiKeyRecord, now = Date.now()): boolean {
     const limit = record.rateLimit.requestsPerMinute;
-    if (limit <= 0) return true;  // 0 o negativo = sin límite
+    if (limit <= 0) return true; // 0 o negativo = sin límite
 
     let entry = this.windows.get(record.id);
     if (!entry) {
@@ -53,7 +53,7 @@ export class PerKeyRateLimiter {
 
     // Drop timestamps older than 60s
     const cutoff = now - 60_000;
-    entry.timestamps = entry.timestamps.filter(t => t > cutoff);
+    entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
 
     if (entry.timestamps.length >= limit) {
       return false;
@@ -66,7 +66,7 @@ export class PerKeyRateLimiter {
   cleanup(): void {
     const cutoff = Date.now() - 60_000;
     for (const [id, entry] of this.windows) {
-      entry.timestamps = entry.timestamps.filter(t => t > cutoff);
+      entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
       if (entry.timestamps.length === 0) this.windows.delete(id);
     }
   }
@@ -110,10 +110,10 @@ export async function extractAndVerifyKey(
   if (auth?.startsWith("Bearer ")) {
     plaintext = auth.slice(7);
   } else {
-    plaintext = headers.get("x-api-key")
-      ?? headers.get("zen-api-key")
-      ?? headers.get("x-parse-rest-api-key")
-      ?? null;
+    plaintext = headers.get("x-api-key") ??
+      headers.get("zen-api-key") ??
+      headers.get("x-parse-rest-api-key") ??
+      null;
   }
 
   if (!plaintext) {

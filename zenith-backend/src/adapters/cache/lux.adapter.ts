@@ -32,25 +32,25 @@ export function createLuxAdapter(luxClient: any): CacheAdapter {
         return data;
       }
     },
-    
+
     async set(key: string, value: any, ttlSeconds?: number) {
       if (!luxClient) return;
-      const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+      const stringValue = typeof value === "string" ? value : JSON.stringify(value);
       if (ttlSeconds) {
         await luxClient.setex(key, ttlSeconds, stringValue);
       } else {
         await luxClient.set(key, stringValue);
       }
     },
-    
+
     async del(key: string) {
       if (!luxClient) return;
       await luxClient.del(key);
     },
-    
+
     async clear() {
       if (!luxClient) return;
       await luxClient.flushall();
-    }
+    },
   };
 }

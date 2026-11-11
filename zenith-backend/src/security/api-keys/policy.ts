@@ -53,21 +53,33 @@ export function checkKeyPolicy(opts: {
   const allowedIps = [...new Set((opts.allowedIps ?? []).map((e) => e.trim()).filter(Boolean))];
   if (allowedIps.length > 100) throw new ApiKeyPolicyError("allowedIps: at most 100 entries.");
   for (const e of allowedIps) {
-    if (!parseCidr(e)) throw new ApiKeyPolicyError(`allowedIps: "${e}" is not an IPv4/IPv6 address or CIDR range.`);
+    if (!parseCidr(e)) {
+      throw new ApiKeyPolicyError(`allowedIps: "${e}" is not an IPv4/IPv6 address or CIDR range.`);
+    }
   }
   if (!isUnrestricted(opts.scopes)) return allowedIps;
 
-  if (opts.prefix !== "sk") throw new ApiKeyPolicyError("Scope * is only for secret keys (sk). Give pk/rk keys explicit scopes.");
+  if (opts.prefix !== "sk") {
+    throw new ApiKeyPolicyError(
+      "Scope * is only for secret keys (sk). Give pk/rk keys explicit scopes.",
+    );
+  }
   if (allowedIps.length === 0) {
-    throw new ApiKeyPolicyError("A key with scope * acts as the master key: it needs allowedIps (the addresses of your servers).");
+    throw new ApiKeyPolicyError(
+      "A key with scope * acts as the master key: it needs allowedIps (the addresses of your servers).",
+    );
   }
   if (allowedIps.some((e) => parseCidr(e)!.prefix === 0)) {
-    throw new ApiKeyPolicyError("allowedIps for scope *: 0.0.0.0/0 and ::/0 allow everywhere; list your servers.");
+    throw new ApiKeyPolicyError(
+      "allowedIps for scope *: 0.0.0.0/0 and ::/0 allow everywhere; list your servers.",
+    );
   }
   const now = opts.now ?? new Date();
   const maxMs = UNRESTRICTED_MAX_LIFETIME_DAYS * 86_400_000;
   if (!opts.expiresAt || new Date(opts.expiresAt).getTime() - now.getTime() > maxMs) {
-    throw new ApiKeyPolicyError(`A key with scope * must expire within ${UNRESTRICTED_MAX_LIFETIME_DAYS} days (expiresIn, e.g. "30d").`);
+    throw new ApiKeyPolicyError(
+      `A key with scope * must expire within ${UNRESTRICTED_MAX_LIFETIME_DAYS} days (expiresIn, e.g. "30d").`,
+    );
   }
   return allowedIps;
 }

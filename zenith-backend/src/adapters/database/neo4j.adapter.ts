@@ -27,6 +27,6 @@ export function createNeo4jAdapter(): GraphAdapter {
     disconnect: async (): Promise<void> => {
       isConnected = false;
       console.log(`[Neo4jAdapter] Desconectado.`);
-    }
+    },
   };
 }

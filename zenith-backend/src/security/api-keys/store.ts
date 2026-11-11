@@ -112,7 +112,11 @@ export interface MongoDBStoreConfig {
    */
   onRemoteChange?: (event: RemoteChangeEvent) => void | Promise<void>;
   /** Logger hook. Default: console. */
-  logger?: { info: (msg: string, meta?: unknown) => void; warn: (msg: string, meta?: unknown) => void; error: (msg: string, meta?: unknown) => void };
+  logger?: {
+    info: (msg: string, meta?: unknown) => void;
+    warn: (msg: string, meta?: unknown) => void;
+    error: (msg: string, meta?: unknown) => void;
+  };
 }
 
 export type RemoteChangeEvent =
@@ -270,7 +274,10 @@ export class MongoDBStore implements IApiKeyStore {
         // En `delete` no hay fullDocument. El id es _id (ObjectId), no nuestro `id`.
         // Necesitamos mapear via documentKey si lo guardamos.
         // Por ahora, loggeamos. El callback puede usar su propio mecanismo.
-        this.cfg.logger.warn("[api-keys] delete event received (no fullDocument). Use _id for lookup.", { id });
+        this.cfg.logger.warn(
+          "[api-keys] delete event received (no fullDocument). Use _id for lookup.",
+          { id },
+        );
       }
     } catch (e) {
       this.cfg.logger.error("[api-keys] onRemoteChange callback failed", { error: String(e) });
@@ -333,7 +340,9 @@ export class MongoDBStore implements IApiKeyStore {
   /** Cierra conexión y change stream. Llamar en shutdown. */
   async close(): Promise<void> {
     if (this.changeStream) {
-      try { await this.changeStream.close(); } catch { /* ignore */ }
+      try {
+        await this.changeStream.close();
+      } catch { /* ignore */ }
       this.changeStream = null;
     }
     if (this.client) {
@@ -369,7 +378,9 @@ export class MongoDBStore implements IApiKeyStore {
     const rec = rest as ApiKeyRecord;
     const mutable = rec as unknown as Record<string, unknown>;
     if (mutable.expiresAt instanceof Date) mutable.expiresAt = mutable.expiresAt.toISOString();
-    if (mutable.rotationExpiresAt instanceof Date) mutable.rotationExpiresAt = mutable.rotationExpiresAt.toISOString();
+    if (mutable.rotationExpiresAt instanceof Date) {
+      mutable.rotationExpiresAt = mutable.rotationExpiresAt.toISOString();
+    }
     if (mutable.lastUsedAt instanceof Date) mutable.lastUsedAt = mutable.lastUsedAt.toISOString();
     return rec;
   }
@@ -388,4 +399,3 @@ function defaultStoreLogger() {
     error: (msg: string, meta?: unknown) => console.error(`[api-keys] ${msg}`, meta ?? ""),
   };
 }
-

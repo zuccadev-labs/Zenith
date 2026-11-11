@@ -10,7 +10,13 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
-import { type AuthCrud, EngineAuthFacade, type EngineAuthConfig, type FacadeOptions, userRoutes } from "./engine-auth.ts";
+import {
+  type AuthCrud,
+  type EngineAuthConfig,
+  EngineAuthFacade,
+  type FacadeOptions,
+  userRoutes,
+} from "./engine-auth.ts";
 
 export type { EngineAuthConfig } from "./engine-auth.ts";
 
@@ -27,7 +33,8 @@ export const UserManagementTrait = createTraitDescriptor({
   consumes: ["database-crud"],
   state: ["engineAuth"],
   runtimes: ["deno"],
-  summary: "Users, sessions and request authentication (Parse Server-compatible), delegated to engine-auth.",
+  summary:
+    "Users, sessions and request authentication (Parse Server-compatible), delegated to engine-auth.",
   create: (deps: Record<string, any>) => {
     // Barrits hands the composed capabilities under `traits`.
     const caps = (deps.traits ?? deps) as Record<string, unknown>;
@@ -58,9 +65,12 @@ export const UserManagementTrait = createTraitDescriptor({
     const routes = userRoutes(current).map((r) => ({
       ...r,
       handler: (req: Request, ctx: any) =>
-        facade
-          ? r.handler(req, ctx)
-          : Promise.resolve(new Response(JSON.stringify({ code: 1, error: NOT_CONFIGURED }), { status: 503, headers: { "content-type": "application/json" } })),
+        facade ? r.handler(req, ctx) : Promise.resolve(
+          new Response(JSON.stringify({ code: 1, error: NOT_CONFIGURED }), {
+            status: 503,
+            headers: { "content-type": "application/json" },
+          }),
+        ),
     }));
 
     return {

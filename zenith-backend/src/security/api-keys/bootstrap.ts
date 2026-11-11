@@ -43,7 +43,7 @@ export interface BootstrapResult {
 
 const isProduction = (): boolean => {
   return Deno.args.includes("--mode=production") ||
-         Deno.env.get("ZENITH_MODE") === "production";
+    Deno.env.get("ZENITH_MODE") === "production";
 };
 
 const BANNER_TOP = `
@@ -71,18 +71,22 @@ export async function bootstrapApiKey(
 ): Promise<BootstrapResult> {
   // 1. Buscar si ya hay keys activas
   const existing = await manager.listByApp(opts.appId);
-  const active = existing.find(k => !k.revokedAt && (!k.expiresAt || new Date(k.expiresAt) > new Date()));
+  const active = existing.find((k) =>
+    !k.revokedAt && (!k.expiresAt || new Date(k.expiresAt) > new Date())
+  );
   if (active && !opts.force) {
     return {
       created: false,
       keyId: active.id,
-      message: `App '${opts.appId}' already has an active key (id=${active.id}). Use --force to create a new one.`,
+      message:
+        `App '${opts.appId}' already has an active key (id=${active.id}). Use --force to create a new one.`,
     };
   }
 
   // 2. En producción, NO creamos automáticamente
   if (isProduction() && !opts.allowInProduction) {
-    const msg = `App '${opts.appId}' has no API keys. In production, keys must be created explicitly via 'zenith api-keys create'.`;
+    const msg =
+      `App '${opts.appId}' has no API keys. In production, keys must be created explicitly via 'zenith api-keys create'.`;
     console.warn(`[Zenith Bootstrap] ⚠️  ${msg}`);
     return {
       created: false,
@@ -96,10 +100,10 @@ export async function bootstrapApiKey(
     appId: opts.appId,
     prefix: "sk",
     env: "live",
-    scopes: ["*"],  // super admin — solo para bootstrap
+    scopes: ["*"], // super admin — solo para bootstrap
     name: `${opts.appName ?? opts.appId} - bootstrap (created on first boot)`,
     createdBy: "system:bootstrap",
-    expiresIn: "24h",  // corta por seguridad — el operador debe rotarla
+    expiresIn: "24h", // corta por seguridad — el operador debe rotarla
     // Printed to stdout, so it may end up in logs: usable only from this machine, like the master key.
     allowedIps: ["127.0.0.1", "::1"],
     metadata: {
@@ -152,7 +156,7 @@ export async function ensureApiKeyOrFail(
   }
   throw new Error(
     `[Zenith FATAL] No API key available for app '${appId}'. ` +
-    `In production, create one explicitly:\n` +
-    `  zenith api-keys create --app ${appId} --prefix sk --env live --scopes "*" --name "Production admin"`,
+      `In production, create one explicitly:\n` +
+      `  zenith api-keys create --app ${appId} --prefix sk --env live --scopes "*" --name "Production admin"`,
   );
 }

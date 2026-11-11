@@ -47,7 +47,9 @@ export class RuntimeFeatures {
       this.#entries.set(e.id, e);
       const traits = typeof e.traits === "function" ? e.traits(config) : e.traits;
       for (const t of traits) {
-        for (const cap of (t as { provides?: readonly string[] }).provides ?? []) this.#byCapability.set(cap, e.id);
+        for (const cap of (t as { provides?: readonly string[] }).provides ?? []) {
+          this.#byCapability.set(cap, e.id);
+        }
       }
     }
   }
@@ -76,16 +78,32 @@ export class RuntimeFeatures {
   async set(id: string, enabled: boolean, actor = "master"): Promise<FeatureStatus> {
     const e = this.#entries.get(id);
     if (!e) throw ZenithErrors.notFound("Feature", id);
-    if (e.required) throw new ZenithError(ZenithErrorCode.OPERATION_FORBIDDEN, `Feature "${id}" is part of the engine core.`, 403);
+    if (e.required) {
+      throw new ZenithError(
+        ZenithErrorCode.OPERATION_FORBIDDEN,
+        `Feature "${id}" is part of the engine core.`,
+        403,
+      );
+    }
     if (!enabled) {
-      const dependents = [...this.#entries.values()].filter((x) => x.requires?.includes(id) && this.isEnabled(x.id)).map((x) => x.id);
+      const dependents = [...this.#entries.values()].filter((x) =>
+        x.requires?.includes(id) && this.isEnabled(x.id)
+      ).map((x) => x.id);
       if (dependents.length) {
-        throw new ZenithError(ZenithErrorCode.OPERATION_FORBIDDEN, `Feature "${id}" is required by ${dependents.join(", ")}: turn those off first.`, 409);
+        throw new ZenithError(
+          ZenithErrorCode.OPERATION_FORBIDDEN,
+          `Feature "${id}" is required by ${dependents.join(", ")}: turn those off first.`,
+          409,
+        );
       }
     } else {
       const missing = (e.requires ?? []).filter((r) => !this.isEnabled(r));
       if (missing.length) {
-        throw new ZenithError(ZenithErrorCode.OPERATION_FORBIDDEN, `Feature "${id}" requires ${missing.join(", ")}.`, 409);
+        throw new ZenithError(
+          ZenithErrorCode.OPERATION_FORBIDDEN,
+          `Feature "${id}" requires ${missing.join(", ")}.`,
+          409,
+        );
       }
     }
     this.#apply(id, enabled);
@@ -108,7 +126,9 @@ export class RuntimeFeatures {
     if (!this.#started) {
       const timer = setInterval(() => this.refresh().catch(() => {}), this.#refreshMs);
       Deno.unrefTimer(timer);
-      this.#started = this.refresh().catch((e) => warn(`[features] Could not load the saved feature state: ${(e as Error).message}`));
+      this.#started = this.refresh().catch((e) =>
+        warn(`[features] Could not load the saved feature state: ${(e as Error).message}`)
+      );
     }
     return this.#started;
   }
@@ -129,7 +149,8 @@ export class RuntimeFeatures {
   }
 }
 
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 /** Almacén sobre la capa `db` común (`db.trait.ts`). */
 function dbStore(db: any): FeatureStore {
@@ -139,7 +160,11 @@ function dbStore(db: any): FeatureStore {
       return Object.fromEntries((rows ?? []).map((r: any) => [r.featureId, r.enabled === true]));
     },
     save: async (id, enabled, actor) => {
-      await db.upsert(FEATURE_STATE_CLASS, { featureId: id }, { featureId: id, enabled, changedBy: actor });
+      await db.upsert(FEATURE_STATE_CLASS, { featureId: id }, {
+        featureId: id,
+        enabled,
+        changedBy: actor,
+      });
     },
   };
 }
@@ -148,7 +173,11 @@ function dbStore(db: any): FeatureStore {
  * El trait de núcleo que publica el registro como capacidad `runtime-features` y sirve `/zen/features`.
  * Lo añade `selectTraits` con las piezas seleccionadas.
  */
-export function runtimeFeaturesTrait(entries: readonly FeatureEntry[], config: ZenithConfig, options: { refreshMs?: number } = {}) {
+export function runtimeFeaturesTrait(
+  entries: readonly FeatureEntry[],
+  config: ZenithConfig,
+  options: { refreshMs?: number } = {},
+) {
   return createTraitDescriptor({
     name: "ZenithRuntimeFeatures",
     provides: [RUNTIME_FEATURES_CAPABILITY, "feature_routes"],
@@ -175,8 +204,20 @@ export function runtimeFeaturesTrait(entries: readonly FeatureEntry[], config: Z
           access: "master" as const,
           _openapi: {
             tag: "Features",
-            summary: "Turn a loaded feature on or off without restarting. Its routes answer 404 while it is off",
-            requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["enabled"], properties: { enabled: { type: "boolean" } } } } } },
+            summary:
+              "Turn a loaded feature on or off without restarting. Its routes answer 404 while it is off",
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["enabled"],
+                    properties: { enabled: { type: "boolean" } },
+                  },
+                },
+              },
+            },
           },
           handler: async (req: Request, ctx: any) => {
             let body: any;
@@ -185,7 +226,13 @@ export function runtimeFeaturesTrait(entries: readonly FeatureEntry[], config: Z
             } catch {
               body = null;
             }
-            if (typeof body?.enabled !== "boolean") throw new ZenithError(ZenithErrorCode.INVALID_JSON, "Body: { \"enabled\": true | false }.", 400);
+            if (typeof body?.enabled !== "boolean") {
+              throw new ZenithError(
+                ZenithErrorCode.INVALID_JSON,
+                'Body: { "enabled": true | false }.',
+                400,
+              );
+            }
             return json(await registry.set(String(ctx.params?.id ?? ""), body.enabled, "master"));
           },
         },

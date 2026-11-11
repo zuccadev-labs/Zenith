@@ -12,7 +12,13 @@
  */
 
 import { assertEquals, assertExists, assertRejects, assertStringIncludes } from "@std/assert";
-import { computeSpkiPin, computeSpkiPinSync, verifyPeerSpkiPin, loadMTlsConfig, generateDevCertificates } from "../../src/traits/cluster/mtls.ts";
+import {
+  computeSpkiPin,
+  computeSpkiPinSync,
+  generateDevCertificates,
+  loadMTlsConfig,
+  verifyPeerSpkiPin,
+} from "../../src/traits/cluster/mtls.ts";
 import { join } from "@std/path";
 
 // ─── Test fixtures ────────────────────────────────────────────────────────────
@@ -21,7 +27,11 @@ const FIXTURE_DIR = await Deno.makeTempDir({ prefix: "zenith_mtls_" });
 
 async function opensslAvailable(): Promise<boolean> {
   try {
-    const cmd = new Deno.Command("openssl", { args: ["version"], stdout: "piped", stderr: "piped" });
+    const cmd = new Deno.Command("openssl", {
+      args: ["version"],
+      stdout: "piped",
+      stderr: "piped",
+    });
     const out = await cmd.output();
     return out.success;
   } catch {
@@ -46,11 +56,23 @@ async function generateTestCert(name: string, cn: string, isCa = false): Promise
   const ext = ["-addext", isCa ? "basicConstraints=critical,CA:TRUE" : "basicConstraints=CA:FALSE"];
   const cmd = new Deno.Command("openssl", {
     args: [
-      "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-      "-keyout", keyPath, "-out", certPath,
-      "-days", "30", "-subj", subj, ...ext,
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-keyout",
+      keyPath,
+      "-out",
+      certPath,
+      "-days",
+      "30",
+      "-subj",
+      subj,
+      ...ext,
     ],
-    stdout: "piped", stderr: "piped",
+    stdout: "piped",
+    stderr: "piped",
   });
   const out = await cmd.output();
   if (!out.success) {
@@ -73,19 +95,32 @@ Deno.test({
     for (const [name, isCa] of [["oracle-leaf", false], ["oracle-ca", true]] as const) {
       const cert = await generateTestCert(name, `${name}.local`, isCa);
       // openssl x509 -pubkey | openssl pkey -pubin -outform der | sha256 | base64
-      const pub = await new Deno.Command("openssl", { args: ["x509", "-pubkey", "-noout"], stdin: "piped", stdout: "piped" }).spawn();
-      const w1 = pub.stdin.getWriter(); await w1.write(new TextEncoder().encode(cert.certPem)); await w1.close();
+      const pub = await new Deno.Command("openssl", {
+        args: ["x509", "-pubkey", "-noout"],
+        stdin: "piped",
+        stdout: "piped",
+      }).spawn();
+      const w1 = pub.stdin.getWriter();
+      await w1.write(new TextEncoder().encode(cert.certPem));
+      await w1.close();
       const pubPem = (await pub.output()).stdout;
-      const der = await new Deno.Command("openssl", { args: ["pkey", "-pubin", "-outform", "der"], stdin: "piped", stdout: "piped" }).spawn();
-      const w2 = der.stdin.getWriter(); await w2.write(pubPem); await w2.close();
+      const der = await new Deno.Command("openssl", {
+        args: ["pkey", "-pubin", "-outform", "der"],
+        stdin: "piped",
+        stdout: "piped",
+      }).spawn();
+      const w2 = der.stdin.getWriter();
+      await w2.write(pubPem);
+      await w2.close();
       const spki = (await der.output()).stdout;
-      const expected = `sha256-${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", spki))))}`;
+      const expected = `sha256-${
+        btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", spki))))
+      }`;
       assertEquals(cert.spkiPin, expected, name);
       assertEquals(computeSpkiPinSync(spki), expected, "the sync path, given the same SPKI bytes");
     }
   },
 });
-
 
 Deno.test({
   name: "mTLS - computeSpkiPin returns sha256-<base64> format",
@@ -137,7 +172,9 @@ Deno.test({
   ignore: !HAS_OPENSSL,
   fn: async () => {
     const cert = await generateTestCert("reject", "reject.local");
-    const res = await verifyPeerSpkiPin(cert.certPem, ["sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="]);
+    const res = await verifyPeerSpkiPin(cert.certPem, [
+      "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    ]);
     assertEquals(res.valid, false);
     assertEquals(res.computedPin, cert.spkiPin);
     assertEquals(res.matchedPin, undefined);
@@ -225,7 +262,14 @@ Deno.test({
       assertEquals(cfg.requireClientCert, true);
       assertEquals(cfg.minTlsVersion, "TLSv1.3");
     } finally {
-      for (const v of ["ZENITH_TLS_CA_PATH", "ZENITH_TLS_CERT_PATH", "ZENITH_TLS_KEY_PATH", "ZENITH_PEER_SPKI_PINS"]) {
+      for (
+        const v of [
+          "ZENITH_TLS_CA_PATH",
+          "ZENITH_TLS_CERT_PATH",
+          "ZENITH_TLS_KEY_PATH",
+          "ZENITH_PEER_SPKI_PINS",
+        ]
+      ) {
         Deno.env.delete(v);
       }
     }
@@ -233,7 +277,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "mTLS - generateDevCertificates returns CA + server + client bundles (in this build, throws with helpful error)",
+  name:
+    "mTLS - generateDevCertificates returns CA + server + client bundles (in this build, throws with helpful error)",
   // This is the "dev convenience" helper. The full X.509 ASN.1 encoder
   // is intentionally not implemented; the function throws a clear message
   // directing operators to a real PKI tool. We test that the error is helpful.

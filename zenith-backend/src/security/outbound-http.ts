@@ -56,18 +56,28 @@ export async function checkOutboundUrl(raw: string, policy: OutboundPolicy = {})
   if (url.protocol !== "https:" && !(url.protocol === "http:" && policy.allowHttp)) {
     throw new OutboundBlockedError(`Only https URLs are allowed (got ${url.protocol}).`);
   }
-  if (url.username || url.password) throw new OutboundBlockedError("URLs with credentials are not allowed.");
+  if (url.username || url.password) {
+    throw new OutboundBlockedError("URLs with credentials are not allowed.");
+  }
   if (policy.allowPrivate) return url;
   const host = url.hostname.replace(/^\[|\]$/g, "");
   const addresses = parseIp(host) ? [host] : await (policy.resolve ?? resolveAll)(host);
   if (addresses.length === 0) throw new OutboundBlockedError(`Host "${host}" does not resolve.`);
   const blocked = addresses.filter((a) => !isPublicAddress(a));
-  if (blocked.length) throw new OutboundBlockedError(`Host "${host}" resolves to a non-public address (${blocked.join(", ")}).`);
+  if (blocked.length) {
+    throw new OutboundBlockedError(
+      `Host "${host}" resolves to a non-public address (${blocked.join(", ")}).`,
+    );
+  }
   return url;
 }
 
 /** `fetch` hacia un destino externo con la política aplicada. Lanza `OutboundBlockedError` si se rechaza. */
-export async function safeFetch(raw: string, init: RequestInit = {}, policy: OutboundPolicy = {}): Promise<Response> {
+export async function safeFetch(
+  raw: string,
+  init: RequestInit = {},
+  policy: OutboundPolicy = {},
+): Promise<Response> {
   const url = await checkOutboundUrl(raw, policy);
   const timeout = AbortSignal.timeout(policy.timeoutMs ?? DEFAULT_OUTBOUND_TIMEOUT_MS);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;

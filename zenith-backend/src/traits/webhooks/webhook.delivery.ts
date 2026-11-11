@@ -19,7 +19,7 @@
  *   el endpoint se desactiva y se avisa con el evento `webhook.endpoint.disabled`.
  * - **Tiempo por intento:** 15 s. La protección SSRF está en `security/outbound-http.ts`.
  */
-import { safeFetch, type OutboundPolicy } from "../../security/outbound-http.ts";
+import { type OutboundPolicy, safeFetch } from "../../security/outbound-http.ts";
 import { webhookHeaders } from "../../security/webhook-signature.ts";
 import { claimDue } from "../../core/outbox.ts";
 
@@ -29,7 +29,16 @@ export const ENDPOINT_CLASS = "ZenithWebhook";
 
 /** Espera antes de cada intento (ms). El primero es inmediato. */
 export const RETRY_SCHEDULE_MS: readonly number[] = [
-  0, 5_000, 300_000, 1_800_000, 7_200_000, 18_000_000, 36_000_000, 50_400_000, 72_000_000, 86_400_000,
+  0,
+  5_000,
+  300_000,
+  1_800_000,
+  7_200_000,
+  18_000_000,
+  36_000_000,
+  50_400_000,
+  72_000_000,
+  86_400_000,
 ];
 /** Mensajes agotados seguidos tras los que se desactiva un endpoint. */
 export const DISABLE_AFTER_EXHAUSTED = 5;
@@ -48,13 +57,19 @@ export function classify(status: number, retryAfter: string | null, nowMs: numbe
   if (retryAfter && [429, 502, 503, 504].includes(status)) {
     const seconds = Number(retryAfter);
     const at = Number.isFinite(seconds) ? nowMs + seconds * 1000 : Date.parse(retryAfter);
-    if (Number.isFinite(at)) return { kind: "retry", notBeforeMs: Math.min(at, nowMs + 86_400_000) };
+    if (Number.isFinite(at)) {
+      return { kind: "retry", notBeforeMs: Math.min(at, nowMs + 86_400_000) };
+    }
   }
   return { kind: "retry" };
 }
 
 /** Cuándo toca el intento número `attempt` (1-based) tras uno fallido en `nowMs`; `null` si se agotaron. */
-export function nextAttemptAt(attempt: number, nowMs: number, random: () => number = Math.random): number | null {
+export function nextAttemptAt(
+  attempt: number,
+  nowMs: number,
+  random: () => number = Math.random,
+): number | null {
   const base = RETRY_SCHEDULE_MS[attempt];
   if (base === undefined) return null;
   const jitter = base * 0.1 * (random() * 2 - 1);
@@ -86,7 +101,11 @@ const iso = (ms: number) => new Date(ms).toISOString();
  * Intenta entregar un mensaje que ya está reclamado. Registra el intento, programa el siguiente o lo
  * cierra, y actualiza el estado del endpoint.
  */
-export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint: any): Promise<"succeeded" | "pending" | "failed"> {
+export async function attemptDelivery(
+  deps: DeliveryDeps,
+  message: any,
+  endpoint: any,
+): Promise<"succeeded" | "pending" | "failed"> {
   const now = deps.now ?? Date.now;
   const fetcher = deps.fetcher ?? safeFetch;
   const attempt = (message.attempts ?? 0) + 1;
@@ -103,7 +122,11 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
       ...(endpoint.headers ?? {}),
       ...(await webhookHeaders(secrets, message.messageId, message.body, started)),
     };
-    const res = await fetcher(endpoint.url, { method: "POST", headers, body: message.body }, deps.policy);
+    const res = await fetcher(
+      endpoint.url,
+      { method: "POST", headers, body: message.body },
+      deps.policy,
+    );
     status = res.status;
     snippet = (await res.text().catch(() => "")).slice(0, RESPONSE_SNIPPET);
     outcome = classify(status, res.headers.get("retry-after"), now());
@@ -113,49 +136,90 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
     outcome = { kind: "retry" };
   }
   const durationMs = now() - started;
-  const result = outcome.kind === "success" ? "success" : outcome.kind === "gone" ? "gone" : status === 0 ? "error" : "retry";
+  const result = outcome.kind === "success"
+    ? "success"
+    : outcome.kind === "gone"
+    ? "gone"
+    : status === 0
+    ? "error"
+    : "retry";
   deps.metrics?.increment("zenith_webhook_attempts_total", { result });
   deps.metrics?.histogram("zenith_webhook_attempt_duration_ms", durationMs, { result });
   await deps.db.create(ATTEMPT_CLASS, {
-    messageId: message.messageId, endpointId: endpoint.objectId, attempt, statusCode: status, durationMs,
-    ...(error ? { error } : {}), ...(snippet ? { response: snippet } : {}), at: iso(started),
+    messageId: message.messageId,
+    endpointId: endpoint.objectId,
+    attempt,
+    statusCode: status,
+    durationMs,
+    ...(error ? { error } : {}),
+    ...(snippet ? { response: snippet } : {}),
+    at: iso(started),
   }).catch(() => {});
 
   if (outcome.kind === "success") {
     await deps.db.update(MESSAGE_CLASS, { objectId: message.objectId }, {
-      status: "succeeded", attempts: attempt, lastStatusCode: status, lastError: null, deliveredAt: iso(now()), nextAttemptAt: null, leaseUntil: null,
+      status: "succeeded",
+      attempts: attempt,
+      lastStatusCode: status,
+      lastError: null,
+      deliveredAt: iso(now()),
+      nextAttemptAt: null,
+      leaseUntil: null,
     });
     if (endpoint.exhaustedCount || endpoint.lastError) {
-      await deps.db.update(ENDPOINT_CLASS, { objectId: endpoint.objectId }, { exhaustedCount: 0, lastError: null });
+      await deps.db.update(ENDPOINT_CLASS, { objectId: endpoint.objectId }, {
+        exhaustedCount: 0,
+        lastError: null,
+      });
     }
     return "succeeded";
   }
 
   const gone = outcome.kind === "gone";
   let next = gone ? null : nextAttemptAt(attempt, now());
-  if (next !== null && outcome.kind === "retry" && outcome.notBeforeMs) next = Math.max(next, outcome.notBeforeMs);
+  if (next !== null && outcome.kind === "retry" && outcome.notBeforeMs) {
+    next = Math.max(next, outcome.notBeforeMs);
+  }
   if (next !== null) {
     await deps.db.update(MESSAGE_CLASS, { objectId: message.objectId }, {
-      status: "pending", attempts: attempt, lastStatusCode: status, lastError: error, nextAttemptAt: iso(next), leaseUntil: null,
+      status: "pending",
+      attempts: attempt,
+      lastStatusCode: status,
+      lastError: error,
+      nextAttemptAt: iso(next),
+      leaseUntil: null,
     });
     return "pending";
   }
 
   await deps.db.update(MESSAGE_CLASS, { objectId: message.objectId }, {
-    status: "failed", attempts: attempt, lastStatusCode: status, lastError: error, nextAttemptAt: null, leaseUntil: null,
+    status: "failed",
+    attempts: attempt,
+    lastStatusCode: status,
+    lastError: error,
+    nextAttemptAt: null,
+    leaseUntil: null,
   });
   deps.metrics?.increment("zenith_webhook_messages_failed_total");
   const exhausted = (endpoint.exhaustedCount ?? 0) + 1;
   const disable = gone || exhausted >= DISABLE_AFTER_EXHAUSTED;
-  const reason = gone ? "The endpoint answered 410 Gone." : `${exhausted} messages in a row failed after every retry.`;
+  const reason = gone
+    ? "The endpoint answered 410 Gone."
+    : `${exhausted} messages in a row failed after every retry.`;
   await deps.db.update(ENDPOINT_CLASS, { objectId: endpoint.objectId }, {
-    exhaustedCount: exhausted, lastError: error ?? null,
+    exhaustedCount: exhausted,
+    lastError: error ?? null,
     ...(disable ? { status: "disabled", disabledReason: reason, disabledAt: iso(now()) } : {}),
   });
   if (disable) {
     deps.metrics?.increment("zenith_webhook_endpoints_disabled_total");
     console.warn(`[webhooks] endpoint ${endpoint.objectId} (${endpoint.url}) disabled: ${reason}`);
-    deps.emit?.("webhook.endpoint.disabled", { endpointId: endpoint.objectId, url: endpoint.url, reason, owner: endpoint.owner ?? null });
+    deps.emit?.("webhook.endpoint.disabled", {
+      endpointId: endpoint.objectId,
+      url: endpoint.url,
+      reason,
+      owner: endpoint.owner ?? null,
+    });
   }
   return "failed";
 }
@@ -164,7 +228,9 @@ export async function attemptDelivery(deps: DeliveryDeps, message: any, endpoint
  * Reclama (`core/outbox.ts`) y entrega los mensajes vencidos de endpoints activos. Devuelve cuántos
  * procesó. Los de un endpoint pausado o desactivado esperan; los de uno borrado se cierran.
  */
-export async function deliverDue(deps: DeliveryDeps & { limit?: number; leaseMs?: number }): Promise<number> {
+export async function deliverDue(
+  deps: DeliveryDeps & { limit?: number; leaseMs?: number },
+): Promise<number> {
   const now = (deps.now ?? Date.now)();
   const endpoints = new Map<string, any>();
   const endpointOf = async (id: string) => {
@@ -178,12 +244,18 @@ export async function deliverDue(deps: DeliveryDeps & { limit?: number; leaseMs?
     accept: async (m) => {
       const ep = await endpointOf(m.endpointId);
       if (!ep) {
-        await deps.db.update(MESSAGE_CLASS, { objectId: m.objectId }, { status: "failed", lastError: "Endpoint deleted.", nextAttemptAt: null });
+        await deps.db.update(MESSAGE_CLASS, { objectId: m.objectId }, {
+          status: "failed",
+          lastError: "Endpoint deleted.",
+          nextAttemptAt: null,
+        });
         return false;
       }
       return ep.status === "active"; // paused or disabled: the message waits
     },
   });
-  await Promise.all(claimed.map(async (m) => attemptDelivery(deps, m, await endpointOf(m.endpointId))));
+  await Promise.all(
+    claimed.map(async (m) => attemptDelivery(deps, m, await endpointOf(m.endpointId))),
+  );
   return claimed.length;
 }

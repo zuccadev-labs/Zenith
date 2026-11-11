@@ -22,26 +22,30 @@ import type { SearchAdapter } from "../../core/types.ts";
  */
 export function createOpenSearchAdapter(client: any): SearchAdapter {
   return {
-    connect: async () => { /* Manejado por el SDK del cliente */ },
-    disconnect: async () => { /* Manejado por el SDK del cliente */ },
-    
+    connect: async () => {/* Manejado por el SDK del cliente */},
+    disconnect: async () => {/* Manejado por el SDK del cliente */},
+
     indexDocument: async (index: string, id: string, document: any): Promise<void> => {
       await client.index({
         index: index.toLowerCase(),
         id,
         body: document,
-        refresh: true
+        refresh: true,
       });
     },
 
-    search: async (index: string, query: Record<string, any>, options?: { limit?: number; skip?: number }): Promise<any[]> => {
+    search: async (
+      index: string,
+      query: Record<string, any>,
+      options?: { limit?: number; skip?: number },
+    ): Promise<any[]> => {
       const response = await client.search({
         index: index.toLowerCase(),
         body: {
           query,
           size: options?.limit || 100,
-          from: options?.skip || 0
-        }
+          from: options?.skip || 0,
+        },
       });
       return response.body.hits.hits.map((hit: any) => ({ ...hit._source, _score: hit._score }));
     },
@@ -50,7 +54,12 @@ export function createOpenSearchAdapter(client: any): SearchAdapter {
      * Búsqueda Semántica/Vectorial (k-NN)
      * Utiliza la funcionalidad k-NN nativa de OpenSearch para IA.
      */
-    vectorSearch: async (index: string, vectorField: string, vector: number[], limit = 10): Promise<any[]> => {
+    vectorSearch: async (
+      index: string,
+      vectorField: string,
+      vector: number[],
+      limit = 10,
+    ): Promise<any[]> => {
       const response = await client.search({
         index: index.toLowerCase(),
         body: {
@@ -59,11 +68,11 @@ export function createOpenSearchAdapter(client: any): SearchAdapter {
             knn: {
               [vectorField]: {
                 vector,
-                k: limit
-              }
-            }
-          }
-        }
+                k: limit,
+              },
+            },
+          },
+        },
       });
       return response.body.hits.hits.map((hit: any) => ({ ...hit._source, _score: hit._score }));
     },
@@ -72,9 +81,9 @@ export function createOpenSearchAdapter(client: any): SearchAdapter {
       await client.delete({
         index: index.toLowerCase(),
         id,
-        refresh: true
+        refresh: true,
       });
-    }
+    },
   };
 }
 
@@ -98,9 +107,10 @@ export const OpenSearchTrait = createTraitDescriptor({
       "search-engine": {
         indexDocument: (idx: string, id: string, doc: any) => adapter!.indexDocument(idx, id, doc),
         search: (idx: string, q: any, opt: any) => adapter!.search(idx, q, opt),
-        vectorSearch: (idx: string, field: string, vec: number[], limit: number) => adapter!.vectorSearch(idx, field, vec, limit),
-        deleteDocument: (idx: string, id: string) => adapter!.deleteDocument(idx, id)
-      }
+        vectorSearch: (idx: string, field: string, vec: number[], limit: number) =>
+          adapter!.vectorSearch(idx, field, vec, limit),
+        deleteDocument: (idx: string, id: string) => adapter!.deleteDocument(idx, id),
+      },
     };
-  }
+  },
 });

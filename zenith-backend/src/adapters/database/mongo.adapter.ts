@@ -10,7 +10,7 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
-import type { DatabaseAdapter, ZenithQuery, ZenithObject } from "../../core/types.ts";
+import type { DatabaseAdapter, ZenithObject, ZenithQuery } from "../../core/types.ts";
 import { type Db, ObjectId } from "mongodb";
 
 /**
@@ -50,7 +50,7 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
 
   const buildUpdatePayload = (data: Partial<ZenithObject>) => {
     const serialized = serializePointers(data);
-    
+
     const $set: Record<string, any> = {};
     const $inc: Record<string, any> = {};
     const $addToSet: Record<string, any> = {};
@@ -58,29 +58,32 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
     const $unset: Record<string, any> = {};
 
     for (const key of Object.keys(serialized)) {
-      if (key === "objectId" || key === "_id" || key === "createdAt" || key === "updatedAt" || key === "className") continue;
-      
+      if (
+        key === "objectId" || key === "_id" || key === "createdAt" || key === "updatedAt" ||
+        key === "className"
+      ) continue;
+
       const val = serialized[key];
       if (val && typeof val === "object" && val.__op) {
-         switch (val.__op) {
-           case "Increment":
-             $inc[key] = val.amount;
-             break;
-           case "AddUnique":
-             $addToSet[key] = { $each: val.objects };
-             break;
-           case "Remove":
-             $pullAll[key] = val.objects;
-             break;
-           case "Delete":
-             $unset[key] = "";
-             break;
-           default:
-             // Fallback if op not supported
-             $set[key] = val;
-         }
+        switch (val.__op) {
+          case "Increment":
+            $inc[key] = val.amount;
+            break;
+          case "AddUnique":
+            $addToSet[key] = { $each: val.objects };
+            break;
+          case "Remove":
+            $pullAll[key] = val.objects;
+            break;
+          case "Delete":
+            $unset[key] = "";
+            break;
+          default:
+            // Fallback if op not supported
+            $set[key] = val;
+        }
       } else {
-         $set[key] = val;
+        $set[key] = val;
       }
     }
 
@@ -98,16 +101,20 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
   };
 
   return {
-    connect: async () => { /* Manejado por el inyector padre */ },
-    disconnect: async () => { /* Manejado por el inyector padre */ },
-    
+    connect: async () => {/* Manejado por el inyector padre */},
+    disconnect: async () => {/* Manejado por el inyector padre */},
+
     find: async (collection: string, query: ZenithQuery): Promise<ZenithObject[]> => {
       const mongoWhere: Record<string, any> = {};
-      
+
       const transformId = (idStr: string) => {
-         try { return new ObjectId(idStr); } catch { return idStr; }
+        try {
+          return new ObjectId(idStr);
+        } catch {
+          return idStr;
+        }
       };
-      
+
       // Parse query operators
       if (query.where) {
         for (const [key, value] of Object.entries(query.where)) {
@@ -118,31 +125,37 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
                 $nearSphere: {
                   $geometry: {
                     type: "Point",
-                    coordinates: [v.$nearSphere.longitude, v.$nearSphere.latitude]
+                    coordinates: [v.$nearSphere.longitude, v.$nearSphere.latitude],
                   },
-                  $maxDistance: v.$maxDistanceInMiles ? v.$maxDistanceInMiles * 1609.34 : (v.$maxDistanceInKilometers ? v.$maxDistanceInKilometers * 1000 : v.$maxDistanceInRadians * 6378100)
-                }
+                  $maxDistance: v.$maxDistanceInMiles
+                    ? v.$maxDistanceInMiles * 1609.34
+                    : (v.$maxDistanceInKilometers
+                      ? v.$maxDistanceInKilometers * 1000
+                      : v.$maxDistanceInRadians * 6378100),
+                },
               };
             } else if (v.$within && v.$within.$box) {
               mongoWhere[key] = {
                 $geoWithin: {
                   $box: [
                     [v.$within.$box[0].longitude, v.$within.$box[0].latitude],
-                    [v.$within.$box[1].longitude, v.$within.$box[1].latitude]
-                  ]
-                }
+                    [v.$within.$box[1].longitude, v.$within.$box[1].latitude],
+                  ],
+                },
               };
             } else if (v.$inQuery) {
-               // Subqueries: Using aggregation pipeline is much faster, but 
-               // implementing a full subquery via aggregation here requires $lookup.
-               // For basic $inQuery in Mongo, we can run the subquery and use $in.
-               // A robust implementation would construct an aggregation pipeline,
-               // but Parse's original approach runs the inner query first.
-               const innerDocs = await db.collection(v.$inQuery.className).find(v.$inQuery.where || {}).project({ _id: 1 }).toArray();
-               const ids = innerDocs.map(d => d._id.toString());
-               mongoWhere[key] = { $in: ids };
+              // Subqueries: Using aggregation pipeline is much faster, but
+              // implementing a full subquery via aggregation here requires $lookup.
+              // For basic $inQuery in Mongo, we can run the subquery and use $in.
+              // A robust implementation would construct an aggregation pipeline,
+              // but Parse's original approach runs the inner query first.
+              const innerDocs = await db.collection(v.$inQuery.className).find(
+                v.$inQuery.where || {},
+              ).project({ _id: 1 }).toArray();
+              const ids = innerDocs.map((d) => d._id.toString());
+              mongoWhere[key] = { $in: ids };
             } else {
-               mongoWhere[key] = value;
+              mongoWhere[key] = value;
             }
           } else if (key === "objectId") {
             mongoWhere["_id"] = transformId(value as string);
@@ -153,7 +166,7 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
       }
 
       let cursor = db.collection(collection).find(mongoWhere);
-      
+
       if (query.limit) cursor = cursor.limit(query.limit);
       if (query.skip) cursor = cursor.skip(query.skip);
       if (query.order) {
@@ -165,7 +178,7 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
         }
         cursor = cursor.sort(sortObj);
       }
-      
+
       const docs = await cursor.toArray();
       return docs.map(deserializeMongoDocument) as unknown as ZenithObject[];
     },
@@ -175,7 +188,9 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
       if (where.objectId) {
         where._id = where.objectId;
         delete where.objectId;
-        try { where._id = new ObjectId(where._id as string); } catch (_e) { /* invalid objectId, leave as string */ }
+        try {
+          where._id = new ObjectId(where._id as string);
+        } catch (_e) { /* invalid objectId, leave as string */ }
       }
       const doc = await db.collection(collection).findOne(where);
       return deserializeMongoDocument(doc) as unknown as ZenithObject | null;
@@ -191,36 +206,56 @@ export function createMongoAdapter(db: Db): DatabaseAdapter {
       return { ...data, objectId: result.insertedId.toString() };
     },
 
-    update: async (collection: string, objectId: string, data: Partial<ZenithObject>): Promise<ZenithObject> => {
+    update: async (
+      collection: string,
+      objectId: string,
+      data: Partial<ZenithObject>,
+    ): Promise<ZenithObject> => {
       const updatePayload = buildUpdatePayload(data);
 
       let queryId: any = objectId;
-      try { queryId = new ObjectId(objectId); } catch (_e) { /* not an ObjectId */ }
+      try {
+        queryId = new ObjectId(objectId);
+      } catch (_e) { /* not an ObjectId */ }
 
       await db.collection(collection).updateOne({ _id: queryId }, updatePayload);
-      
-      // We don't have the updated document here unless we fetch it. 
+
+      // We don't have the updated document here unless we fetch it.
       // Parse actually returns the updated fields (like computed Increment values).
       // For simplicity in this iteration, we just return the objectId and data.
       return { objectId, ...data } as ZenithObject;
     },
 
-    updateIf: async (collection: string, objectId: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>): Promise<ZenithObject | null> => {
+    updateIf: async (
+      collection: string,
+      objectId: string,
+      conditions: Record<string, unknown>,
+      data: Partial<ZenithObject>,
+    ): Promise<ZenithObject | null> => {
       let queryId: any = objectId;
-      try { queryId = new ObjectId(objectId); } catch (_e) { /* not an ObjectId */ }
+      try {
+        queryId = new ObjectId(objectId);
+      } catch (_e) { /* not an ObjectId */ }
 
-      const result = await db.collection(collection).updateOne({ ...conditions, _id: queryId }, buildUpdatePayload(data));
+      const result = await db.collection(collection).updateOne(
+        { ...conditions, _id: queryId },
+        buildUpdatePayload(data),
+      );
       return result.matchedCount === 0 ? null : { objectId, ...data } as ZenithObject;
     },
 
     listClasses: async (): Promise<string[]> =>
-      (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name).filter((n) => !n.startsWith("system.")).sort(),
+      (await db.listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name).filter((n) =>
+        !n.startsWith("system.")
+      ).sort(),
 
     delete: async (collection: string, objectId: string): Promise<void> => {
       let queryId: any = objectId;
-      try { queryId = new ObjectId(objectId); } catch (_e) { /* not an ObjectId */ }
+      try {
+        queryId = new ObjectId(objectId);
+      } catch (_e) { /* not an ObjectId */ }
       await db.collection(collection).deleteOne({ _id: queryId });
-    }
+    },
   };
 }
 
@@ -248,12 +283,18 @@ export const DatabaseMongoTrait = createTraitDescriptor({
         find: (col: string, q: ZenithQuery) => adapter!.find(col, q),
         findOne: (col: string, q: ZenithQuery) => adapter!.findOne(col, q),
         insert: (col: string, data: ZenithObject) => adapter!.insert(col, data),
-        update: (col: string, id: string, data: Partial<ZenithObject>) => adapter!.update(col, id, data),
+        update: (col: string, id: string, data: Partial<ZenithObject>) =>
+          adapter!.update(col, id, data),
         delete: (col: string, id: string) => adapter!.delete(col, id),
         // Compare-and-set: the update applies only if `conditions` still hold (leases, optimistic locks).
-        updateIf: (col: string, id: string, conditions: Record<string, unknown>, data: Partial<ZenithObject>) => adapter!.updateIf!(col, id, conditions, data),
+        updateIf: (
+          col: string,
+          id: string,
+          conditions: Record<string, unknown>,
+          data: Partial<ZenithObject>,
+        ) => adapter!.updateIf!(col, id, conditions, data),
         listClasses: () => adapter!.listClasses!(),
-      }
+      },
     };
-  }
+  },
 });

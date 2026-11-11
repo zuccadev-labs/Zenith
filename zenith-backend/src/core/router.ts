@@ -23,7 +23,7 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD";
  */
 import type { RouteAccess, RouteScope } from "./route-collection.ts";
 import { missingKeyScope } from "../security/api-keys/scopes.ts";
-import { collectTraitRoutes, HEALTH_ROUTE, hasTraitHealthRoute } from "./route-collection.ts";
+import { collectTraitRoutes, hasTraitHealthRoute, HEALTH_ROUTE } from "./route-collection.ts";
 import { RUNTIME_FEATURES_CAPABILITY, type RuntimeFeatures } from "./runtime-features.ts";
 export type { RouteAccess, RouteScope };
 
@@ -38,14 +38,17 @@ export interface RouteDefinition {
   feature?: string;
 }
 
-const isMaster = (ctx: ZenithRequestContext) => ctx.masterKey === true || (ctx.apiKey?.scopes ?? []).includes("*");
+const isMaster = (ctx: ZenithRequestContext) =>
+  ctx.masterKey === true || (ctx.apiKey?.scopes ?? []).includes("*");
 
 /**
  * `ctx.master` and `ctx.user` — the shape the traits read (ACL, CLP, cloud hooks). Roles are the
  * caller's Parse roles plus its directory groups (FreeIPA/LDAP via engine-auth), so an ACL entry
  * `role:admins` matches members of the `admins` group.
  */
-export function callerFields(ctx: ZenithRequestContext): { master: boolean; user?: { objectId: string; id: string; roles: string[] } } {
+export function callerFields(
+  ctx: ZenithRequestContext,
+): { master: boolean; user?: { objectId: string; id: string; roles: string[] } } {
   const userId = ctx.auth?.userId;
   if (!userId) return { master: isMaster(ctx) };
   const roles = [...new Set([...(ctx.auth?.roles ?? []), ...(ctx.auth?.groups ?? [])])].map(String);
@@ -53,26 +56,37 @@ export function callerFields(ctx: ZenithRequestContext): { master: boolean; user
 }
 
 const forbidden = (error: string): Response =>
-  new Response(JSON.stringify({ code: 119, error }), { status: 403, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify({ code: 119, error }), {
+    status: 403,
+    headers: { "Content-Type": "application/json" },
+  });
 
 /** `null` if `ctx` may call a route with `access`, otherwise the refusal. */
-export function denied(access: RouteAccess, ctx: ZenithRequestContext, scope?: RouteScope): Response | null {
+export function denied(
+  access: RouteAccess,
+  ctx: ZenithRequestContext,
+  scope?: RouteScope,
+): Response | null {
   if (access === "public" || isMaster(ctx)) return null;
   if (access === "user" && ctx.apiKey) {
     // An API key only reaches what its scopes cover. Fail closed: a user route that declares no
     // scope is not open to API keys at all. "per-operation" routes (/batch) check each operation.
     const why = scope === undefined
       ? "This route does not accept API keys."
-      : scope === "per-operation" ? null : missingKeyScope(ctx, scope);
+      : scope === "per-operation"
+      ? null
+      : missingKeyScope(ctx, scope);
     if (why) return forbidden(why);
     return null;
   }
   if (access === "user" && ctx.auth?.userId) return null;
   const anonymous = !ctx.auth?.userId && !ctx.apiKey;
   return new Response(
-    JSON.stringify(anonymous
-      ? { code: 209, error: "Authentication required." }
-      : { code: 119, error: "This operation requires the master key." }),
+    JSON.stringify(
+      anonymous
+        ? { code: 209, error: "Authentication required." }
+        : { code: 119, error: "This operation requires the master key." },
+    ),
     { status: anonymous ? 401 : 403, headers: { "Content-Type": "application/json" } },
   );
 }
@@ -85,8 +99,17 @@ export class ZenithRouter {
   /** @param isEnabled Runtime state of features (runtime-features.ts); without it every route is on. */
   constructor(private readonly isEnabled: (feature: string) => boolean = () => true) {}
 
-  on(method: HttpMethod | "*", path: string, handler: RouteHandler, access: RouteAccess = "master", scope?: RouteScope, feature?: string): this {
-    if (!["public", "user", "master"].includes(access)) throw new Error(`route ${method} ${path}: unknown access ${JSON.stringify(access)}`);
+  on(
+    method: HttpMethod | "*",
+    path: string,
+    handler: RouteHandler,
+    access: RouteAccess = "master",
+    scope?: RouteScope,
+    feature?: string,
+  ): this {
+    if (!["public", "user", "master"].includes(access)) {
+      throw new Error(`route ${method} ${path}: unknown access ${JSON.stringify(access)}`);
+    }
     this.routes.push({
       method,
       pattern: new URLPattern({ pathname: path }),
@@ -99,8 +122,15 @@ export class ZenithRouter {
   }
 
   /** What is mounted: method, path and access of every route, in order. */
-  list(): Array<{ method: HttpMethod | "*"; path: string; access: RouteAccess; scope?: RouteScope }> {
-    return this.routes.map((r) => ({ method: r.method, path: r.pattern.pathname, access: r.access, ...(r.scope ? { scope: r.scope } : {}) }));
+  list(): Array<
+    { method: HttpMethod | "*"; path: string; access: RouteAccess; scope?: RouteScope }
+  > {
+    return this.routes.map((r) => ({
+      method: r.method,
+      path: r.pattern.pathname,
+      access: r.access,
+      ...(r.scope ? { scope: r.scope } : {}),
+    }));
   }
 
   get(path: string, handler: RouteHandler): this {
@@ -130,17 +160,17 @@ export class ZenithRouter {
 
       // Alias nativos para SaaS y Paridad
       if (pathname.startsWith("/roles")) {
-         pathname = pathname.replace("/roles", "/classes/_Role");
+        pathname = pathname.replace("/roles", "/classes/_Role");
       } else if (pathname.startsWith("/users")) {
-         if (pathname === "/users" && req.method === "POST") {
-             // Handle signup directly
-         } else if (pathname === "/users/me") {
-             // /users/me handled separately
-         } else {
-             pathname = pathname.replace("/users", "/classes/_User");
-         }
+        if (pathname === "/users" && req.method === "POST") {
+          // Handle signup directly
+        } else if (pathname === "/users/me") {
+          // /users/me handled separately
+        } else {
+          pathname = pathname.replace("/users", "/classes/_User");
+        }
       } else if (pathname.startsWith("/installations")) {
-         pathname = pathname.replace("/installations", "/classes/_Installation");
+        pathname = pathname.replace("/installations", "/classes/_Installation");
       }
 
       for (const route of this.routes) {
@@ -181,22 +211,35 @@ export const healthHandler: RouteHandler = async (_req, _ctx) => {
  * Esto permite compilar microservicios agnósticos (ej. un pod solo para Media).
  */
 export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
-  const features = (deps.traits || deps)[RUNTIME_FEATURES_CAPABILITY] as RuntimeFeatures | undefined;
+  const features = (deps.traits || deps)[RUNTIME_FEATURES_CAPABILITY] as
+    | RuntimeFeatures
+    | undefined;
   const router = new ZenithRouter(features ? (id) => features.isEnabled(id) : undefined);
   void features?.start();
-  
+
   // Rutas de los traits: la misma lista que documenta OpenAPI (route-collection.ts).
   const traitRoutes = collectTraitRoutes(deps.traits || deps);
   // The minimal /health only when no trait serves one (the observability trait's has checks);
   // before, both were mounted and the router always answered with the minimal one.
-  if (!hasTraitHealthRoute(traitRoutes)) router.on("GET", HEALTH_ROUTE.path, healthHandler, "public");
+  if (!hasTraitHealthRoute(traitRoutes)) {
+    router.on("GET", HEALTH_ROUTE.path, healthHandler, "public");
+  }
   const mounted = new Map<string, number>();
   for (const { provider, route } of traitRoutes) {
     if (typeof route.handler !== "function") continue;
-    router.on(route.method as HttpMethod | "*", route.path, route.handler as RouteHandler, route.access ?? "master", route.scope, features?.featureOf(provider));
+    router.on(
+      route.method as HttpMethod | "*",
+      route.path,
+      route.handler as RouteHandler,
+      route.access ?? "master",
+      route.scope,
+      features?.featureOf(provider),
+    );
     mounted.set(provider, (mounted.get(provider) ?? 0) + 1);
   }
-  for (const [provider, n] of mounted) console.log(`[Router] Mounting ${n} routes from capability: ${provider}`);
+  for (const [provider, n] of mounted) {
+    console.log(`[Router] Mounting ${n} routes from capability: ${provider}`);
+  }
 
   return router;
 }

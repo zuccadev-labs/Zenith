@@ -12,32 +12,48 @@
  *   zen email send --channel <id> --to user@co.com --subject "Hola" --body "Texto"
  */
 import { parseArgs } from "@std/cli/parse-args";
-import { loadZenConfig, zenApiCall, printTable, printJson, spinner } from "./_utils.ts";
+import { loadZenConfig, printJson, printTable, spinner, zenApiCall } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {
   const parsed = parseArgs(args, {
-    string:  ["email","provider","name","channel","to","subject","body","target","assign"],
+    string: ["email", "provider", "name", "channel", "to", "subject", "body", "target", "assign"],
     boolean: ["json"],
   });
-  const sub  = String(parsed._[0] ?? "");
+  const sub = String(parsed._[0] ?? "");
   const sub2 = String(parsed._[1] ?? "");
-  const id   = String(parsed._[2] ?? parsed._[1] ?? "");
-  const cfg  = await loadZenConfig();
+  const id = String(parsed._[2] ?? parsed._[1] ?? "");
+  const cfg = await loadZenConfig();
 
   if (sub === "channels") {
     switch (sub2) {
       case "list": {
         const res = await zenApiCall(cfg, "GET", "/zen/email/channels");
-        if (parsed.json) { printJson(res); break; }
-        printTable(res.results, ["objectId","name","email","provider","status","syncInterval","lastSyncAt"]);
+        if (parsed.json) {
+          printJson(res);
+          break;
+        }
+        printTable(res.results, [
+          "objectId",
+          "name",
+          "email",
+          "provider",
+          "status",
+          "syncInterval",
+          "lastSyncAt",
+        ]);
         break;
       }
       case "create": {
         if (!parsed.email || !parsed.provider) {
-          console.error("❌ --email y --provider son obligatorios"); Deno.exit(1);
+          console.error("❌ --email y --provider son obligatorios");
+          Deno.exit(1);
         }
-        const data = { name: parsed.name ?? parsed.email, email: parsed.email, provider: parsed.provider };
-        const res  = await zenApiCall(cfg, "POST", "/zen/email/channels", data);
+        const data = {
+          name: parsed.name ?? parsed.email,
+          email: parsed.email,
+          provider: parsed.provider,
+        };
+        const res = await zenApiCall(cfg, "POST", "/zen/email/channels", data);
         console.log(`✅ Canal creado: ${res.objectId} (${res.email})`);
         break;
       }
@@ -54,9 +70,12 @@ export async function run(args: string[]): Promise<void> {
 
   if (sub === "sync") {
     const channelId = String(parsed._[1] ?? "");
-    if (!channelId) { console.error("❌ Proporciona el channelId"); Deno.exit(1); }
+    if (!channelId) {
+      console.error("❌ Proporciona el channelId");
+      Deno.exit(1);
+    }
     const spin = spinner(`Sincronizando canal ${channelId}...`);
-    const res  = await zenApiCall(cfg, "POST", `/zen/email/channels/${channelId}/sync`);
+    const res = await zenApiCall(cfg, "POST", `/zen/email/channels/${channelId}/sync`);
     spin.stop(true);
     console.log(`📬 Sync completado: ${res.synced} mensajes, ${res.threads} hilos nuevos.`);
     return;
@@ -69,12 +88,25 @@ export async function run(args: string[]): Promise<void> {
         if (parsed.channel) q.channelId = parsed.channel;
         if (parsed.target) {
           const [cls, tid] = parsed.target.split("/");
-          q.targetClassName = cls; q.targetId = tid;
+          q.targetClassName = cls;
+          q.targetId = tid;
         }
-        const qs  = new URLSearchParams(q).toString();
+        const qs = new URLSearchParams(q).toString();
         const res = await zenApiCall(cfg, "GET", `/zen/email/threads${qs ? "?" + qs : ""}`);
-        if (parsed.json) { printJson(res); break; }
-        printTable(res.results, ["objectId","subject","status","isRead","messageCount","lastMessageAt","targetClassName","targetId"]);
+        if (parsed.json) {
+          printJson(res);
+          break;
+        }
+        printTable(res.results, [
+          "objectId",
+          "subject",
+          "status",
+          "isRead",
+          "messageCount",
+          "lastMessageAt",
+          "targetClassName",
+          "targetId",
+        ]);
         break;
       }
       case "get": {
@@ -88,8 +120,13 @@ export async function run(args: string[]): Promise<void> {
         break;
       }
       case "assign": {
-        if (!parsed.assign) { console.error("❌ --assign <userId> requerido"); Deno.exit(1); }
-        const res = await zenApiCall(cfg, "POST", `/zen/email/threads/${id}/assign`, { userId: parsed.assign });
+        if (!parsed.assign) {
+          console.error("❌ --assign <userId> requerido");
+          Deno.exit(1);
+        }
+        const res = await zenApiCall(cfg, "POST", `/zen/email/threads/${id}/assign`, {
+          userId: parsed.assign,
+        });
         console.log(`✅ Hilo asignado a: ${parsed.assign}`);
         break;
       }
@@ -101,11 +138,14 @@ export async function run(args: string[]): Promise<void> {
 
   if (sub === "send") {
     if (!parsed.channel || !parsed.to || !parsed.subject) {
-      console.error("❌ --channel, --to y --subject son obligatorios"); Deno.exit(1);
+      console.error("❌ --channel, --to y --subject son obligatorios");
+      Deno.exit(1);
     }
     const res = await zenApiCall(cfg, "POST", "/zen/email/send", {
-      channelId: parsed.channel, to: [parsed.to],
-      subject: parsed.subject, body: parsed.body ?? "",
+      channelId: parsed.channel,
+      to: [parsed.to],
+      subject: parsed.subject,
+      body: parsed.body ?? "",
     });
     console.log(`✅ Email enviado. MessageID: ${res.messageId}`);
     return;

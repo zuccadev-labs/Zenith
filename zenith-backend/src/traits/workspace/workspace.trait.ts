@@ -17,30 +17,30 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
-import { jsonRes, errRes, NO_CONTENT, pathParams, ptr, now } from "../../core/trait-utils.ts";
+import { errRes, jsonRes, NO_CONTENT, now, pathParams, ptr } from "../../core/trait-utils.ts";
 import { randomHex, sha256Hex } from "../../core/crypto.ts";
 
 const WORKSPACE_SCHEMAS = {
   WorkspaceMember: {
-    user:        { type: "Pointer", targetClass: "_User", required: true },
+    user: { type: "Pointer", targetClass: "_User", required: true },
     workspaceId: { type: "String", required: true },
-    role:        { type: "String", defaultValue: "member" }, // admin|member|guest
-    status:      { type: "String", defaultValue: "active"  }, // active|inactive|suspended
-    invitedBy:   { type: "Pointer", targetClass: "_User" },
-    joinedAt:    { type: "Date" },
-    avatarUrl:   { type: "String" },
+    role: { type: "String", defaultValue: "member" }, // admin|member|guest
+    status: { type: "String", defaultValue: "active" }, // active|inactive|suspended
+    invitedBy: { type: "Pointer", targetClass: "_User" },
+    joinedAt: { type: "Date" },
+    avatarUrl: { type: "String" },
   },
   WorkspaceInvitation: {
-    email:       { type: "String", required: true },
-    role:        { type: "String", defaultValue: "member" },
+    email: { type: "String", required: true },
+    role: { type: "String", defaultValue: "member" },
     workspaceId: { type: "String", required: true },
-    tokenHash:   { type: "String", required: true }, // SHA-256 del token: el token solo se entrega una vez
-    invitedBy:   { type: "Pointer", targetClass: "_User" },
-    expiresAt:   { type: "Date", required: true },
-    acceptedAt:  { type: "Date" },
-    status:      { type: "String", defaultValue: "pending" }, // pending|accepted|expired|revoked
+    tokenHash: { type: "String", required: true }, // SHA-256 del token: el token solo se entrega una vez
+    invitedBy: { type: "Pointer", targetClass: "_User" },
+    expiresAt: { type: "Date", required: true },
+    acceptedAt: { type: "Date" },
+    status: { type: "String", defaultValue: "pending" }, // pending|accepted|expired|revoked
   },
 } as const;
 
@@ -52,11 +52,12 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
   state: [],
   runtimes: ["deno"],
 
-  summary: "Workspace Members (roles Admin/Member/Guest) and Invitations by email with a one-time token (stored hashed).",
+  summary:
+    "Workspace Members (roles Admin/Member/Guest) and Invitations by email with a one-time token (stored hashed).",
 
   create: (deps: Record<string, any>) => {
-    const db     = deps.traits["db"];
-    const cloud  = deps.traits["cloud"];
+    const db = deps.traits["db"];
+    const cloud = deps.traits["cloud"];
     const events = deps.traits["events"];
 
     if (cloud?.defineSchema) {
@@ -91,7 +92,9 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
         const existing = await db.read("WorkspaceMember", objectId);
         if (!existing) throw ZenithErrors.notFound("WorkspaceMember", objectId);
         await db.delete("WorkspaceMember", { objectId });
-        if (events) events.emit("Workspace.memberRemoved", { objectId, workspaceId: existing.workspaceId });
+        if (events) {
+          events.emit("Workspace.memberRemoved", { objectId, workspaceId: existing.workspaceId });
+        }
         return { success: true };
       },
 
@@ -102,10 +105,15 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
         const token = randomHex(32);
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 días
         const invitation = await db.create("WorkspaceInvitation", {
-          email, role: role ?? "member", workspaceId,
-          tokenHash: await sha256Hex(token), expiresAt, status: "pending",
+          email,
+          role: role ?? "member",
+          workspaceId,
+          tokenHash: await sha256Hex(token),
+          expiresAt,
+          status: "pending",
           invitedBy: ctx.user ? ptr("_User", ctx.user.objectId) : null,
-          createdAt: now(), updatedAt: now(),
+          createdAt: now(),
+          updatedAt: now(),
         });
         if (events) events.emit("Workspace.invited", { email, role, workspaceId, token });
         // token se retorna SOLO en la respuesta inicial — nunca más
@@ -113,8 +121,13 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
         return { ...safe, inviteUrl: `/zen/workspace/invitations/accept?token=${token}` };
       },
       async acceptInvitation(token: string, userId: string) {
-        if (typeof token !== "string" || !token) throw ZenithErrors.validationFailed("token es obligatorio.");
-        const invitations = await db.find("WorkspaceInvitation", { tokenHash: await sha256Hex(token), status: "pending" });
+        if (typeof token !== "string" || !token) {
+          throw ZenithErrors.validationFailed("token es obligatorio.");
+        }
+        const invitations = await db.find("WorkspaceInvitation", {
+          tokenHash: await sha256Hex(token),
+          status: "pending",
+        });
         const inv = invitations[0];
         if (!inv) throw ZenithErrors.notFound("WorkspaceInvitation");
         if (new Date(inv.expiresAt) < new Date()) {
@@ -122,11 +135,19 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
           throw ZenithErrors.invalidRequest("La invitación ha expirado.");
         }
         const member = await db.create("WorkspaceMember", {
-          user: ptr("_User", userId), workspaceId: inv.workspaceId,
-          role: inv.role, status: "active", invitedBy: inv.invitedBy,
-          joinedAt: now(), createdAt: now(), updatedAt: now(),
+          user: ptr("_User", userId),
+          workspaceId: inv.workspaceId,
+          role: inv.role,
+          status: "active",
+          invitedBy: inv.invitedBy,
+          joinedAt: now(),
+          createdAt: now(),
+          updatedAt: now(),
         });
-        await db.update("WorkspaceInvitation", { objectId: inv.objectId }, { status: "accepted", acceptedAt: now() });
+        await db.update("WorkspaceInvitation", { objectId: inv.objectId }, {
+          status: "accepted",
+          acceptedAt: now(),
+        });
         if (events) events.emit("Workspace.memberJoined", member);
         return member;
       },
@@ -136,13 +157,87 @@ export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
 
     const workspace_routes = [
       // Members
-      { method: "GET"    as const, path: "/zen/workspace/:workspaceId/members",      _openapi: { summary: "Listar Miembros del Workspace",   tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/workspace/:workspaceId/members", req.url)!; return jsonRes(await api.listMembers(p.workspaceId)); } catch(e) { return errRes(e); } } },
-      { method: "GET"    as const, path: "/zen/workspace/members/:objectId",         _openapi: { summary: "Obtener Miembro por ID",           tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/workspace/members/:objectId", req.url)!; return jsonRes(await api.getMember(p.objectId)); } catch(e) { return errRes(e); } } },
-      { method: "PUT"    as const, path: "/zen/workspace/members/:objectId",         _openapi: { summary: "Actualizar rol/estado del Miembro", tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/workspace/members/:objectId", req.url)!; return jsonRes(await api.updateMember(p.objectId, await req.json(), ctx)); } catch(e) { return errRes(e); } } },
-      { method: "DELETE" as const, path: "/zen/workspace/members/:objectId",         _openapi: { summary: "Eliminar Miembro del Workspace",   tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/workspace/members/:objectId", req.url)!; await api.removeMember(p.objectId, ctx); return NO_CONTENT; } catch(e) { return errRes(e); } } },
+      {
+        method: "GET" as const,
+        path: "/zen/workspace/:workspaceId/members",
+        _openapi: { summary: "Listar Miembros del Workspace", tags: ["Workspace"] },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const p = pathParams("/zen/workspace/:workspaceId/members", req.url)!;
+            return jsonRes(await api.listMembers(p.workspaceId));
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
+      {
+        method: "GET" as const,
+        path: "/zen/workspace/members/:objectId",
+        _openapi: { summary: "Obtener Miembro por ID", tags: ["Workspace"] },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const p = pathParams("/zen/workspace/members/:objectId", req.url)!;
+            return jsonRes(await api.getMember(p.objectId));
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
+      {
+        method: "PUT" as const,
+        path: "/zen/workspace/members/:objectId",
+        _openapi: { summary: "Actualizar rol/estado del Miembro", tags: ["Workspace"] },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const p = pathParams("/zen/workspace/members/:objectId", req.url)!;
+            return jsonRes(await api.updateMember(p.objectId, await req.json(), ctx));
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
+      {
+        method: "DELETE" as const,
+        path: "/zen/workspace/members/:objectId",
+        _openapi: { summary: "Eliminar Miembro del Workspace", tags: ["Workspace"] },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const p = pathParams("/zen/workspace/members/:objectId", req.url)!;
+            await api.removeMember(p.objectId, ctx);
+            return NO_CONTENT;
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
       // Invitations
-      { method: "POST"   as const, path: "/zen/workspace/:workspaceId/invitations",  _openapi: { summary: "Invitar Miembro al Workspace",     tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const p = pathParams("/zen/workspace/:workspaceId/invitations", req.url)!; const b = await req.json(); return jsonRes(await api.invite(p.workspaceId, b.email, b.role, ctx), 201); } catch(e) { return errRes(e); } } },
-      { method: "POST"   as const, path: "/zen/workspace/invitations/accept",        _openapi: { summary: "Aceptar Invitación",               tags: ["Workspace"] }, handler: async (req: Request, ctx: any) => { try { const b = await req.json(); return jsonRes(await api.acceptInvitation(b.token, b.userId ?? ctx.user?.objectId)); } catch(e) { return errRes(e); } } },
+      {
+        method: "POST" as const,
+        path: "/zen/workspace/:workspaceId/invitations",
+        _openapi: { summary: "Invitar Miembro al Workspace", tags: ["Workspace"] },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const p = pathParams("/zen/workspace/:workspaceId/invitations", req.url)!;
+            const b = await req.json();
+            return jsonRes(await api.invite(p.workspaceId, b.email, b.role, ctx), 201);
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
+      {
+        method: "POST" as const,
+        path: "/zen/workspace/invitations/accept",
+        _openapi: { summary: "Aceptar Invitación", tags: ["Workspace"] },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const b = await req.json();
+            return jsonRes(await api.acceptInvitation(b.token, b.userId ?? ctx.user?.objectId));
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
     ];
 
     return { workspace_routes, workspace: api };

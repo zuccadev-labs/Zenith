@@ -40,12 +40,19 @@ export function webhookKeyBytes(secret: string): Uint8Array<ArrayBuffer> {
   } catch {
     throw new Error("Webhook secret: expected whsec_ followed by base64.");
   }
-  if (key.length < 24 || key.length > 64) throw new Error("Webhook secret: the key must be 24 to 64 bytes.");
+  if (key.length < 24 || key.length > 64) {
+    throw new Error("Webhook secret: the key must be 24 to 64 bytes.");
+  }
   return key;
 }
 
 /** `v1,<base64>` para un mensaje. */
-export async function signWebhook(secret: string, id: string, timestamp: number, body: string): Promise<string> {
+export async function signWebhook(
+  secret: string,
+  id: string,
+  timestamp: number,
+  body: string,
+): Promise<string> {
   if (id.includes(".")) throw new Error("webhook-id must not contain '.'.");
   return `v1,${toBase64(await hmacSha256(webhookKeyBytes(secret), `${id}.${timestamp}.${body}`))}`;
 }
@@ -71,7 +78,8 @@ export async function webhookHeaders(
 }
 
 type HeaderSource = Headers | Record<string, string | undefined>;
-const header = (h: HeaderSource, name: string) => (h instanceof Headers ? h.get(name) : h[name] ?? h[name.toLowerCase()]) ?? null;
+const header = (h: HeaderSource, name: string) =>
+  (h instanceof Headers ? h.get(name) : h[name] ?? h[name.toLowerCase()]) ?? null;
 
 /**
  * Si las cabeceras firman `body` con alguno de `secrets` dentro de la tolerancia. Falla cerrado: falta
@@ -87,17 +95,25 @@ export async function verifyWebhook(
   const id = header(headers, WEBHOOK_ID_HEADER);
   const ts = header(headers, WEBHOOK_TIMESTAMP_HEADER);
   const sig = header(headers, WEBHOOK_SIGNATURE_HEADER);
-  if (!id || !ts || !sig || !/^\d+$/.test(ts) || id.includes(".") || secrets.length === 0) return false;
+  if (!id || !ts || !sig || !/^\d+$/.test(ts) || id.includes(".") || secrets.length === 0) {
+    return false;
+  }
   const timestamp = Number(ts);
   const now = Math.floor((options.nowMs ?? Date.now()) / 1000);
-  if (Math.abs(now - timestamp) > (options.toleranceSeconds ?? WEBHOOK_TOLERANCE_SECONDS)) return false;
+  if (Math.abs(now - timestamp) > (options.toleranceSeconds ?? WEBHOOK_TOLERANCE_SECONDS)) {
+    return false;
+  }
   const enc = new TextEncoder();
-  const candidates = sig.split(" ").filter((s) => s.startsWith("v1,")).map((s) => enc.encode(s.slice(3)));
+  const candidates = sig.split(" ").filter((s) => s.startsWith("v1,")).map((s) =>
+    enc.encode(s.slice(3))
+  );
   let ok = false;
   for (const secret of secrets) {
     let expected: Uint8Array;
     try {
-      expected = enc.encode(toBase64(await hmacSha256(webhookKeyBytes(secret), `${id}.${timestamp}.${body}`)));
+      expected = enc.encode(
+        toBase64(await hmacSha256(webhookKeyBytes(secret), `${id}.${timestamp}.${body}`)),
+      );
     } catch {
       continue;
     }
@@ -122,7 +138,10 @@ export function generateChallenge(): string {
 }
 
 /** The `webhook-challenge-response` value for `challenge` (the header string as received). */
-export async function endpointVerificationResponse(secret: string, challenge: string): Promise<string> {
+export async function endpointVerificationResponse(
+  secret: string,
+  challenge: string,
+): Promise<string> {
   const verificationKey = await hmacSha256(webhookKeyBytes(secret), "wev-v1");
   return `v1,${toBase64(await hmacSha256(verificationKey, challenge))}`;
 }
@@ -131,7 +150,11 @@ export async function endpointVerificationResponse(secret: string, challenge: st
  * Whether `header` answers `challenge` with one of `secrets`. The whole value is compared in constant
  * time; a list of signatures or another identifier fails.
  */
-export async function verifyEndpointVerificationResponse(secrets: readonly string[], challenge: string, header: string | null): Promise<boolean> {
+export async function verifyEndpointVerificationResponse(
+  secrets: readonly string[],
+  challenge: string,
+  header: string | null,
+): Promise<boolean> {
   if (!header || header.includes(" ") || !header.startsWith("v1,")) return false;
   const enc = new TextEncoder();
   let ok = false;

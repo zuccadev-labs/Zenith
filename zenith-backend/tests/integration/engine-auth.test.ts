@@ -12,10 +12,17 @@
 import { assert, assertEquals, assertMatch, assertNotEquals } from "@std/assert";
 import { composeTraitDescriptors, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { UserManagementTrait } from "../../src/traits/auth/user.trait.ts";
-import { EngineAuthFacade, type AuthCrud } from "../../src/traits/auth/engine-auth.ts";
+import { type AuthCrud, EngineAuthFacade } from "../../src/traits/auth/engine-auth.ts";
 import { buildDynamicRouter } from "../../src/core/router.ts";
-import { createRequestHandler, extractContext, resolveAuthentication } from "../../src/core/pipeline.ts";
-import { DatabaseMongoTrait, createMongoAdapter } from "../../src/adapters/database/mongo.adapter.ts";
+import {
+  createRequestHandler,
+  extractContext,
+  resolveAuthentication,
+} from "../../src/core/pipeline.ts";
+import {
+  createMongoAdapter,
+  DatabaseMongoTrait,
+} from "../../src/adapters/database/mongo.adapter.ts";
 import { MongoClient } from "mongodb";
 
 import { AUD, BIN, EngineAuth, LIB_DIR, PASSWORD } from "./_engine_auth_lab.ts";
@@ -39,7 +46,8 @@ function memoryDb() {
   const db: AuthCrud & { cols: typeof cols; calls: { updateIf: number } } = {
     cols,
     calls: { updateIf: 0 },
-    find: async (c, q) => [...col(c).values()].filter((d) => matches(d, q.where)).map((d) => structuredClone(d)),
+    find: async (c, q) =>
+      [...col(c).values()].filter((d) => matches(d, q.where)).map((d) => structuredClone(d)),
     findOne: async (c, q) => {
       const d = [...col(c).values()].find((d) => matches(d, q.where));
       return d ? structuredClone(d) : null;
@@ -114,7 +122,8 @@ async function openTestDb(): Promise<TestDb> {
       return d ? strip(d) : null;
     },
     sessions: async () => (await db.collection("_Session").find().toArray()).map(strip),
-    expireAccess: async () => void (await db.collection("_Session").updateMany({}, { $set: { accessExp: 0 } })),
+    expireAccess: async () =>
+      void (await db.collection("_Session").updateMany({}, { $set: { accessExp: 0 } })),
     close: async () => {
       await db.dropDatabase();
       await client.close();
@@ -126,21 +135,51 @@ async function openTestDb(): Promise<TestDb> {
 
 function zenith(ea: EngineAuth, db: AuthCrud, configure = true) {
   const MemDb = createTraitDescriptor({
-    name: "MemDb", provides: ["database-crud"], consumes: [], state: [], runtimes: ["deno"], summary: "test db",
+    name: "MemDb",
+    provides: ["database-crud"],
+    consumes: [],
+    state: [],
+    runtimes: ["deno"],
+    summary: "test db",
     create: () => ({ "database-crud": db }),
   });
-  const composed = composeTraitDescriptors([MemDb, UserManagementTrait] as any).traits as Record<string, any>;
+  const composed = composeTraitDescriptors([MemDb, UserManagementTrait] as any).traits as Record<
+    string,
+    any
+  >;
   if (configure) {
-    composed["user-manager"].configure({ issuer: ea.url, clientId: "zenith", audience: AUD, sessionKey: SESSION_KEY, libDir: LIB_DIR });
+    composed["user-manager"].configure({
+      issuer: ea.url,
+      clientId: "zenith",
+      audience: AUD,
+      sessionKey: SESSION_KEY,
+      libDir: LIB_DIR,
+    });
   }
-  const whoami = [{ access: "public", method: "GET", path: "/whoami", handler: async (_r: Request, ctx: any) => Response.json(ctx.auth ?? null) }];
+  const whoami = [{
+    access: "public",
+    method: "GET",
+    path: "/whoami",
+    handler: async (_r: Request, ctx: any) => Response.json(ctx.auth ?? null),
+  }];
   const router = buildDynamicRouter({ ...composed, "probe-routes": whoami });
-  const handle = createRequestHandler([extractContext({ configMasterKey: "m" }), resolveAuthentication(composed.authentication)], router.dispatch());
-  const call = async (method: string, path: string, opts: { body?: unknown; token?: string; bearer?: string; ip?: string } = {}) => {
+  const handle = createRequestHandler([
+    extractContext({ configMasterKey: "m" }),
+    resolveAuthentication(composed.authentication),
+  ], router.dispatch());
+  const call = async (
+    method: string,
+    path: string,
+    opts: { body?: unknown; token?: string; bearer?: string; ip?: string } = {},
+  ) => {
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (opts.token) headers["x-parse-session-token"] = opts.token;
     if (opts.bearer) headers["authorization"] = `Bearer ${opts.bearer}`;
-    const req = new Request(`http://zenith.test${path}`, { method, headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
+    const req = new Request(`http://zenith.test${path}`, {
+      method,
+      headers,
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    });
     (req as any).__socketAddr = { hostname: opts.ip ?? "198.51.100.20" };
     const r = await handle(req);
     return { status: r.status, body: await r.json().catch(() => null) };
@@ -148,166 +187,323 @@ function zenith(ea: EngineAuth, db: AuthCrud, configure = true) {
   return { call, composed };
 }
 
-
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-Deno.test({ name: "engine-auth facade: sign up, log in, /users/me and ctx.auth like Parse", ignore, sanitizeResources: false, sanitizeOps: false, fn: async () => {
-  const ea = await EngineAuth.start();
-  try {
-    const t = await testDb();
-    const db = t.crud;
-    const z = zenith(ea, db);
+Deno.test({
+  name: "engine-auth facade: sign up, log in, /users/me and ctx.auth like Parse",
+  ignore,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const ea = await EngineAuth.start();
+    try {
+      const t = await testDb();
+      const db = t.crud;
+      const z = zenith(ea, db);
 
-    const su = await z.call("POST", "/users", { body: { username: "leo", email: "Leo@Example.test", password: PASSWORD, emailVerified: true, color: "verde" } });
-    assertEquals(su.status, 201, JSON.stringify(su.body));
-    assertMatch(su.body.sessionToken, /^r:[0-9a-f]{64}$/);
-    const profile = (await t.user(su.body.objectId))!;
-    assertEquals([profile.username, profile.email, profile.emailVerified, profile.color], ["leo", "leo@example.test", false, "verde"], "a client cannot mark itself verified");
+      const su = await z.call("POST", "/users", {
+        body: {
+          username: "leo",
+          email: "Leo@Example.test",
+          password: PASSWORD,
+          emailVerified: true,
+          color: "verde",
+        },
+      });
+      assertEquals(su.status, 201, JSON.stringify(su.body));
+      assertMatch(su.body.sessionToken, /^r:[0-9a-f]{64}$/);
+      const profile = (await t.user(su.body.objectId))!;
+      assertEquals([profile.username, profile.email, profile.emailVerified, profile.color], [
+        "leo",
+        "leo@example.test",
+        false,
+        "verde",
+      ], "a client cannot mark itself verified");
 
-    const session = (await t.sessions())[0];
-    assert(!JSON.stringify(session).includes("zrt_"), "the refresh token is stored sealed");
-    assertNotEquals(session.tokenHash, su.body.sessionToken, "only the hash of the session token is stored");
+      const session = (await t.sessions())[0];
+      assert(!JSON.stringify(session).includes("zrt_"), "the refresh token is stored sealed");
+      assertNotEquals(
+        session.tokenHash,
+        su.body.sessionToken,
+        "only the hash of the session token is stored",
+      );
 
-    const li = await z.call("POST", "/login", { body: { username: "LEO", password: PASSWORD } });
-    assertEquals(li.status, 200, JSON.stringify(li.body));
-    assertEquals([li.body.objectId, li.body.username], [su.body.objectId, "leo"]);
-    assertEquals((await z.call("POST", "/login", { body: { email: "leo@example.test", password: PASSWORD } })).status, 200);
+      const li = await z.call("POST", "/login", { body: { username: "LEO", password: PASSWORD } });
+      assertEquals(li.status, 200, JSON.stringify(li.body));
+      assertEquals([li.body.objectId, li.body.username], [su.body.objectId, "leo"]);
+      assertEquals(
+        (await z.call("POST", "/login", {
+          body: { email: "leo@example.test", password: PASSWORD },
+        })).status,
+        200,
+      );
 
-    const bad = await z.call("POST", "/login", { body: { username: "leo", password: "no es esta" } });
-    assertEquals([bad.status, bad.body.code], [404, 101]);
-    assertEquals((await z.call("GET", "/login?username=leo&password=x")).status, 405, "no credentials in URLs");
+      const bad = await z.call("POST", "/login", {
+        body: { username: "leo", password: "no es esta" },
+      });
+      assertEquals([bad.status, bad.body.code], [404, 101]);
+      assertEquals(
+        (await z.call("GET", "/login?username=leo&password=x")).status,
+        405,
+        "no credentials in URLs",
+      );
 
-    const me = await z.call("GET", "/users/me", { token: li.body.sessionToken });
-    assertEquals([me.status, me.body.objectId, me.body.sessionToken], [200, su.body.objectId, li.body.sessionToken]);
-    const who = await z.call("GET", "/whoami", { token: li.body.sessionToken });
-    assertEquals([who.body.userId, who.body.via], [su.body.objectId, "session"]);
-    assertEquals((await z.call("GET", "/whoami", { token: "r:" + "0".repeat(64) })).body, null, "unknown handle: anonymous");
-    assertEquals((await z.call("GET", "/users/me", { token: "r:" + "0".repeat(64) })).body.code, 209);
+      const me = await z.call("GET", "/users/me", { token: li.body.sessionToken });
+      assertEquals([me.status, me.body.objectId, me.body.sessionToken], [
+        200,
+        su.body.objectId,
+        li.body.sessionToken,
+      ]);
+      const who = await z.call("GET", "/whoami", { token: li.body.sessionToken });
+      assertEquals([who.body.userId, who.body.via], [su.body.objectId, "session"]);
+      assertEquals(
+        (await z.call("GET", "/whoami", { token: "r:" + "0".repeat(64) })).body,
+        null,
+        "unknown handle: anonymous",
+      );
+      assertEquals(
+        (await z.call("GET", "/users/me", { token: "r:" + "0".repeat(64) })).body.code,
+        209,
+      );
 
-    const dup = await z.call("POST", "/users", { body: { username: "otro", email: "leo@example.test", password: PASSWORD } });
-    assertEquals([dup.status, dup.body.code], [400, 202]);
-    const weak = await z.call("POST", "/users", { body: { username: "ana", email: "ana@example.test", password: "corta" } });
-    assertEquals([weak.status, weak.body.code], [400, 142]);
-    assertEquals((await z.call("POST", "/users", { body: { username: "ana", password: PASSWORD } })).body.code, 204);
-  } finally {
-    await ea.stop();
-    await closeAll();
-  }
-}});
-
-Deno.test({ name: "engine-auth facade: access tokens from other services are verified by FFI, audience enforced", ignore, sanitizeResources: false, sanitizeOps: false, fn: async () => {
-  const ea = await EngineAuth.start();
-  try {
-    await ea.cli(["user", "add", "ana@example.test"], `${PASSWORD}\n`);
-    const t = await testDb();
-    const z = zenith(ea, t.crud);
-    const login = async (audience: string) =>
-      (await (await fetch(`${ea.url}/api/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ clientId: "zenith", login: "ana@example.test", password: PASSWORD, audience: [audience] }) })).json()).access_token as string;
-
-    const who = await z.call("GET", "/whoami", { bearer: await login(AUD) });
-    assertEquals([who.body.via, who.body.clientId], ["bearer", "zenith"]);
-    assertMatch(who.body.userId, /^[0-9a-f-]{36}$/);
-    assertEquals((await z.call("GET", "/whoami", { bearer: await login("https://otro.example.test") })).body, null, "a token for another service is not accepted");
-
-    // A key rotated in engine-auth: the new token is accepted after one JWKS refetch.
-    const rot = await ea.cli(["keys", "rotate", "EdDSA"]);
-    assert(rot.ok, JSON.stringify(rot.out));
-    await new Promise((r) => setTimeout(r, 31_000)); // the facade refetches at most every 30 s; engine-auth reloads keys every 30 s
-    const after = await z.call("GET", "/whoami", { bearer: await login(AUD) });
-    assertEquals(after.body?.via, "bearer", "rotation is picked up");
-  } finally {
-    await ea.stop();
-    await closeAll();
-  }
-}});
-
-Deno.test({ name: "engine-auth facade: two instances refresh one session once (lease), logout and disable end it", ignore, sanitizeResources: false, sanitizeOps: false, fn: async () => {
-  const ea = await EngineAuth.start();
-  try {
-    await ea.cli(["user", "add", "ana@example.test", "--username", "ana"], `${PASSWORD}\n`);
-    const tdb = await testDb();
-    const db = tdb.crud;
-    const a = zenith(ea, db), b = zenith(ea, db);
-    const t = (await a.call("POST", "/login", { body: { username: "ana", password: PASSWORD } })).body.sessionToken;
-
-    // Expired access token, the same session on both instances at the same moment, several times.
-    for (let round = 0; round < 3; round++) {
-      await tdb.expireAccess();
-      const r = await Promise.all([a.call("GET", "/whoami", { token: t }), b.call("GET", "/whoami", { token: t }), a.call("GET", "/whoami", { token: t }), b.call("GET", "/whoami", { token: t })]);
-      for (const x of r) assertEquals(x.body?.via, "session", `round ${round}: every request is authenticated`);
+      const dup = await z.call("POST", "/users", {
+        body: { username: "otro", email: "leo@example.test", password: PASSWORD },
+      });
+      assertEquals([dup.status, dup.body.code], [400, 202]);
+      const weak = await z.call("POST", "/users", {
+        body: { username: "ana", email: "ana@example.test", password: "corta" },
+      });
+      assertEquals([weak.status, weak.body.code], [400, 142]);
+      assertEquals(
+        (await z.call("POST", "/users", { body: { username: "ana", password: PASSWORD } })).body
+          .code,
+        204,
+      );
+    } finally {
+      await ea.stop();
+      await closeAll();
     }
-    assertEquals((await tdb.sessions()).length, 1, "the session survived: engine-auth never saw a reused refresh token");
+  },
+});
 
-    // Logout on A ends it everywhere, including engine-auth.
-    await a.call("POST", "/logout", { token: t });
-    assertEquals((await a.call("GET", "/whoami", { token: t })).body, null, "at once on the instance that logged out");
-    await new Promise((r) => setTimeout(r, 5_100));
-    assertEquals((await b.call("GET", "/whoami", { token: t })).body, null, "within the 5 s cache on the others");
-    assertEquals((await tdb.sessions()).length, 0);
+Deno.test({
+  name:
+    "engine-auth facade: access tokens from other services are verified by FFI, audience enforced",
+  ignore,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const ea = await EngineAuth.start();
+    try {
+      await ea.cli(["user", "add", "ana@example.test"], `${PASSWORD}\n`);
+      const t = await testDb();
+      const z = zenith(ea, t.crud);
+      const login = async (audience: string) =>
+        (await (await fetch(`${ea.url}/api/login`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            clientId: "zenith",
+            login: "ana@example.test",
+            password: PASSWORD,
+            audience: [audience],
+          }),
+        })).json()).access_token as string;
 
-    // An account disabled in engine-auth stops at the next refresh, and its session is removed.
-    const t2 = (await a.call("POST", "/login", { body: { username: "ana", password: PASSWORD } })).body.sessionToken;
-    assertEquals((await a.call("GET", "/whoami", { token: t2 })).body?.via, "session");
-    assert((await ea.cli(["user", "disable", "ana@example.test"])).ok);
-    await tdb.expireAccess();
-    await new Promise((r) => setTimeout(r, 5_100));
-    assertEquals((await b.call("GET", "/whoami", { token: t2 })).body, null);
-    assertEquals((await tdb.sessions()).length, 0);
-  } finally {
-    await ea.stop();
-    await closeAll();
-  }
-}});
+      const who = await z.call("GET", "/whoami", { bearer: await login(AUD) });
+      assertEquals([who.body.via, who.body.clientId], ["bearer", "zenith"]);
+      assertMatch(who.body.userId, /^[0-9a-f-]{36}$/);
+      assertEquals(
+        (await z.call("GET", "/whoami", { bearer: await login("https://otro.example.test") })).body,
+        null,
+        "a token for another service is not accepted",
+      );
 
-Deno.test({ name: "engine-auth facade: engine-auth down denies without deleting; failures limit the user, not Zenith", ignore, sanitizeResources: false, sanitizeOps: false, fn: async () => {
-  const ea = await EngineAuth.start();
-  try {
-    await ea.cli(["user", "add", "ana@example.test"], `${PASSWORD}\n`);
-    await ea.cli(["user", "add", "eva@example.test"], `${PASSWORD}\n`);
-    const tdb = await testDb();
-    const db = tdb.crud;
-    const z = zenith(ea, db);
-    // Ten failures from one address; another user of the same Zenith is not locked out.
-    for (let i = 0; i < 10; i++) await z.call("POST", "/login", { body: { email: `x${i}@example.test`, password: "mal" }, ip: "203.0.113.9" });
-    assertEquals((await z.call("POST", "/login", { body: { email: "eva@example.test", password: PASSWORD }, ip: "203.0.113.9" })).status, 429);
-    const t = (await z.call("POST", "/login", { body: { email: "ana@example.test", password: PASSWORD }, ip: "198.51.100.7" })).body.sessionToken;
-    assertMatch(t, /^r:/);
+      // A key rotated in engine-auth: the new token is accepted after one JWKS refetch.
+      const rot = await ea.cli(["keys", "rotate", "EdDSA"]);
+      assert(rot.ok, JSON.stringify(rot.out));
+      await new Promise((r) => setTimeout(r, 31_000)); // the facade refetches at most every 30 s; engine-auth reloads keys every 30 s
+      const after = await z.call("GET", "/whoami", { bearer: await login(AUD) });
+      assertEquals(after.body?.via, "bearer", "rotation is picked up");
+    } finally {
+      await ea.stop();
+      await closeAll();
+    }
+  },
+});
 
-    // Unreachable engine-auth: the refresh fails closed but the session is kept for later.
-    const down = new EngineAuthFacade({ issuer: ea.url, url: "http://127.0.0.1:9", clientId: "zenith", audience: AUD, sessionKey: SESSION_KEY, libDir: LIB_DIR }, db, { log: () => {} });
-    await tdb.expireAccess();
-    assertEquals(await down.verifySession(t), null);
-    const left = await tdb.sessions();
-    assertEquals(left.length, 1);
-    assertEquals(left[0].leaseUntil, 0, "the lease is released");
-    assertEquals((await z.call("GET", "/whoami", { token: t })).body?.via, "session", "back to normal once engine-auth answers");
-  } finally {
-    await ea.stop();
-    await closeAll();
-  }
-}});
+Deno.test({
+  name:
+    "engine-auth facade: two instances refresh one session once (lease), logout and disable end it",
+  ignore,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const ea = await EngineAuth.start();
+    try {
+      await ea.cli(["user", "add", "ana@example.test", "--username", "ana"], `${PASSWORD}\n`);
+      const tdb = await testDb();
+      const db = tdb.crud;
+      const a = zenith(ea, db), b = zenith(ea, db);
+      const t =
+        (await a.call("POST", "/login", { body: { username: "ana", password: PASSWORD } })).body
+          .sessionToken;
 
-Deno.test({ name: "engine-auth facade: not configured means 503 and anonymous, bad configuration refuses to start", ignore, sanitizeResources: false, sanitizeOps: false, fn: async () => {
-  const ea = await EngineAuth.start();
-  try {
-    const db = (await testDb()).crud;
-    const z = zenith(ea, db, false);
-    assertEquals((await z.call("POST", "/login", { body: { username: "a", password: "b" } })).status, 503);
-    const base = { issuer: ea.url, clientId: "zenith", audience: AUD, sessionKey: SESSION_KEY, libDir: LIB_DIR };
-    const refuses = (cfg: any, crud: any = db) => {
-      try {
-        new EngineAuthFacade(cfg, crud);
-        return false;
-      } catch {
-        return true;
+      // Expired access token, the same session on both instances at the same moment, several times.
+      for (let round = 0; round < 3; round++) {
+        await tdb.expireAccess();
+        const r = await Promise.all([
+          a.call("GET", "/whoami", { token: t }),
+          b.call("GET", "/whoami", { token: t }),
+          a.call("GET", "/whoami", { token: t }),
+          b.call("GET", "/whoami", { token: t }),
+        ]);
+        for (const x of r) {
+          assertEquals(x.body?.via, "session", `round ${round}: every request is authenticated`);
+        }
       }
-    };
-    assert(refuses({ ...base, sessionKey: "corta" }), "short key");
-    assert(refuses({ ...base, audience: "" }), "no audience");
-    assert(refuses(base, { ...db, updateIf: undefined }), "no conditional updates: no safe refresh");
-    assert(!refuses(base));
-  } finally {
-    await ea.stop();
-    await closeAll();
-  }
-}});
+      assertEquals(
+        (await tdb.sessions()).length,
+        1,
+        "the session survived: engine-auth never saw a reused refresh token",
+      );
+
+      // Logout on A ends it everywhere, including engine-auth.
+      await a.call("POST", "/logout", { token: t });
+      assertEquals(
+        (await a.call("GET", "/whoami", { token: t })).body,
+        null,
+        "at once on the instance that logged out",
+      );
+      await new Promise((r) => setTimeout(r, 5_100));
+      assertEquals(
+        (await b.call("GET", "/whoami", { token: t })).body,
+        null,
+        "within the 5 s cache on the others",
+      );
+      assertEquals((await tdb.sessions()).length, 0);
+
+      // An account disabled in engine-auth stops at the next refresh, and its session is removed.
+      const t2 =
+        (await a.call("POST", "/login", { body: { username: "ana", password: PASSWORD } })).body
+          .sessionToken;
+      assertEquals((await a.call("GET", "/whoami", { token: t2 })).body?.via, "session");
+      assert((await ea.cli(["user", "disable", "ana@example.test"])).ok);
+      await tdb.expireAccess();
+      await new Promise((r) => setTimeout(r, 5_100));
+      assertEquals((await b.call("GET", "/whoami", { token: t2 })).body, null);
+      assertEquals((await tdb.sessions()).length, 0);
+    } finally {
+      await ea.stop();
+      await closeAll();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "engine-auth facade: engine-auth down denies without deleting; failures limit the user, not Zenith",
+  ignore,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const ea = await EngineAuth.start();
+    try {
+      await ea.cli(["user", "add", "ana@example.test"], `${PASSWORD}\n`);
+      await ea.cli(["user", "add", "eva@example.test"], `${PASSWORD}\n`);
+      const tdb = await testDb();
+      const db = tdb.crud;
+      const z = zenith(ea, db);
+      // Ten failures from one address; another user of the same Zenith is not locked out.
+      for (let i = 0; i < 10; i++) {
+        await z.call("POST", "/login", {
+          body: { email: `x${i}@example.test`, password: "mal" },
+          ip: "203.0.113.9",
+        });
+      }
+      assertEquals(
+        (await z.call("POST", "/login", {
+          body: { email: "eva@example.test", password: PASSWORD },
+          ip: "203.0.113.9",
+        })).status,
+        429,
+      );
+      const t = (await z.call("POST", "/login", {
+        body: { email: "ana@example.test", password: PASSWORD },
+        ip: "198.51.100.7",
+      })).body.sessionToken;
+      assertMatch(t, /^r:/);
+
+      // Unreachable engine-auth: the refresh fails closed but the session is kept for later.
+      const down = new EngineAuthFacade(
+        {
+          issuer: ea.url,
+          url: "http://127.0.0.1:9",
+          clientId: "zenith",
+          audience: AUD,
+          sessionKey: SESSION_KEY,
+          libDir: LIB_DIR,
+        },
+        db,
+        { log: () => {} },
+      );
+      await tdb.expireAccess();
+      assertEquals(await down.verifySession(t), null);
+      const left = await tdb.sessions();
+      assertEquals(left.length, 1);
+      assertEquals(left[0].leaseUntil, 0, "the lease is released");
+      assertEquals(
+        (await z.call("GET", "/whoami", { token: t })).body?.via,
+        "session",
+        "back to normal once engine-auth answers",
+      );
+    } finally {
+      await ea.stop();
+      await closeAll();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "engine-auth facade: not configured means 503 and anonymous, bad configuration refuses to start",
+  ignore,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const ea = await EngineAuth.start();
+    try {
+      const db = (await testDb()).crud;
+      const z = zenith(ea, db, false);
+      assertEquals(
+        (await z.call("POST", "/login", { body: { username: "a", password: "b" } })).status,
+        503,
+      );
+      const base = {
+        issuer: ea.url,
+        clientId: "zenith",
+        audience: AUD,
+        sessionKey: SESSION_KEY,
+        libDir: LIB_DIR,
+      };
+      const refuses = (cfg: any, crud: any = db) => {
+        try {
+          new EngineAuthFacade(cfg, crud);
+          return false;
+        } catch {
+          return true;
+        }
+      };
+      assert(refuses({ ...base, sessionKey: "corta" }), "short key");
+      assert(refuses({ ...base, audience: "" }), "no audience");
+      assert(
+        refuses(base, { ...db, updateIf: undefined }),
+        "no conditional updates: no safe refresh",
+      );
+      assert(!refuses(base));
+    } finally {
+      await ea.stop();
+      await closeAll();
+    }
+  },
+});

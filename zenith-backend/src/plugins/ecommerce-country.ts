@@ -25,16 +25,16 @@ export interface CountryRule {
 }
 
 export const COUNTRY_RULE_SCHEMA = {
-  code:             { type: "String",  required: true },
-  currency:         { type: "String",  required: true },
-  decimals:         { type: "Number",  defaultValue: 2 },
-  taxName:          { type: "String" },
-  taxRate:          { type: "Number",  required: true },
-  taxIncluded:      { type: "Boolean", defaultValue: false },
-  taxableShipping:  { type: "Boolean", defaultValue: false },
-  shippingFlat:     { type: "Number",  required: true },
+  code: { type: "String", required: true },
+  currency: { type: "String", required: true },
+  decimals: { type: "Number", defaultValue: 2 },
+  taxName: { type: "String" },
+  taxRate: { type: "Number", required: true },
+  taxIncluded: { type: "Boolean", defaultValue: false },
+  taxableShipping: { type: "Boolean", defaultValue: false },
+  shippingFlat: { type: "Number", required: true },
   freeShippingFrom: { type: "Number" },
-  isActive:         { type: "Boolean", defaultValue: true },
+  isActive: { type: "Boolean", defaultValue: true },
 };
 
 function isAmount(value: unknown): value is number {
@@ -43,18 +43,31 @@ function isAmount(value: unknown): value is number {
 
 export function validateCountryRule(rule: any): CountryRule {
   const code = String(rule?.code ?? "").toUpperCase();
-  if (!/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/.test(code)) throw ZenithErrors.invalidRequest("code must be ISO 3166, like VE or US-CA.");
+  if (!/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/.test(code)) {
+    throw ZenithErrors.invalidRequest("code must be ISO 3166, like VE or US-CA.");
+  }
   const currency = String(rule?.currency ?? "").toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currency)) throw ZenithErrors.invalidRequest("currency must be ISO 4217, like USD.");
-  if (!isAmount(rule.taxRate) || rule.taxRate > 100) throw ZenithErrors.invalidRequest("taxRate must be between 0 and 100.");
-  if (!isAmount(rule.shippingFlat)) throw ZenithErrors.invalidRequest("shippingFlat must be a positive amount.");
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw ZenithErrors.invalidRequest("currency must be ISO 4217, like USD.");
+  }
+  if (!isAmount(rule.taxRate) || rule.taxRate > 100) {
+    throw ZenithErrors.invalidRequest("taxRate must be between 0 and 100.");
+  }
+  if (!isAmount(rule.shippingFlat)) {
+    throw ZenithErrors.invalidRequest("shippingFlat must be a positive amount.");
+  }
   if (rule.freeShippingFrom !== undefined && !isAmount(rule.freeShippingFrom)) {
     throw ZenithErrors.invalidRequest("freeShippingFrom must be a positive amount.");
   }
   const decimals = rule.decimals ?? 2;
-  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 4) throw ZenithErrors.invalidRequest("decimals must be between 0 and 4.");
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 4) {
+    throw ZenithErrors.invalidRequest("decimals must be between 0 and 4.");
+  }
   return {
-    ...rule, code, currency, decimals,
+    ...rule,
+    code,
+    currency,
+    decimals,
     taxIncluded: !!rule.taxIncluded,
     taxableShipping: !!rule.taxableShipping,
     isActive: rule.isActive !== false,
@@ -64,24 +77,37 @@ export function validateCountryRule(rule: any): CountryRule {
 /** Busca la regla activa del destino: primero la subdivisión, después el país. */
 export async function findCountryRule(Zen: any, address: any): Promise<CountryRule> {
   const country = String(address?.country ?? "").toUpperCase();
-  if (!/^[A-Z]{2}$/.test(country)) throw ZenithErrors.invalidRequest("shippingAddress.country must be an ISO 3166 code, like VE.");
+  if (!/^[A-Z]{2}$/.test(country)) {
+    throw ZenithErrors.invalidRequest("shippingAddress.country must be an ISO 3166 code, like VE.");
+  }
 
   const region = address?.region ? String(address.region).toUpperCase() : undefined;
   if (region) {
-    const regional = await Zen.DB.findOne("StoreCountryRule", { where: { code: region, isActive: true } });
+    const regional = await Zen.DB.findOne("StoreCountryRule", {
+      where: { code: region, isActive: true },
+    });
     if (regional) return regional;
   }
-  const rule = await Zen.DB.findOne("StoreCountryRule", { where: { code: country, isActive: true } });
-  if (!rule) throw ZenithErrors.invalidRequest(`Store does not sell to '${country}': no active country rule.`);
+  const rule = await Zen.DB.findOne("StoreCountryRule", {
+    where: { code: country, isActive: true },
+  });
+  if (!rule) {
+    throw ZenithErrors.invalidRequest(
+      `Store does not sell to '${country}': no active country rule.`,
+    );
+  }
   return rule;
 }
 
-export function computeTotals(input: { subtotal: number; discount: number; freeShipping: boolean; rule: CountryRule }) {
+export function computeTotals(
+  input: { subtotal: number; discount: number; freeShipping: boolean; rule: CountryRule },
+) {
   const { subtotal, discount, freeShipping, rule } = input;
   const decimals = rule.decimals ?? 2;
   const round = (value: number) => parseFloat(value.toFixed(decimals));
 
-  const free = freeShipping || (rule.freeShippingFrom !== undefined && subtotal >= rule.freeShippingFrom);
+  const free = freeShipping ||
+    (rule.freeShippingFrom !== undefined && subtotal >= rule.freeShippingFrom);
   const shipping = free ? 0 : round(rule.shippingFlat);
   const net = Math.max(0, subtotal - discount);
   const base = net + (rule.taxableShipping ? shipping : 0);

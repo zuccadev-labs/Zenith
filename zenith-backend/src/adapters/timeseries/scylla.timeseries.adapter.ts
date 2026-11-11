@@ -25,24 +25,24 @@
  */
 
 export interface TimeSeriesPoint {
-  deviceId:   string;
-  ts:         number;        // Unix ms
-  metric:     string;        // ej. "temperature"
-  valueNum?:  number;
-  valueStr?:  string;
-  unit?:      string;        // SenML: "Cel", "hPa", "%RH", "A", "V"
-  tags?:      Record<string, string>;
+  deviceId: string;
+  ts: number; // Unix ms
+  metric: string; // ej. "temperature"
+  valueNum?: number;
+  valueStr?: string;
+  unit?: string; // SenML: "Cel", "hPa", "%RH", "A", "V"
+  tags?: Record<string, string>;
 }
 
 export interface TimeSeriesQuery {
-  deviceId:   string;
-  metric?:    string;
-  from:       Date;
-  to?:        Date;
-  limit?:     number;
+  deviceId: string;
+  metric?: string;
+  from: Date;
+  to?: Date;
+  limit?: number;
   downsample?: {
     interval: "1m" | "5m" | "15m" | "1h" | "1d";
-    fn:       "avg" | "max" | "min" | "sum" | "count";
+    fn: "avg" | "max" | "min" | "sum" | "count";
   };
 }
 
@@ -73,7 +73,11 @@ function getDayBuckets(from: Date, to: Date): string[] {
 
 // Interval en ms para downsampling
 const INTERVAL_MS: Record<string, number> = {
-  "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "1d": 86_400_000
+  "1m": 60_000,
+  "5m": 300_000,
+  "15m": 900_000,
+  "1h": 3_600_000,
+  "1d": 86_400_000,
 };
 
 /**
@@ -83,7 +87,7 @@ const INTERVAL_MS: Record<string, number> = {
 function downsamplePoints(
   points: TimeSeriesPoint[],
   interval: string,
-  fn: string
+  fn: string,
 ): TimeSeriesPoint[] {
   const bucketMs = INTERVAL_MS[interval] ?? 60_000;
   const groups = new Map<string, number[]>();
@@ -100,15 +104,16 @@ function downsamplePoints(
   for (const [key, values] of groups.entries()) {
     const [deviceId, metric, bucketTs] = key.split("|");
     let value = 0;
-    if (fn === "avg")   value = values.reduce((a, b) => a + b, 0) / values.length;
-    if (fn === "max")   value = Math.max(...values);
-    if (fn === "min")   value = Math.min(...values);
-    if (fn === "sum")   value = values.reduce((a, b) => a + b, 0);
+    if (fn === "avg") value = values.reduce((a, b) => a + b, 0) / values.length;
+    if (fn === "max") value = Math.max(...values);
+    if (fn === "min") value = Math.min(...values);
+    if (fn === "sum") value = values.reduce((a, b) => a + b, 0);
     if (fn === "count") value = values.length;
 
     result.push({
-      deviceId, metric,
-      ts:       parseInt(bucketTs),
+      deviceId,
+      metric,
+      ts: parseInt(bucketTs),
       valueNum: parseFloat(value.toFixed(6)),
     });
   }
@@ -125,7 +130,10 @@ function downsamplePoints(
  * @param keyspace - Target keyspace name (default: "zenith")
  * @returns TimeSeriesAdapter — initialize, write, query, and deleteDevice interface
  */
-export function createScyllaTimeSeriesAdapter(cassandraClient: any, keyspace = "zenith"): TimeSeriesAdapter {
+export function createScyllaTimeSeriesAdapter(
+  cassandraClient: any,
+  keyspace = "zenith",
+): TimeSeriesAdapter {
   const client = cassandraClient;
   const ks = keyspace;
 
@@ -177,7 +185,7 @@ export function createScyllaTimeSeriesAdapter(cassandraClient: any, keyspace = "
 
       for (let i = 0; i < points.length; i += BATCH_SIZE) {
         const batch = points.slice(i, i + BATCH_SIZE);
-        const queries = batch.map(p => ({
+        const queries = batch.map((p) => ({
           query,
           params: [
             p.deviceId,
@@ -227,13 +235,13 @@ export function createScyllaTimeSeriesAdapter(cassandraClient: any, keyspace = "
         const result = await client.execute(cql, params, { prepare: true });
         for (const row of result.rows) {
           allPoints.push({
-            deviceId:  row.device_id,
-            ts:        Number(row.ts),
-            metric:    row.metric,
-            valueNum:  row.value_num ?? undefined,
-            valueStr:  row.value_str ?? undefined,
-            unit:      row.unit ?? undefined,
-            tags:      row.tags ?? undefined,
+            deviceId: row.device_id,
+            ts: Number(row.ts),
+            metric: row.metric,
+            valueNum: row.value_num ?? undefined,
+            valueStr: row.value_str ?? undefined,
+            unit: row.unit ?? undefined,
+            tags: row.tags ?? undefined,
           });
         }
       }
@@ -250,11 +258,13 @@ export function createScyllaTimeSeriesAdapter(cassandraClient: any, keyspace = "
     async deleteDevice(deviceId: string) {
       // Scylla no tiene DELETE sin partition key — debemos iterar buckets
       // En producción usar TTL + tombstone compaction
-      console.warn(`[ScyllaTS] deleteDevice(${deviceId}): use TTL expiry or tombstone compaction for large datasets.`);
+      console.warn(
+        `[ScyllaTS] deleteDevice(${deviceId}): use TTL expiry or tombstone compaction for large datasets.`,
+      );
       await client.execute(
         `DELETE FROM ${ks}.ts_readings WHERE device_id = ?`,
         [deviceId],
-        { prepare: true }
+        { prepare: true },
       ).catch(() => {});
     },
   };

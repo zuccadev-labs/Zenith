@@ -87,7 +87,8 @@ export const audit = {
       "key.name": record.name,
       "key.scopes": record.scopes,
       "actor.id": actor,
-      "message": `API key '${record.name}' created for app ${record.appId} (${record.prefix}_${record.env}_${record.id})`,
+      "message":
+        `API key '${record.name}' created for app ${record.appId} (${record.prefix}_${record.env}_${record.id})`,
     });
   },
 
@@ -109,7 +110,12 @@ export const audit = {
     });
   },
 
-  rejected(reason: ApiKeyInvalidReason, keyId: string | undefined, clientIp?: string, requiredScope?: string): Promise<void> {
+  rejected(
+    reason: ApiKeyInvalidReason,
+    keyId: string | undefined,
+    clientIp?: string,
+    requiredScope?: string,
+  ): Promise<void> {
     return writeLog({
       "@timestamp": new Date().toISOString(),
       "log.level": "warn",
@@ -121,7 +127,9 @@ export const audit = {
       "key.id": keyId,
       "client.ip": clientIp,
       "reason": requiredScope ? `scope_denied:${requiredScope}` : reason,
-      "message": `Key verification failed: ${reason}${keyId ? ` (id=${keyId})` : ""}${clientIp ? ` from ${clientIp}` : ""}`,
+      "message": `Key verification failed: ${reason}${keyId ? ` (id=${keyId})` : ""}${
+        clientIp ? ` from ${clientIp}` : ""
+      }`,
     });
   },
 
@@ -141,7 +149,8 @@ export const audit = {
       "key.name": record.name,
       "actor.id": actor,
       "reason": reason,
-      "message": `Key '${record.name}' (${record.prefix}_${record.env}_${record.id}) revoked by ${actor}: ${reason}`,
+      "message":
+        `Key '${record.name}' (${record.prefix}_${record.env}_${record.id}) revoked by ${actor}: ${reason}`,
     });
   },
 
@@ -174,7 +183,8 @@ export const audit = {
       "key.prefix": record.prefix,
       "key.app_id": record.appId,
       "client.ip": clientIp,
-      "message": `Rate limit exceeded for key ${record.prefix}_${record.env}_${record.id} (limit=${record.rateLimit.requestsPerMinute}/min)`,
+      "message":
+        `Rate limit exceeded for key ${record.prefix}_${record.env}_${record.id} (limit=${record.rateLimit.requestsPerMinute}/min)`,
     });
   },
 
@@ -193,7 +203,9 @@ export const audit = {
       "key.scopes": record.scopes,
       "client.ip": clientIp,
       "reason": `missing_scope:${required}`,
-      "message": `Key ${record.id} attempted operation requiring scope '${required}' (granted: ${record.scopes.join(",") || "<none>"})`,
+      "message": `Key ${record.id} attempted operation requiring scope '${required}' (granted: ${
+        record.scopes.join(",") || "<none>"
+      })`,
     });
   },
 };

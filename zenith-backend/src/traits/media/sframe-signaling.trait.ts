@@ -17,14 +17,25 @@ export const SFrameSignalingTrait = createTraitDescriptor({
   consumes: ["db"],
   state: ["activeRooms"],
   runtimes: ["deno"],
-  summary: "WebRTC SFrame selective-encryption signaling: per-participant key distribution for selective forward secrecy, room-based key rotation, sender/receiver scope negotiation.",
+  summary:
+    "WebRTC SFrame selective-encryption signaling: per-participant key distribution for selective forward secrecy, room-based key rotation, sender/receiver scope negotiation.",
   create: (deps: Record<string, any>) => {
     const db = deps.traits["db"];
 
     const traitApi: any = {
-      activeRooms: new Map<string, { roomId: string; participants: Map<string, { keyId: string; joinedAt: number }>; createdAt: number }>(),
+      activeRooms: new Map<
+        string,
+        {
+          roomId: string;
+          participants: Map<string, { keyId: string; joinedAt: number }>;
+          createdAt: number;
+        }
+      >(),
 
-      createRoom: async (roomId: string, options: { maxParticipants?: number; keyRotationSec?: number } = {}) => {
+      createRoom: async (
+        roomId: string,
+        options: { maxParticipants?: number; keyRotationSec?: number } = {},
+      ) => {
         const room = {
           roomId,
           maxParticipants: options.maxParticipants || 50,
@@ -33,8 +44,17 @@ export const SFrameSignalingTrait = createTraitDescriptor({
           createdAt: Date.now(),
         };
         traitApi.activeRooms.set(roomId, room);
-        await db.create("_SFrameRoom", { roomId, maxParticipants: room.maxParticipants, keyRotationSec: room.keyRotationSec, createdAt: new Date().toISOString() });
-        return { roomId, maxParticipants: room.maxParticipants, keyRotationSec: room.keyRotationSec };
+        await db.create("_SFrameRoom", {
+          roomId,
+          maxParticipants: room.maxParticipants,
+          keyRotationSec: room.keyRotationSec,
+          createdAt: new Date().toISOString(),
+        });
+        return {
+          roomId,
+          maxParticipants: room.maxParticipants,
+          keyRotationSec: room.keyRotationSec,
+        };
       },
 
       joinRoom: async (roomId: string, userId: string) => {
@@ -70,30 +90,49 @@ export const SFrameSignalingTrait = createTraitDescriptor({
         path: "/sframe/rooms",
         _openapi: { summary: "Create an SFrame room for selective encryption" },
         handler: async (req: Request) => {
-          const body = await req.json() as { roomId: string; maxParticipants?: number; keyRotationSec?: number };
+          const body = await req.json() as {
+            roomId: string;
+            maxParticipants?: number;
+            keyRotationSec?: number;
+          };
           const room = await traitApi.createRoom(body.roomId, body);
-          return new Response(JSON.stringify(room), { status: 201, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(room), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "POST" as const,
         path: "/sframe/rooms/:roomId/join",
-        _openapi: { summary: "Join an SFrame room", parameters: [{ name: "roomId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Join an SFrame room",
+          parameters: [{ name: "roomId", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const roomId = new URL(req.url).pathname.split("/")[3];
           const body = await req.json() as { userId: string };
           const result = await traitApi.joinRoom(roomId, body.userId);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "POST" as const,
         path: "/sframe/rooms/:roomId/rotate",
-        _openapi: { summary: "Rotate all keys in an SFrame room", parameters: [{ name: "roomId", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Rotate all keys in an SFrame room",
+          parameters: [{ name: "roomId", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const roomId = new URL(req.url).pathname.split("/")[3];
           const result = await traitApi.rotateRoomKeys(roomId);
-          return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
     ];

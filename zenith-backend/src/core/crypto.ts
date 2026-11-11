@@ -16,10 +16,18 @@
  *   los de los webhooks.
  * - **Comparación:** `timingSafeEqual`, `timingSafeEqualString`, en tiempo constante.
  */
-import { decodeBase64, decodeBase64Url, encodeBase64, encodeBase64Url, encodeHex } from "@std/encoding";
+import {
+  decodeBase64,
+  decodeBase64Url,
+  encodeBase64,
+  encodeBase64Url,
+  encodeHex,
+} from "@std/encoding";
 
 const enc = new TextEncoder();
-const bytesOf = (data: string | Uint8Array): Uint8Array => (typeof data === "string" ? enc.encode(data) : data);
+const bytesOf = (
+  data: string | Uint8Array,
+): Uint8Array => (typeof data === "string" ? enc.encode(data) : data);
 
 // ─── Aleatorios ───────────────────────────────────────────────────────────────
 
@@ -47,7 +55,9 @@ export function randomHex(n: number): string {
  */
 export function randomString(length: number, alphabet: string): string {
   const size = alphabet.length;
-  if (size < 2 || size > 256) throw new RangeError("randomString: alphabet must have 2 to 256 characters.");
+  if (size < 2 || size > 256) {
+    throw new RangeError("randomString: alphabet must have 2 to 256 characters.");
+  }
   const limit = 256 - (256 % size);
   let out = "";
   while (out.length < length) {
@@ -87,7 +97,9 @@ export function toBase64Url(data: ArrayBuffer | Uint8Array): string {
  * en cualquiera de los dos alfabetos.
  */
 export function fromBase64Url(s: string): Uint8Array<ArrayBuffer> {
-  return new Uint8Array(decodeBase64Url(s.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")));
+  return new Uint8Array(
+    decodeBase64Url(s.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")),
+  );
 }
 
 // ─── Hash ─────────────────────────────────────────────────────────────────────
@@ -105,13 +117,25 @@ export async function sha256Hex(data: string | Uint8Array): Promise<string> {
 // ─── Firmas ───────────────────────────────────────────────────────────────────
 
 /** HMAC-SHA256 de `data` con `key`. */
-export async function hmacSha256(key: string | Uint8Array, data: string | Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
-  const k = await crypto.subtle.importKey("raw", bytesOf(key) as BufferSource, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+export async function hmacSha256(
+  key: string | Uint8Array,
+  data: string | Uint8Array,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const k = await crypto.subtle.importKey(
+    "raw",
+    bytesOf(key) as BufferSource,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
   return new Uint8Array(await crypto.subtle.sign("HMAC", k, bytesOf(data) as BufferSource));
 }
 
 /** HMAC-SHA256 de `data` con `key`, en hexadecimal. */
-export async function hmacSha256Hex(key: string | Uint8Array, data: string | Uint8Array): Promise<string> {
+export async function hmacSha256Hex(
+  key: string | Uint8Array,
+  data: string | Uint8Array,
+): Promise<string> {
   return toHex(await hmacSha256(key, data));
 }
 
@@ -134,7 +158,9 @@ export function signingKey(envName: string, warn: (m: string) => void = console.
   if (!key) {
     key = randomHex(32);
     processKeys.set(envName, key);
-    warn(`[crypto] ${envName} is not set: using a random per-process key. Signatures are valid only in this process until it restarts.`);
+    warn(
+      `[crypto] ${envName} is not set: using a random per-process key. Signatures are valid only in this process until it restarts.`,
+    );
   }
   return key;
 }
@@ -164,7 +190,10 @@ const SEALED_PREFIX = "enc:v1:";
 
 async function aesKey(secret: string): Promise<CryptoKey> {
   // La clave es el SHA-256 de la clave configurada: acepta cualquier longitud y da 256 bits.
-  return await crypto.subtle.importKey("raw", await sha256(secret), "AES-GCM", false, ["encrypt", "decrypt"]);
+  return await crypto.subtle.importKey("raw", await sha256(secret), "AES-GCM", false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 /**
@@ -174,7 +203,13 @@ async function aesKey(secret: string): Promise<CryptoKey> {
  */
 export async function seal(secret: string, plaintext: string, context = ""): Promise<string> {
   const iv = randomBytes(12);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(context) }, await aesKey(secret), enc.encode(plaintext)));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData: enc.encode(context) },
+      await aesKey(secret),
+      enc.encode(plaintext),
+    ),
+  );
   const out = new Uint8Array(12 + ct.length);
   out.set(iv);
   out.set(ct, 12);
@@ -188,6 +223,10 @@ export const isSealed = (value: string): boolean => value.startsWith(SEALED_PREF
 export async function unseal(secret: string, sealed: string, context = ""): Promise<string> {
   if (!isSealed(sealed)) throw new Error("unseal: not a sealed value.");
   const b = fromBase64Url(sealed.slice(SEALED_PREFIX.length));
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.slice(0, 12), additionalData: enc.encode(context) }, await aesKey(secret), b.slice(12));
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: b.slice(0, 12), additionalData: enc.encode(context) },
+    await aesKey(secret),
+    b.slice(12),
+  );
   return new TextDecoder().decode(pt);
 }

@@ -13,8 +13,8 @@ const defaultOptions = {
   plugins: [
     (zen: any) => {
       // Mock basic setup
-    }
-  ]
+    },
+  ],
 };
 
 // 1. MasterKey isolation — una request sin MasterKey no puede acceder a /compliance/audit → 401
@@ -25,12 +25,12 @@ suite.test("MasterKey Isolation: block unauthorized access to audit logs", async
     method: "GET",
     path: "/compliance/audit",
     masterKey: false,
-    auth: { userId: "user-123" }
+    auth: { userId: "user-123" },
   };
-  
+
   // Asumimos un router simulado o acceso directo al handler para probar el aislamiento
   // Al no tener el router HTTP real levantado, validamos la lógica de negocio (Cloud Functions o Traits)
-  
+
   // En Zenith, los endpoints se protegen revisando ctx.masterKey.
   // Vamos a simular la función que lee auditoría y lanzar 401 si no tiene MasterKey.
   await harness.expectThrows(async () => {
@@ -42,12 +42,12 @@ suite.test("MasterKey Isolation: block unauthorized access to audit logs", async
 suite.test("Cross-tenant data isolation (RLS)", async (harness) => {
   harness.db.seed("Invoice", [
     { objectId: "INV-A", _tenantId: "tenant-A", total: 100 },
-    { objectId: "INV-B", _tenantId: "tenant-B", total: 200 }
+    { objectId: "INV-B", _tenantId: "tenant-B", total: 200 },
   ]);
 
   // Simulando applyRLS
   const queryTenantA = harness.db.find("Invoice", { where: { _tenantId: "tenant-A" } });
-  
+
   harness.expect(queryTenantA).toHaveLength(1);
   harness.expect(queryTenantA[0]).toHaveProperty("objectId", "INV-A");
 });
@@ -57,27 +57,27 @@ suite.test("Audit log chain integrity (SHA-256)", async (harness) => {
   // Para testear esto aisladamente, podemos hacer un mock de the compliance logic
   let lastHash = "0000000000000000000000000000000000000000000000000000000000000000";
   const logs = [];
-  
+
   for (let i = 0; i < 5; i++) {
     const data = { action: "CREATE", model: "Invoice", timestamp: Date.now() };
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(lastHash + JSON.stringify(data));
     const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-    
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
     logs.push({ ...data, previousHash: lastHash, hash: hashHex });
     lastHash = hashHex;
   }
-  
+
   harness.db.seed("_AuditLog", logs);
-  
+
   const savedLogs = harness.db.find("_AuditLog");
   harness.expect(savedLogs).toHaveLength(5);
-  
+
   // Validar cadena
   for (let i = 1; i < savedLogs.length; i++) {
-    harness.expect(savedLogs[i].previousHash).toBe(savedLogs[i-1].hash);
+    harness.expect(savedLogs[i].previousHash).toBe(savedLogs[i - 1].hash);
     harness.expect(savedLogs[i].hash).toBeDefined();
   }
 });
@@ -87,18 +87,18 @@ suite.test("Rate limit enforcement by plan (Free Tier)", async (harness) => {
   // Simulamos un contador de RateLimit
   const rateLimitStore = new Map();
   const LIMIT = 100;
-  
+
   const checkRateLimit = (userId: string) => {
     const count = rateLimitStore.get(userId) || 0;
     if (count >= LIMIT) throw new Error("429 Too Many Requests");
     rateLimitStore.set(userId, count + 1);
   };
-  
+
   const userId = "free-user-1";
-  for(let i=0; i<100; i++) {
+  for (let i = 0; i < 100; i++) {
     checkRateLimit(userId);
   }
-  
+
   await harness.expectThrows(async () => {
     checkRateLimit(userId);
   }, "429 Too Many Requests");
@@ -109,21 +109,21 @@ suite.test("Circuit Breaker OPEN state (Fail Fast)", async (harness) => {
   let state = "CLOSED";
   let failures = 0;
   const threshold = 5;
-  
+
   const circuitCall = async () => {
     if (state === "OPEN") throw new Error("CircuitBreakerError: OPEN");
-    
+
     // Simulamos fallo
     failures++;
     if (failures >= threshold) state = "OPEN";
     throw new Error("Service Unavailable");
   };
-  
+
   // Simular 5 fallas
   for (let i = 0; i < 5; i++) {
     await harness.expectThrows(circuitCall, "Service Unavailable");
   }
-  
+
   // Sexta llamada falla fast
   await harness.expectThrows(circuitCall, "CircuitBreakerError: OPEN");
 });
@@ -134,14 +134,14 @@ suite.test("Job DLQ transition after max attempts", async (harness) => {
   let attempts = 0;
   const maxAttempts = 3;
   let status = "pending";
-  
+
   const processJob = async () => {
     if (status === "dlq") return;
-    
+
     attempts++;
     // Simulate handler error
     const err = new Error("Failed processing");
-    
+
     if (attempts >= maxAttempts) {
       status = "dlq";
       harness.db.insert("_JobDLQ", { originalJobId: jobId, error: err.message, attempts });
@@ -149,12 +149,12 @@ suite.test("Job DLQ transition after max attempts", async (harness) => {
       status = "pending";
     }
   };
-  
+
   // Procesamos 3 veces
   await processJob();
   await processJob();
   await processJob();
-  
+
   harness.expect(status).toBe("dlq");
   const dlqEntries = harness.db.find("_JobDLQ");
   harness.expect(dlqEntries).toHaveLength(1);

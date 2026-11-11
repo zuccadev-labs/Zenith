@@ -91,8 +91,11 @@ Deno.test("audit.created - never logs plaintext secret", async () => {
     const record = makeRecord({ hash: "PLAINTEXT_SECRET_SHOULD_NOT_APPEAR" });
     await audit.created(record, "actor:admin");
     const line = logs[0].line;
-    assertEquals(line.includes("PLAINTEXT_SECRET_SHOULD_NOT_APPEAR"), false,
-      "Audit log must not contain plaintext secret");
+    assertEquals(
+      line.includes("PLAINTEXT_SECRET_SHOULD_NOT_APPEAR"),
+      false,
+      "Audit log must not contain plaintext secret",
+    );
   } finally {
     restore();
   }

@@ -36,7 +36,7 @@ async function newRig(): Promise<TestRig> {
   return {
     manager: new ApiKeyManager(new InMemoryStore()),
     rateLimiter: new PerKeyRateLimiter(),
-    configMasterKey: "x".repeat(64),  // 64 chars (cumple minLength de Phase 0.B)
+    configMasterKey: "x".repeat(64), // 64 chars (cumple minLength de Phase 0.B)
     publicKey: "-----BEGIN PUBLIC KEY-----\nFAKE\n-----END PUBLIC KEY-----",
   };
 }
@@ -77,7 +77,7 @@ Deno.test("integration - API key válida via Bearer autentica la request", async
 
   const req = makeRequest({
     headers: { "authorization": `Bearer ${plaintext}` },
-    socketIp: "203.0.113.42",  // IP externa
+    socketIp: "203.0.113.42", // IP externa
   });
   const ctx = await step(req, PIPELINE_BASE_CTX);
 
@@ -88,8 +88,8 @@ Deno.test("integration - API key válida via Bearer autentica la request", async
   assertEquals(ctx.apiKey.env, "live");
   assertEquals(ctx.apiKey.appId, "app1");
   assertEquals(ctx.apiKey.scopes, ["data:read", "data:write"]);
-  assertStrictEquals(ctx.masterKey, undefined);  // NO se setea masterKey
-  assertEquals(ctx.apiKeyRejected, undefined);     // tampoco rejected
+  assertStrictEquals(ctx.masterKey, undefined); // NO se setea masterKey
+  assertEquals(ctx.apiKeyRejected, undefined); // tampoco rejected
 });
 
 Deno.test("integration - API key válida via X-API-Key (Parse-Server compat)", async () => {
@@ -142,7 +142,10 @@ Deno.test("integration - API key con scope * autentica como super admin, solo de
   assertExists(ctx.apiKey);
   assertEquals(ctx.apiKey.scopes, ["*"]);
 
-  const outside = await step(makeRequest({ headers: { "authorization": `Bearer ${plaintext}` }, socketIp: "203.0.113.9" }), PIPELINE_BASE_CTX);
+  const outside = await step(
+    makeRequest({ headers: { "authorization": `Bearer ${plaintext}` }, socketIp: "203.0.113.9" }),
+    PIPELINE_BASE_CTX,
+  );
   assertEquals(outside.apiKey, undefined, "outside its allowlist the key is not a credential");
   assertEquals(outside.apiKeyRejected, "ip_not_allowed");
 });
@@ -161,14 +164,14 @@ Deno.test("integration - API key malformada: ctx.apiKeyRejected=malformed, maste
   const req = makeRequest({
     headers: {
       "authorization": "Bearer not-a-real-key",
-      "x-parse-master-key": rig.configMasterKey,  // master key presente
+      "x-parse-master-key": rig.configMasterKey, // master key presente
     },
   });
   const ctx = await step(req, PIPELINE_BASE_CTX);
 
   assertEquals(ctx.apiKey, undefined);
   assertEquals(ctx.apiKeyRejected, "malformed");
-  assertEquals(ctx.masterKey, true);  // master key granted (estamos en localhost)
+  assertEquals(ctx.masterKey, true); // master key granted (estamos en localhost)
 });
 
 Deno.test("integration - API key con secret incorrecto: ctx.apiKeyRejected=wrong_secret", async () => {
@@ -253,7 +256,7 @@ Deno.test("integration - sin API key, master key desde IP externa: masterKey blo
 
   const req = makeRequest({
     headers: { "x-parse-master-key": rig.configMasterKey },
-    socketIp: "203.0.113.42",  // IP externa
+    socketIp: "203.0.113.42", // IP externa
   });
   // Silenciar el warning esperado
   const originalWarn = console.warn;
@@ -348,7 +351,7 @@ Deno.test("integration - bootstrap: si ya hay key, no crea otra (idempotente)", 
   assertExists(result.keyId);
 
   const keys = await rig.manager.listByApp("existing");
-  assertEquals(keys.length, 1);  // solo la original
+  assertEquals(keys.length, 1); // solo la original
 });
 
 // ─── Tests: appId propagation ──────────────────────────────────────────────
@@ -427,7 +430,7 @@ Deno.test("integration - IP se confía en X-Forwarded-For si el socket está en 
     configMasterKey: rig.configMasterKey,
     apiKeyManager: rig.manager,
     rateLimiter: rig.rateLimiter,
-    trustedProxies: ["10.0.0.5"],  // ALB o nginx
+    trustedProxies: ["10.0.0.5"], // ALB o nginx
     audit: false,
   });
 

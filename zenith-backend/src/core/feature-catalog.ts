@@ -68,11 +68,15 @@ export function validateCatalog(catalog: readonly FeatureEntry[]): void {
   for (const e of catalog) {
     if (ids.has(e.id)) throw new FeatureConfigError(`Feature catalog: duplicated id "${e.id}".`);
     ids.add(e.id);
-    if (!e.required && typeof e.default !== "boolean") throw new FeatureConfigError(`Feature catalog: "${e.id}" needs a default.`);
+    if (!e.required && typeof e.default !== "boolean") {
+      throw new FeatureConfigError(`Feature catalog: "${e.id}" needs a default.`);
+    }
   }
   for (const e of catalog) {
     for (const r of e.requires ?? []) {
-      if (!ids.has(r)) throw new FeatureConfigError(`Feature catalog: "${e.id}" requires unknown feature "${r}".`);
+      if (!ids.has(r)) {
+        throw new FeatureConfigError(`Feature catalog: "${e.id}" requires unknown feature "${r}".`);
+      }
     }
   }
 }
@@ -91,19 +95,27 @@ export function selectFeatures(
   const features = (config.features ?? {}) as Record<string, unknown>;
   const known = new Set(catalog.map(featureKey));
   for (const [key, value] of Object.entries(features)) {
-    if (typeof value === "boolean" && !known.has(key)) warn(`[features] "${key}" is not a Zenith feature; ignored.`);
+    if (typeof value === "boolean" && !known.has(key)) {
+      warn(`[features] "${key}" is not a Zenith feature; ignored.`);
+    }
   }
   for (const e of catalog) {
     if (e.required && features[featureKey(e)] === false) {
-      throw new FeatureConfigError(`Feature "${e.id}" is part of the engine core and cannot be disabled.`);
+      throw new FeatureConfigError(
+        `Feature "${e.id}" is part of the engine core and cannot be disabled.`,
+      );
     }
   }
-  const active = catalog.filter((e) => requested(e, config) && (e.when?.(config, topology) ?? true));
+  const active = catalog.filter((e) =>
+    requested(e, config) && (e.when?.(config, topology) ?? true)
+  );
   const activeIds = new Set(active.map((e) => e.id));
   for (const e of active) {
     const missing = (e.requires ?? []).filter((r) => !activeIds.has(r));
     if (missing.length) {
-      throw new FeatureConfigError(`Feature "${e.id}" requires ${missing.map((m) => `"${m}"`).join(", ")}, which is disabled.`);
+      throw new FeatureConfigError(
+        `Feature "${e.id}" requires ${missing.map((m) => `"${m}"`).join(", ")}, which is disabled.`,
+      );
     }
   }
   return active;
@@ -111,5 +123,7 @@ export function selectFeatures(
 
 /** Los traits de las piezas, aplanados en orden de arranque. */
 export function traitsOf(entries: readonly FeatureEntry[], config: ZenithConfig): unknown[] {
-  return entries.flatMap((e) => [...(typeof e.traits === "function" ? e.traits(config) : e.traits)]);
+  return entries.flatMap((
+    e,
+  ) => [...(typeof e.traits === "function" ? e.traits(config) : e.traits)]);
 }

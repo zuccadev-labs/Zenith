@@ -15,5 +15,7 @@
  * El motor ya no llama a esta función; el CRMTrait la reemplaza.
  */
 export function initCRMModule(_Zen: any): void {
-  console.warn("[CRMModule] DEPRECADO: initCRMModule() es un no-op. Los schemas y triggers CRM se registran automáticamente vía ZenithCRMTrait.");
+  console.warn(
+    "[CRMModule] DEPRECADO: initCRMModule() es un no-op. Los schemas y triggers CRM se registran automáticamente vía ZenithCRMTrait.",
+  );
 }

@@ -1,7 +1,7 @@
 /**
  * @module @zenith/adapters/billing/types
  * Estándar Corporativo para Adaptadores de Facturación (Pagos) en Zenith.
- * 
+ *
  * Permite inyectar proveedores como Stripe, PayPal o Web3 en el BillingTrait.
  */
 
@@ -25,7 +25,10 @@ export interface BillingAdapter {
    * @param planId ID del plan/producto en el proveedor
    * @returns Datos de la suscripción creada
    */
-  createSubscription(customerId: string, planId: string): Promise<{ subscriptionId: string; status: string; currentPeriodEnd: Date }>;
+  createSubscription(
+    customerId: string,
+    planId: string,
+  ): Promise<{ subscriptionId: string; status: string; currentPeriodEnd: Date }>;
 
   /**
    * Procesa un cobro único a una tarjeta o fuente de fondos guardada.
@@ -35,7 +38,12 @@ export interface BillingAdapter {
    * @param description Descripción del cargo (aparece en el estado de cuenta)
    * @returns El ID de la transacción
    */
-  charge(customerId: string, amount: number, currency: string, description?: string): Promise<string>;
+  charge(
+    customerId: string,
+    amount: number,
+    currency: string,
+    description?: string,
+  ): Promise<string>;
 
   /**
    * Reporta uso de una métrica para facturación por consumo (Metered Billing).

@@ -158,12 +158,17 @@ Deno.test("openapi-generator: security follows the route's access, like the rout
   assertEquals(spec.paths["/users-only"].get.security, [{ sessionToken: [] }, { jwtRs256: [] }]);
   // With a scope, API keys too, and the scope is documented.
   assertEquals(spec.paths["/readable"].get.security, [
-    { apiKeyBearer: ["data:read"] }, { apiKeyHeader: ["data:read"] }, { sessionToken: [] }, { jwtRs256: [] },
+    { apiKeyBearer: ["data:read"] },
+    { apiKeyHeader: ["data:read"] },
+    { sessionToken: [] },
+    { jwtRs256: [] },
   ]);
 });
 
 Deno.test("openapi-generator: kebab-case route capabilities are documented too", () => {
-  const spec = generateOpenApiFromState({ "crud-routes": [{ method: "GET", path: "/classes/:className" }] });
+  const spec = generateOpenApiFromState({
+    "crud-routes": [{ method: "GET", path: "/classes/:className" }],
+  });
   assertExists(spec.paths["/classes/{className}"].get);
   assertEquals(spec.paths["/classes/{className}"].get.tags, ["CRUD"]);
 });
@@ -374,7 +379,9 @@ Deno.test("openapi-generator: generated spec is valid OpenAPI 3.1 JSON", () => {
       handler: () => null,
       _openapi: {
         requestBody: {
-          content: { "application/json": { schema: { $ref: "#/components/schemas/ZenithObject" } } },
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ZenithObject" } },
+          },
         },
       },
     }],
@@ -384,7 +391,10 @@ Deno.test("openapi-generator: generated spec is valid OpenAPI 3.1 JSON", () => {
   const parsed = JSON.parse(json);
   assertEquals(parsed.openapi, "3.1.0");
   assertExists(parsed.paths["/x"].post);
-  assertEquals(parsed.paths["/x"].post.requestBody.content["application/json"].schema.$ref, "#/components/schemas/ZenithObject");
+  assertEquals(
+    parsed.paths["/x"].post.requestBody.content["application/json"].schema.$ref,
+    "#/components/schemas/ZenithObject",
+  );
 });
 
 Deno.test("openapi-generator: paths and security schemes are alphabetically stable", () => {
@@ -392,8 +402,11 @@ Deno.test("openapi-generator: paths and security schemes are alphabetically stab
   const state: ZenithState = {
     z_routes: [{ method: "GET", path: "/z", handler: () => null }],
     a_routes: [{ method: "GET", path: "/a", handler: () => null }],
-    m_routes: [{ method: "GET", path: "/m", handler: () => null },
-                { method: "POST", path: "/a", handler: () => null }],
+    m_routes: [{ method: "GET", path: "/m", handler: () => null }, {
+      method: "POST",
+      path: "/a",
+      handler: () => null,
+    }],
   };
   const spec = generateOpenApiFromState(state);
   // Los tags están ordenados alfabéticamente

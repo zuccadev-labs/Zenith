@@ -18,7 +18,8 @@ const TEST_CONFIG: ZenithConfig = {
   allowClientClassCreation: true,
   enableAnonymousUsers: false,
   cloudCodePath: `file://${Deno.cwd()}/example/zenith-backend-boilerplate/cloud/main.ts`,
-  databaseURI: Deno.env.get("MONGO_URI") || "mongodb://192.168.14.50:53017/zenith_dev?directConnection=true",
+  databaseURI: Deno.env.get("MONGO_URI") ||
+    "mongodb://192.168.14.50:53017/zenith_dev?directConnection=true",
   authDatabaseURI: Deno.env.get("SCYLLA_URI") || "192.168.14.50:53042",
   mediaStorageURI: Deno.env.get("RUSTFS_URI") || "http://192.168.14.50:8614",
   cacheURI: Deno.env.get("REDIS_URI") || "redis://192.168.14.50:53079",
@@ -29,8 +30,8 @@ const TEST_CONFIG: ZenithConfig = {
     ai: true,
     gdpr: false,
     e2ee_media: true,
-    e2ee_mode: "strict_sframe"
-  }
+    e2ee_mode: "strict_sframe",
+  },
 } as any;
 
 let engineInstance: any;
@@ -48,20 +49,24 @@ Deno.test({
   async fn() {
     console.log("Starting engine with Lab IP...");
     abortController = new AbortController();
-    
-    if (!Deno.env.get("RUSTFS_ACCESS_KEY")) throw new Error("RUSTFS_ACCESS_KEY env variable missing");
-    if (!Deno.env.get("RUSTFS_SECRET_KEY")) throw new Error("RUSTFS_SECRET_KEY env variable missing");
-    
+
+    if (!Deno.env.get("RUSTFS_ACCESS_KEY")) {
+      throw new Error("RUSTFS_ACCESS_KEY env variable missing");
+    }
+    if (!Deno.env.get("RUSTFS_SECRET_KEY")) {
+      throw new Error("RUSTFS_SECRET_KEY env variable missing");
+    }
+
     const { engine, handler } = await createZenithApp(TEST_CONFIG);
     assertExists(engine);
     assertExists(handler);
     engineInstance = engine;
 
     Deno.serve({ port: 1337, signal: abortController.signal }, async (req, info) => {
-        return await handler(req, { info });
+      return await handler(req, { info });
     });
-    
-    await new Promise(r => setTimeout(r, 1000));
+
+    await new Promise((r) => setTimeout(r, 1000));
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -72,7 +77,7 @@ Deno.test({
   name: "02. OpenAPI Spec (GET /openapi.json)",
   async fn() {
     const res = await fetch("http://localhost:1337/openapi.json", {
-      headers: { "Zen-Application-Id": TEST_CONFIG.appId }
+      headers: { "Zen-Application-Id": TEST_CONFIG.appId },
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -93,8 +98,8 @@ Deno.test({
       body: JSON.stringify({
         username: TEST_USERNAME,
         password: TEST_PASSWORD,
-        email: TEST_EMAIL
-      })
+        email: TEST_EMAIL,
+      }),
     });
     assertEquals(res.status, 201);
     const data = await res.json();
@@ -114,8 +119,8 @@ Deno.test({
       method: "GET",
       headers: {
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
-      }
+        "Zen-Session-Token": sessionToken,
+      },
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -133,8 +138,8 @@ Deno.test({
       method: "GET",
       headers: {
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "X-Parse-Session-Token": sessionToken
-      }
+        "X-Parse-Session-Token": sessionToken,
+      },
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -153,13 +158,13 @@ Deno.test({
       headers: {
         "Content-Type": "application/json",
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
+        "Zen-Session-Token": sessionToken,
       },
       body: JSON.stringify({
         score: 1337,
         playerName: "Sean Plott",
-        cheatMode: false
-      })
+        cheatMode: false,
+      }),
     });
     assertEquals(res.status, 201);
     const data = await res.json();
@@ -178,8 +183,8 @@ Deno.test({
       method: "GET",
       headers: {
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
-      }
+        "Zen-Session-Token": sessionToken,
+      },
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -197,13 +202,16 @@ Deno.test({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Zen-Application-Id": TEST_CONFIG.appId
+        "Zen-Application-Id": TEST_CONFIG.appId,
       },
-      body: JSON.stringify({ name: "Integration" })
+      body: JSON.stringify({ name: "Integration" }),
     });
     assertEquals(res.status, 200);
     const data = await res.json();
-    assertEquals(data.result, "Hello, Integration! This is Zenith Cloud Code running in a secure Deno isolate.");
+    assertEquals(
+      data.result,
+      "Hello, Integration! This is Zenith Cloud Code running in a secure Deno isolate.",
+    );
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -226,9 +234,9 @@ Deno.test({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Zen-Application-Id": TEST_CONFIG.appId
+        "Zen-Application-Id": TEST_CONFIG.appId,
       },
-      body: JSON.stringify({ query: "{ __schema { types { name } } }" })
+      body: JSON.stringify({ query: "{ __schema { types { name } } }" }),
     });
     // It might return 404 if graphql trait is not fully wired in the fast path, but we expect at least a JSON response or 200.
     // We'll assert it completes.
@@ -247,8 +255,8 @@ Deno.test({
       method: "POST",
       headers: {
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
-      }
+        "Zen-Session-Token": sessionToken,
+      },
     });
     assertEquals(res.status, 200);
   },
@@ -265,9 +273,9 @@ Deno.test({
       headers: {
         "Content-Type": "application/json",
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
+        "Zen-Session-Token": sessionToken,
       },
-      body: JSON.stringify({ score: 9999 })
+      body: JSON.stringify({ score: 9999 }),
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -281,13 +289,18 @@ Deno.test({
   ignore: !LAB,
   name: "12. Query with Filters (GET /classes/GameScore?where=...)",
   async fn() {
-    const res = await fetch(`http://localhost:1337/classes/GameScore?where=${encodeURIComponent(JSON.stringify({ score: 9999 }))}`, {
-      method: "GET",
-      headers: {
-        "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
-      }
-    });
+    const res = await fetch(
+      `http://localhost:1337/classes/GameScore?where=${
+        encodeURIComponent(JSON.stringify({ score: 9999 }))
+      }`,
+      {
+        method: "GET",
+        headers: {
+          "Zen-Application-Id": TEST_CONFIG.appId,
+          "Zen-Session-Token": sessionToken,
+        },
+      },
+    );
     assertEquals(res.status, 200);
     const data = await res.json();
     assertExists(data.results);
@@ -306,8 +319,8 @@ Deno.test({
       method: "DELETE",
       headers: {
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
-      }
+        "Zen-Session-Token": sessionToken,
+      },
     });
     assertEquals(res.status, 200);
   },
@@ -324,14 +337,14 @@ Deno.test({
       headers: {
         "Content-Type": "application/json",
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "Zen-Session-Token": sessionToken
+        "Zen-Session-Token": sessionToken,
       },
       body: JSON.stringify({
         requests: [
           { method: "POST", path: "/classes/GameScore", body: { score: 100 } },
-          { method: "POST", path: "/classes/GameScore", body: { score: 200 } }
-        ]
-      })
+          { method: "POST", path: "/classes/GameScore", body: { score: 200 } },
+        ],
+      }),
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -348,12 +361,15 @@ Deno.test({
   ignore: !LAB,
   name: "15. User Login (GET /login)",
   async fn() {
-    const res = await fetch(`http://localhost:1337/login?username=${TEST_USERNAME}&password=${TEST_PASSWORD}`, {
-      method: "GET",
-      headers: {
-        "Zen-Application-Id": TEST_CONFIG.appId
-      }
-    });
+    const res = await fetch(
+      `http://localhost:1337/login?username=${TEST_USERNAME}&password=${TEST_PASSWORD}`,
+      {
+        method: "GET",
+        headers: {
+          "Zen-Application-Id": TEST_CONFIG.appId,
+        },
+      },
+    );
     assertEquals(res.status, 200);
     const data = await res.json();
     assertExists(data.sessionToken);
@@ -372,8 +388,8 @@ Deno.test({
       method: "GET",
       headers: {
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "X-Parse-Master-Key": TEST_CONFIG.masterKey
-      }
+        "X-Parse-Master-Key": TEST_CONFIG.masterKey,
+      },
     });
     assertEquals(res.status, 200);
     const data = await res.json();
@@ -392,9 +408,9 @@ Deno.test({
       headers: {
         "Content-Type": "application/json",
         "Zen-Application-Id": TEST_CONFIG.appId,
-        "X-Parse-Master-Key": TEST_CONFIG.masterKey
+        "X-Parse-Master-Key": TEST_CONFIG.masterKey,
       },
-      body: JSON.stringify({ force: true })
+      body: JSON.stringify({ force: true }),
     });
     // Accepted
     assertEquals(res.status, 202);
@@ -411,13 +427,16 @@ Deno.test({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Zen-Application-Id": TEST_CONFIG.appId
+        "Zen-Application-Id": TEST_CONFIG.appId,
       },
-      body: JSON.stringify({ name: "Webhook" })
+      body: JSON.stringify({ name: "Webhook" }),
     });
     assertEquals(res.status, 200);
     const data = await res.json();
-    assertEquals(data.result, "Hello, Webhook! This is Zenith Cloud Code running in a secure Deno isolate.");
+    assertEquals(
+      data.result,
+      "Hello, Webhook! This is Zenith Cloud Code running in a secure Deno isolate.",
+    );
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -431,19 +450,19 @@ Deno.test({
       method: "POST",
       headers: {
         "Content-Type": "image/png",
-        "Zen-Application-Id": TEST_CONFIG.appId
+        "Zen-Application-Id": TEST_CONFIG.appId,
       },
-      body: "Hello Zenith RustFS!"
+      body: "Hello Zenith RustFS!",
     });
-    // Can return 201 if RustFS is fully setup, 
+    // Can return 201 if RustFS is fully setup,
     // or 500 (NoSuchBucket) if bucket is missing in lab,
     // or 400 if another error occurs.
     const status = res.status;
     assertEquals([201, 200, 500].includes(status), true);
     if (status !== 500) {
-       const data = await res.json();
-       assertExists(data.url);
-       assertExists(data.name);
+      const data = await res.json();
+      assertExists(data.url);
+      assertExists(data.name);
     }
   },
   sanitizeOps: false,
@@ -455,7 +474,7 @@ Deno.test({
   name: "99. Teardown",
   async fn() {
     abortController.abort();
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
     console.log("Teardown complete.");
   },
   sanitizeOps: false,

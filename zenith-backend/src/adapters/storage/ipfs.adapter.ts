@@ -44,13 +44,19 @@ export function createIPFSAdapter(gatewayUrl: string): StorageAdapter {
       // Devuelve la ruta a través del Gateway HTTP público o privado
       const cid = path.replace("ipfs://", "");
       return `${gatewayUrl}/ipfs/${cid}`;
-    }
+    },
   };
 }
 
 export const IPFSStorageTrait = createTraitDescriptor({
   name: "ZenithIPFSAdapter",
-  provides: ["ipfs_deleteFile", "ipfs_download", "ipfs_getSignedUrl", "injectIPFSPlugin", "ipfs_upload"],
+  provides: [
+    "ipfs_deleteFile",
+    "ipfs_download",
+    "ipfs_getSignedUrl",
+    "injectIPFSPlugin",
+    "ipfs_upload",
+  ],
   consumes: [],
   state: ["ipfs_plugin"],
   runtimes: ["deno"],
@@ -61,10 +67,12 @@ export const IPFSStorageTrait = createTraitDescriptor({
         adapter = plugin;
         console.log("[ZenithIPFS] Decentralized Storage Plugin Injected");
       },
-      ipfs_upload: (path: string, data: Uint8Array, contentType: string) => adapter!.upload(path, data, contentType),
+      ipfs_upload: (path: string, data: Uint8Array, contentType: string) =>
+        adapter!.upload(path, data, contentType),
       ipfs_download: (path: string) => adapter!.download(path),
       ipfs_deleteFile: (path: string) => adapter!.delete(path),
-      ipfs_getSignedUrl: (path: string, expiresIn?: number) => adapter!.getSignedUrl(path, expiresIn)
+      ipfs_getSignedUrl: (path: string, expiresIn?: number) =>
+        adapter!.getSignedUrl(path, expiresIn),
     };
-  }
+  },
 });

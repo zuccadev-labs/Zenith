@@ -10,7 +10,7 @@
  * @barrits-stability experimental
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
 export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCache",
@@ -18,7 +18,8 @@ export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
   consumes: [],
   state: ["store", "adapter"],
   runtimes: ["deno"],
-  summary: "Cache facade: in-memory LRU + Redis adapter, TTL-based expiry, tag-based invalidation, write-through/write-behind patterns, cache stampede prevention.",
+  summary:
+    "Cache facade: in-memory LRU + Redis adapter, TTL-based expiry, tag-based invalidation, write-through/write-behind patterns, cache stampede prevention.",
   create: (deps: Record<string, any>) => {
     const traitApi: any = {
       store: new Map<string, { value: any; expiresAt: number; tags: string[] }>(),
@@ -35,8 +36,15 @@ export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
         return entry.value as T;
       },
 
-      set: async <T>(key: string, value: T, options: { ttlMs?: number; tags?: string[] } = {}): Promise<void> => {
-        if (traitApi.adapter) { await traitApi.adapter.set(key, value, options); return; }
+      set: async <T>(
+        key: string,
+        value: T,
+        options: { ttlMs?: number; tags?: string[] } = {},
+      ): Promise<void> => {
+        if (traitApi.adapter) {
+          await traitApi.adapter.set(key, value, options);
+          return;
+        }
         const ttl = options.ttlMs || 300000;
         traitApi.store.set(key, { value, expiresAt: Date.now() + ttl, tags: options.tags || [] });
       },
@@ -62,7 +70,11 @@ export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
         if (traitApi.adapter) await traitApi.adapter.clear();
       },
 
-      wrap: async <T>(key: string, fn: () => Promise<T>, options: { ttlMs?: number; tags?: string[] } = {}): Promise<T> => {
+      wrap: async <T>(
+        key: string,
+        fn: () => Promise<T>,
+        options: { ttlMs?: number; tags?: string[] } = {},
+      ): Promise<T> => {
         const cached = (await traitApi.get(key)) as T | null;
         if (cached !== null) return cached;
         const value = await fn();
@@ -75,18 +87,32 @@ export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
       {
         method: "GET" as const,
         path: "/cache/:key",
-        _openapi: { summary: "Get a cache value", parameters: [{ name: "key", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Get a cache value",
+          parameters: [{ name: "key", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const key = new URL(req.url).pathname.split("/")[2];
           const value = await traitApi.get(key);
-          if (value === null) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
-          return new Response(JSON.stringify({ key, value }), { status: 200, headers: { "content-type": "application/json" } });
+          if (value === null) {
+            return new Response(JSON.stringify({ error: "not found" }), {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          return new Response(JSON.stringify({ key, value }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
         },
       },
       {
         method: "DELETE" as const,
         path: "/cache/:key",
-        _openapi: { summary: "Invalidate a cache key", parameters: [{ name: "key", in: "path", required: true, schema: { type: "string" } }] },
+        _openapi: {
+          summary: "Invalidate a cache key",
+          parameters: [{ name: "key", in: "path", required: true, schema: { type: "string" } }],
+        },
         handler: async (req: Request) => {
           const key = new URL(req.url).pathname.split("/")[2];
           await traitApi.delete(key);

@@ -14,9 +14,14 @@
 function mockDB() {
   const noop = async () => ({});
   return {
-    create: noop, read: noop, update: noop, delete: noop,
-    find: async () => [], count: async () => 0,
-    aggregate: async () => [], createIndex: noop,
+    create: noop,
+    read: noop,
+    update: noop,
+    delete: noop,
+    find: async () => [],
+    count: async () => 0,
+    aggregate: async () => [],
+    createIndex: noop,
   };
 }
 
@@ -26,28 +31,38 @@ function mockEvents() {
 
 function mockStorage() {
   return {
-    upload: async () => ({}), download: async () => new Uint8Array(),
-    delete: async () => {}, list: async () => [],
+    upload: async () => ({}),
+    download: async () => new Uint8Array(),
+    delete: async () => {},
+    list: async () => [],
   };
 }
 
-function mockCache() { return { get: async () => null, set: async () => {}, del: async () => {} }; }
-function mockQueue() { return { enqueue: async () => ({}), process: () => {} }; }
-function mockACL()   { return { check: async () => true }; }
-function mockTelemetry() { return { record: () => {}, increment: () => {}, timing: () => {} }; }
+function mockCache() {
+  return { get: async () => null, set: async () => {}, del: async () => {} };
+}
+function mockQueue() {
+  return { enqueue: async () => ({}), process: () => {} };
+}
+function mockACL() {
+  return { check: async () => true };
+}
+function mockTelemetry() {
+  return { record: () => {}, increment: () => {}, timing: () => {} };
+}
 
 const MOCK_DEPS: Record<string, unknown> = {
-  db:          mockDB(),
-  events:      mockEvents(),
-  storage:     mockStorage(),
-  cache:       mockCache(),
-  queue:       mockQueue(),
-  acl:         mockACL(),
-  telemetry:   mockTelemetry(),
-  config:      {},
+  db: mockDB(),
+  events: mockEvents(),
+  storage: mockStorage(),
+  cache: mockCache(),
+  queue: mockQueue(),
+  acl: mockACL(),
+  telemetry: mockTelemetry(),
+  config: {},
   notifications: null,
-  emailSync:   null,
-  adkAgents:   null,
+  emailSync: null,
+  adkAgents: null,
 };
 
 // ── Importar todos los traits ─────────────────────────────────────────────────
@@ -68,52 +83,52 @@ async function tryCreate(descriptor: any): Promise<Record<string, unknown>> {
 const TRAIT_MODULES: Array<[string, string]> = [
   // Fases 1-3 (traits propios del negocio — más importantes para la spec)
   ["collaboration", "collaboration/collaboration.trait.ts"],
-  ["workspace",     "workspace/workspace.trait.ts"],
-  ["views",         "views/views.trait.ts"],
-  ["search",        "search/search.trait.ts"],
-  ["timeline",      "timeline/timeline.trait.ts"],
-  ["metadata",      "metadata/metadata.trait.ts"],
-  ["blogforum",     "blogforum/blogforum.trait.ts"],
-  ["adk_agents",    "agents/adk.agents.trait.ts"],
-  ["marketplace",   "marketplace/marketplace.trait.ts"],
+  ["workspace", "workspace/workspace.trait.ts"],
+  ["views", "views/views.trait.ts"],
+  ["search", "search/search.trait.ts"],
+  ["timeline", "timeline/timeline.trait.ts"],
+  ["metadata", "metadata/metadata.trait.ts"],
+  ["blogforum", "blogforum/blogforum.trait.ts"],
+  ["adk_agents", "agents/adk.agents.trait.ts"],
+  ["marketplace", "marketplace/marketplace.trait.ts"],
   ["notifications", "notifications/notifications.trait.ts"],
-  ["favtags",       "favtags/favtags.trait.ts"],
-  ["webhooks",      "webhooks/webhook.manager.trait.ts"],
-  ["csv",           "csv/csv.trait.ts"],
-  ["email",         "email/email.sync.trait.ts"],
-  ["calendar",      "calendar/calendar.sync.trait.ts"],
-  ["automation",    "automation/automation.trait.ts"],
+  ["favtags", "favtags/favtags.trait.ts"],
+  ["webhooks", "webhooks/webhook.manager.trait.ts"],
+  ["csv", "csv/csv.trait.ts"],
+  ["email", "email/email.sync.trait.ts"],
+  ["calendar", "calendar/calendar.sync.trait.ts"],
+  ["automation", "automation/automation.trait.ts"],
   // Base
-  ["iot",           "iot/iot.trait.ts"],
-  ["vectordb",      "vectordb/vectordb.trait.ts"],
-  ["featureflags",  "featureflags/featureflags.trait.ts"],
-  ["workflow",      "workflow/workflow.trait.ts"],
-  ["compliance",    "compliance/compliance.trait.ts"],
+  ["iot", "iot/iot.trait.ts"],
+  ["vectordb", "vectordb/vectordb.trait.ts"],
+  ["featureflags", "featureflags/featureflags.trait.ts"],
+  ["workflow", "workflow/workflow.trait.ts"],
+  ["compliance", "compliance/compliance.trait.ts"],
 ];
 
 // Mapping de export names por módulo
 const EXPORT_NAMES: Record<string, string> = {
   collaboration: "CollaborationTrait",
-  workspace:     "WorkspaceTrait",
-  views:         "ViewsTrait",
-  search:        "SearchTrait",
-  timeline:      "TimelineTrait",
-  metadata:      "MetadataTrait",
-  blogforum:     "BlogForumTrait",
-  adk_agents:    "ADKAgentsTrait",
-  marketplace:   "PluginMarketplaceTrait",
+  workspace: "WorkspaceTrait",
+  views: "ViewsTrait",
+  search: "SearchTrait",
+  timeline: "TimelineTrait",
+  metadata: "MetadataTrait",
+  blogforum: "BlogForumTrait",
+  adk_agents: "ADKAgentsTrait",
+  marketplace: "PluginMarketplaceTrait",
   notifications: "NotificationsTrait",
-  favtags:       "FavoritesTagsTrait",
-  webhooks:      "WebhookManagerTrait",
-  csv:           "CSVTrait",
-  email:         "EmailSyncTrait",
-  calendar:      "CalendarSyncTrait",
-  automation:    "AutomationTrait",
-  iot:           "IoTTrait",
-  vectordb:      "VectorDBTrait",
-  featureflags:  "FeatureFlagsTrait",
-  workflow:      "WorkflowTrait",
-  compliance:    "ComplianceTrait",
+  favtags: "FavoritesTagsTrait",
+  webhooks: "WebhookManagerTrait",
+  csv: "CSVTrait",
+  email: "EmailSyncTrait",
+  calendar: "CalendarSyncTrait",
+  automation: "AutomationTrait",
+  iot: "IoTTrait",
+  vectordb: "VectorDBTrait",
+  featureflags: "FeatureFlagsTrait",
+  workflow: "WorkflowTrait",
+  compliance: "ComplianceTrait",
 };
 
 async function main() {
@@ -121,7 +136,7 @@ async function main() {
 
   for (const [key, path] of TRAIT_MODULES) {
     try {
-      const mod        = await import(BASE + path);
+      const mod = await import(BASE + path);
       const exportName = EXPORT_NAMES[key];
       const descriptor = mod[exportName];
       if (!descriptor) continue;

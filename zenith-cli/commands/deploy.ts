@@ -14,15 +14,15 @@ import { spinner } from "./_utils.ts";
 
 export async function run(args: string[]): Promise<void> {
   const parsed = parseArgs(args, {
-    string:  ["target","tag","registry","namespace"],
-    boolean: ["dry-run","push"],
+    string: ["target", "tag", "registry", "namespace"],
+    boolean: ["dry-run", "push"],
     default: { target: "local", tag: "latest" },
   });
 
-  const cwd           = Deno.cwd();
-  const configPath    = join(cwd, "zen.config.ts");
-  const outputBin     = join(cwd, "zenith-server");
-  const dockerImage   = `${parsed.registry ?? "registry.io/zenith"}:${parsed.tag}`;
+  const cwd = Deno.cwd();
+  const configPath = join(cwd, "zen.config.ts");
+  const outputBin = join(cwd, "zenith-server");
+  const dockerImage = `${parsed.registry ?? "registry.io/zenith"}:${parsed.tag}`;
 
   if (parsed["dry-run"]) {
     console.log(`\n🔍 Dry-run — Plan de despliegue (target: ${parsed.target})\n`);
@@ -54,7 +54,8 @@ export async function run(args: string[]): Promise<void> {
     const spin2 = spinner(`Construyendo imagen Docker ${dockerImage}...`);
     const dockerBuild = new Deno.Command("docker", {
       args: ["build", "-t", dockerImage, "-f", join(cwd, "Dockerfile"), cwd],
-      stdout: "inherit", stderr: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
     });
     const buildResult = await dockerBuild.output();
     spin2.stop(buildResult.success);
@@ -64,7 +65,9 @@ export async function run(args: string[]): Promise<void> {
     if (parsed.push) {
       const spin3 = spinner(`Publicando ${dockerImage}...`);
       const pushResult = await new Deno.Command("docker", {
-        args: ["push", dockerImage], stdout: "inherit", stderr: "inherit",
+        args: ["push", dockerImage],
+        stdout: "inherit",
+        stderr: "inherit",
       }).output();
       spin3.stop(pushResult.success);
     }
@@ -75,7 +78,7 @@ export async function run(args: string[]): Promise<void> {
 
   if (parsed.target === "k8s") {
     const namespace = parsed.namespace ?? "zenith";
-    const manifest  = `
+    const manifest = `
 apiVersion: apps/v1
 kind: Deployment
 metadata:

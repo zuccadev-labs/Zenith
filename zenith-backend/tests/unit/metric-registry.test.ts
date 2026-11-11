@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { MetricRegistry, labelKey } from "../../src/observability/metric-registry.ts";
+import { labelKey, MetricRegistry } from "../../src/observability/metric-registry.ts";
 
 Deno.test("MetricRegistry: register + incCounter", () => {
   const r = new MetricRegistry();
@@ -80,7 +80,11 @@ Deno.test("MetricRegistry: type mismatch throws", () => {
 Deno.test("MetricRegistry: invalid metric name throws", () => {
   const r = new MetricRegistry();
   assertThrows(() => r.register("invalid name", "counter", ""), Error, "Invalid metric name");
-  assertThrows(() => r.register("123_starts_with_digit", "counter", ""), Error, "Invalid metric name");
+  assertThrows(
+    () => r.register("123_starts_with_digit", "counter", ""),
+    Error,
+    "Invalid metric name",
+  );
 });
 
 Deno.test("MetricRegistry: prometheus text export", () => {
@@ -97,7 +101,10 @@ Deno.test("MetricRegistry: global labels applied to remote_write", () => {
   const r = new MetricRegistry();
   r.register("requests_total", "counter", "x");
   r.incCounter("requests_total");
-  const ts = r.toTimeSeries([{ name: "cluster", value: "prod-1" }, { name: "region", value: "us-east-1" }]);
+  const ts = r.toTimeSeries([{ name: "cluster", value: "prod-1" }, {
+    name: "region",
+    value: "us-east-1",
+  }]);
   assert(ts[0].labels.some((l) => l.name === "cluster" && l.value === "prod-1"));
   assert(ts[0].labels.some((l) => l.name === "region" && l.value === "us-east-1"));
 });

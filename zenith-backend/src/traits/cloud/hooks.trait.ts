@@ -36,16 +36,23 @@
  * @barrits-stability stable
  * @barrits-runtime deno
  */
-import { createTraitDescriptor, type AnyTraitDescriptor } from "@zuccadev-labs/barrits";
+import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithError, ZenithErrorCode } from "../../core/errors.ts";
 import { randomBytes, toBase64Url } from "../../core/crypto.ts";
-import { checkOutboundUrl, safeFetch, type OutboundPolicy } from "../../security/outbound-http.ts";
+import { checkOutboundUrl, type OutboundPolicy, safeFetch } from "../../security/outbound-http.ts";
 import { sanitizePayload } from "../../security/sanitize.ts";
 import { webhookHeaders } from "../../security/webhook-signature.ts";
 
 export const HOOKS_CLASS = "_Hooks";
 /** Triggers que Zenith ejecuta (los de `cloudcode.trait.ts`). */
-export const HOOK_TRIGGERS = ["beforeSave", "afterSave", "beforeDelete", "afterDelete", "beforeFind", "afterFind"] as const;
+export const HOOK_TRIGGERS = [
+  "beforeSave",
+  "afterSave",
+  "beforeDelete",
+  "afterDelete",
+  "beforeFind",
+  "afterFind",
+] as const;
 type TriggerName = typeof HOOK_TRIGGERS[number];
 
 const hookError = (message: string) => new ZenithError(ZenithErrorCode.WEBHOOK_ERROR, message, 400);
@@ -67,7 +74,13 @@ export interface CloudHooksOptions {
   readonly signingSecret?: string;
 }
 
-type Hook = { objectId?: string; functionName?: string; className?: string; triggerName?: string; url: string };
+type Hook = {
+  objectId?: string;
+  functionName?: string;
+  className?: string;
+  triggerName?: string;
+  url: string;
+};
 
 export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTraitDescriptor {
   return createTraitDescriptor({
@@ -76,14 +89,17 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
     consumes: ["cloud", "db"],
     state: [],
     runtimes: ["deno"],
-    summary: "Parse Server Cloud Code Hooks (/hooks/functions, /hooks/triggers): functions and triggers served by external URLs, signed (Standard Webhooks), SSRF-safe, with timeouts.",
+    summary:
+      "Parse Server Cloud Code Hooks (/hooks/functions, /hooks/triggers): functions and triggers served by external URLs, signed (Standard Webhooks), SSRF-safe, with timeouts.",
 
     create: (deps: Record<string, any>) => {
       const cloud = deps.traits["cloud"];
       const db = deps.traits["db"];
       const allowPrivate = envOf("ZENITH_WEBHOOKS_ALLOW_PRIVATE") === "1";
-      const policy: OutboundPolicy = options.policy ?? (allowPrivate ? { allowHttp: true, allowPrivate: true } : {});
-      const webhookKey = options.webhookKey ?? envOf("PARSE_SERVER_WEBHOOK_KEY") ?? envOf("ZENITH_WEBHOOK_KEY");
+      const policy: OutboundPolicy = options.policy ??
+        (allowPrivate ? { allowHttp: true, allowPrivate: true } : {});
+      const webhookKey = options.webhookKey ?? envOf("PARSE_SERVER_WEBHOOK_KEY") ??
+        envOf("ZENITH_WEBHOOK_KEY");
       const signingSecret = options.signingSecret ?? envOf("ZENITH_HOOKS_SECRET");
       let warnedKey = false;
 
@@ -95,31 +111,61 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
       /** POST al hook con la semántica de Parse: { success } o { error }. */
       const call = async (url: string, payload: Record<string, unknown>): Promise<unknown> => {
         const body = JSON.stringify(sanitizePayload(payload));
-        const headers: Record<string, string> = { "content-type": "application/json", "user-agent": "Zenith-Hooks/1.0" };
+        const headers: Record<string, string> = {
+          "content-type": "application/json",
+          "user-agent": "Zenith-Hooks/1.0",
+        };
         if (webhookKey) headers["X-Parse-Webhook-Key"] = webhookKey;
         else if (!warnedKey && !signingSecret) {
           warnedKey = true;
-          console.warn("[hooks] Making outgoing hook calls without PARSE_SERVER_WEBHOOK_KEY or ZENITH_HOOKS_SECRET: receivers cannot authenticate them.");
+          console.warn(
+            "[hooks] Making outgoing hook calls without PARSE_SERVER_WEBHOOK_KEY or ZENITH_HOOKS_SECRET: receivers cannot authenticate them.",
+          );
         }
-        if (signingSecret) Object.assign(headers, await webhookHeaders([signingSecret], `hook_${toBase64Url(randomBytes(12))}`, body));
+        if (signingSecret) {
+          Object.assign(
+            headers,
+            await webhookHeaders([signingSecret], `hook_${toBase64Url(randomBytes(12))}`, body),
+          );
+        }
         let res: Response;
         try {
           res = await safeFetch(url, { method: "POST", headers, body }, policy);
         } catch (e) {
-          throw new ZenithError(ZenithErrorCode.SCRIPT_FAILED, `Hook call failed: ${(e as Error).message}`, 400);
+          throw new ZenithError(
+            ZenithErrorCode.SCRIPT_FAILED,
+            `Hook call failed: ${(e as Error).message}`,
+            400,
+          );
         }
         const text = await res.text().catch(() => "");
-        if (res.status < 200 || res.status >= 300) throw new ZenithError(ZenithErrorCode.SCRIPT_FAILED, `Hook answered HTTP ${res.status}.`, 400);
+        if (res.status < 200 || res.status >= 300) {
+          throw new ZenithError(
+            ZenithErrorCode.SCRIPT_FAILED,
+            `Hook answered HTTP ${res.status}.`,
+            400,
+          );
+        }
         let json: any;
         try {
           json = JSON.parse(text);
         } catch {
-          throw new ZenithError(ZenithErrorCode.SCRIPT_FAILED, `Malformed hook response: ${text.slice(0, 100)}`, 400);
+          throw new ZenithError(
+            ZenithErrorCode.SCRIPT_FAILED,
+            `Malformed hook response: ${text.slice(0, 100)}`,
+            400,
+          );
         }
         if (json?.error !== undefined) {
           const err = json.error;
           const code = typeof err?.code === "number" ? err.code : ZenithErrorCode.SCRIPT_FAILED;
-          const msg = typeof err === "string" ? err : typeof err?.error === "string" ? err.error : typeof err?.message === "string" ? err.message : "Hook returned an error.";
+          const msg = typeof err === "string"
+            ? err
+            : typeof err?.error === "string"
+            ? err.error
+            : typeof err?.message === "string"
+            ? err.message
+            : "Hook returned an error.";
           throw new ZenithError(code, msg, 400);
         }
         return json?.success;
@@ -134,11 +180,20 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
 
       const registerFunction = (name: string, url: string) => {
         if (!functionHooks.has(name) && cloud.listFunctions?.().includes(name)) {
-          console.warn(`[hooks] Hook "${name}" overrides the Cloud Code function of the same name until it is deleted.`);
+          console.warn(
+            `[hooks] Hook "${name}" overrides the Cloud Code function of the same name until it is deleted.`,
+          );
         }
         functionHooks.set(name, url);
-        cloud.define(name, async (request: any) =>
-          await call(functionHooks.get(name)!, { functionName: name, params: request?.params ?? {}, ...contextOf(request) }));
+        cloud.define(
+          name,
+          async (request: any) =>
+            await call(functionHooks.get(name)!, {
+              functionName: name,
+              params: request?.params ?? {},
+              ...contextOf(request),
+            }),
+        );
       };
 
       const unregisterFunction = (name: string) => {
@@ -166,13 +221,19 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
           };
           try {
             const result = await call(current, payload);
-            if (triggerName === "beforeSave" && result && typeof result === "object" && request?.object && typeof request.object === "object") {
-              const { createdAt: _c, updatedAt: _u, className: _n, objectId: _id, ...changes } = result as Record<string, unknown>;
+            if (
+              triggerName === "beforeSave" && result && typeof result === "object" &&
+              request?.object && typeof request.object === "object"
+            ) {
+              const { createdAt: _c, updatedAt: _u, className: _n, objectId: _id, ...changes } =
+                result as Record<string, unknown>;
               Object.assign(request.object, changes);
             }
           } catch (e) {
             if (before) throw e;
-            console.warn(`[hooks] ${triggerName} ${className} hook failed: ${(e as Error).message}`);
+            console.warn(
+              `[hooks] ${triggerName} ${className} hook failed: ${(e as Error).message}`,
+            );
           }
         });
       };
@@ -188,12 +249,19 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
         return url;
       };
       const validTrigger = (className: unknown, triggerName: unknown): [string, TriggerName] => {
-        if (typeof className !== "string" || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(className)) throw hookError(INVALID);
-        if (typeof triggerName !== "string" || !(HOOK_TRIGGERS as readonly string[]).includes(triggerName)) throw hookError(INVALID);
+        if (typeof className !== "string" || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(className)) {
+          throw hookError(INVALID);
+        }
+        if (
+          typeof triggerName !== "string" ||
+          !(HOOK_TRIGGERS as readonly string[]).includes(triggerName)
+        ) throw hookError(INVALID);
         return [className, triggerName as TriggerName];
       };
       const validFunction = (name: unknown): string => {
-        if (typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_.-]{0,127}$/.test(name)) throw hookError(INVALID);
+        if (typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_.-]{0,127}$/.test(name)) {
+          throw hookError(INVALID);
+        }
         return name;
       };
 
@@ -202,17 +270,28 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
         async load() {
           for (const h of (await db.find(HOOKS_CLASS, {})) as Hook[]) {
             if (h.functionName) registerFunction(h.functionName, h.url);
-            else if (h.className && h.triggerName && (HOOK_TRIGGERS as readonly string[]).includes(h.triggerName)) {
+            else if (
+              h.className && h.triggerName &&
+              (HOOK_TRIGGERS as readonly string[]).includes(h.triggerName)
+            ) {
               registerTrigger(h.className, h.triggerName as TriggerName, h.url);
             }
           }
         },
         startBackground() {
-          return api.load().catch((e) => console.warn(`[hooks] could not load ${HOOKS_CLASS}: ${(e as Error).message}`));
+          return api.load().catch((e) =>
+            console.warn(`[hooks] could not load ${HOOKS_CLASS}: ${(e as Error).message}`)
+          );
         },
 
-        listFunctions: async () => ((await db.find(HOOKS_CLASS, {})) as Hook[]).filter((h) => h.functionName).map(({ functionName, url }) => ({ functionName, url })),
-        listTriggers: async () => ((await db.find(HOOKS_CLASS, {})) as Hook[]).filter((h) => h.triggerName).map(({ className, triggerName, url }) => ({ className, triggerName, url })),
+        listFunctions: async () =>
+          ((await db.find(HOOKS_CLASS, {})) as Hook[]).filter((h) => h.functionName).map((
+            { functionName, url },
+          ) => ({ functionName, url })),
+        listTriggers: async () =>
+          ((await db.find(HOOKS_CLASS, {})) as Hook[]).filter((h) => h.triggerName).map((
+            { className, triggerName, url },
+          ) => ({ className, triggerName, url })),
 
         async getFunction(name: string) {
           const [h] = (await db.find(HOOKS_CLASS, { functionName: name })) as Hook[];
@@ -228,7 +307,9 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
         async createFunction(body: Record<string, unknown>) {
           const name = validFunction(body.functionName);
           const url = await validateUrl(body.url);
-          if ((await db.find(HOOKS_CLASS, { functionName: name })).length) throw hookError(`function name: ${name} already exists`);
+          if ((await db.find(HOOKS_CLASS, { functionName: name })).length) {
+            throw hookError(`function name: ${name} already exists`);
+          }
           await db.create(HOOKS_CLASS, { functionName: name, url });
           registerFunction(name, url);
           return { functionName: name, url };
@@ -236,7 +317,9 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
         async createTrigger(body: Record<string, unknown>) {
           const [className, triggerName] = validTrigger(body.className, body.triggerName);
           const url = await validateUrl(body.url);
-          if ((await db.find(HOOKS_CLASS, { className, triggerName })).length) throw hookError(`class ${className} already has trigger ${triggerName}`);
+          if ((await db.find(HOOKS_CLASS, { className, triggerName })).length) {
+            throw hookError(`class ${className} already has trigger ${triggerName}`);
+          }
           await db.create(HOOKS_CLASS, { className, triggerName, url });
           registerTrigger(className, triggerName, url);
           return { className, triggerName, url };
@@ -271,7 +354,11 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
         },
       };
 
-      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      const json = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "content-type": "application/json" },
+        });
       const bodyOf = async (req: Request) => {
         try {
           return (await req.json()) ?? {};
@@ -279,21 +366,70 @@ export function createCloudHooksTrait(options: CloudHooksOptions = {}): AnyTrait
           throw new ZenithError(ZenithErrorCode.INVALID_JSON, "Invalid JSON body.", 400);
         }
       };
-      const route = (method: "GET" | "POST" | "PUT", path: string, summary: string, run: (req: Request, p: Record<string, string>) => Promise<Response>) => ({
-        method, path, access: "master" as const,
+      const route = (
+        method: "GET" | "POST" | "PUT",
+        path: string,
+        summary: string,
+        run: (req: Request, p: Record<string, string>) => Promise<Response>,
+      ) => ({
+        method,
+        path,
+        access: "master" as const,
         _openapi: { summary, tags: ["Hooks"] },
-        handler: (req: Request, ctx: any) => run(req, (ctx?.params ?? {}) as Record<string, string>),
+        handler: (req: Request, ctx: any) =>
+          run(req, (ctx?.params ?? {}) as Record<string, string>),
       });
 
       const hooks_routes = [
-        route("GET", "/hooks/functions", "List function hooks (Parse Server)", async () => json(await api.listFunctions())),
-        route("POST", "/hooks/functions", "Create a function hook: { functionName, url }", async (req) => json(await api.createFunction(await bodyOf(req)), 201)),
-        route("GET", "/hooks/functions/:functionName", "Get a function hook", async (_r, p) => json(await api.getFunction(p.functionName))),
-        route("PUT", "/hooks/functions/:functionName", "Update its url, or delete it with { __op: \"Delete\" }", async (req, p) => json(await api.putFunction(p.functionName, await bodyOf(req)))),
-        route("GET", "/hooks/triggers", "List trigger hooks (Parse Server)", async () => json(await api.listTriggers())),
-        route("POST", "/hooks/triggers", "Create a trigger hook: { className, triggerName, url }", async (req) => json(await api.createTrigger(await bodyOf(req)), 201)),
-        route("GET", "/hooks/triggers/:className/:triggerName", "Get a trigger hook", async (_r, p) => json(await api.getTrigger(p.className, p.triggerName))),
-        route("PUT", "/hooks/triggers/:className/:triggerName", "Update its url, or delete it with { __op: \"Delete\" }", async (req, p) => json(await api.putTrigger(p.className, p.triggerName, await bodyOf(req)))),
+        route(
+          "GET",
+          "/hooks/functions",
+          "List function hooks (Parse Server)",
+          async () => json(await api.listFunctions()),
+        ),
+        route(
+          "POST",
+          "/hooks/functions",
+          "Create a function hook: { functionName, url }",
+          async (req) => json(await api.createFunction(await bodyOf(req)), 201),
+        ),
+        route(
+          "GET",
+          "/hooks/functions/:functionName",
+          "Get a function hook",
+          async (_r, p) => json(await api.getFunction(p.functionName)),
+        ),
+        route(
+          "PUT",
+          "/hooks/functions/:functionName",
+          'Update its url, or delete it with { __op: "Delete" }',
+          async (req, p) => json(await api.putFunction(p.functionName, await bodyOf(req))),
+        ),
+        route(
+          "GET",
+          "/hooks/triggers",
+          "List trigger hooks (Parse Server)",
+          async () => json(await api.listTriggers()),
+        ),
+        route(
+          "POST",
+          "/hooks/triggers",
+          "Create a trigger hook: { className, triggerName, url }",
+          async (req) => json(await api.createTrigger(await bodyOf(req)), 201),
+        ),
+        route(
+          "GET",
+          "/hooks/triggers/:className/:triggerName",
+          "Get a trigger hook",
+          async (_r, p) => json(await api.getTrigger(p.className, p.triggerName)),
+        ),
+        route(
+          "PUT",
+          "/hooks/triggers/:className/:triggerName",
+          'Update its url, or delete it with { __op: "Delete" }',
+          async (req, p) =>
+            json(await api.putTrigger(p.className, p.triggerName, await bodyOf(req))),
+        ),
       ];
 
       return { hooks_routes, cloudHooks: api };

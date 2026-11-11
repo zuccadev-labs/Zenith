@@ -11,7 +11,15 @@
  * @barrits-runtime deno
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
-import { buildDynamicRouter, createRequestHandler, extractContext, applyCORS, validateAppId, resolveAuthentication, applyRateLimit } from "./mod.ts";
+import {
+  applyCORS,
+  applyRateLimit,
+  buildDynamicRouter,
+  createRequestHandler,
+  extractContext,
+  resolveAuthentication,
+  validateAppId,
+} from "./mod.ts";
 import type { ZenithConfig } from "./types.ts";
 import { ApiKeyManager } from "../security/api-keys/manager.ts";
 import { apiKeyRoutes, apiKeyStoreFor } from "../security/api-keys/routes.ts";
@@ -48,7 +56,9 @@ export const ServerTrait = createTraitDescriptor({
           apiKeys = { store, manager: new ApiKeyManager(store) };
         }
         const apiKeyManager = apiKeys.manager;
-        for (const r of apiKeyRoutes(config.appId, apiKeys.manager, apiKeys.store)) router.on(r.method, r.path, r.handler, r.access);
+        for (const r of apiKeyRoutes(config.appId, apiKeys.manager, apiKeys.store)) {
+          router.on(r.method, r.path, r.handler, r.access);
+        }
 
         // 2. Bootstrap: si la app no tiene keys, crear una sk_live (solo dev)
         //    Esto se hace sincrónicamente antes de armar el pipeline para que
@@ -80,46 +90,48 @@ export const ServerTrait = createTraitDescriptor({
         // 3. Crear el Request Handler con Telemetría Global
         const rawDispatch = router.dispatch();
         const tracedDispatch = async (req: Request, ctx: any) => {
-            const url = new URL(req.url);
-            const currentObs = caps["telemetry"];
-            if (currentObs?.withSpan) {
-              return await currentObs.withSpan(`HTTP ${req.method} ${url.pathname}`, {
-                "http.method": req.method,
-                "http.url": url.pathname
-              }, async () => {
-                 const response = await rawDispatch(req, ctx);
+          const url = new URL(req.url);
+          const currentObs = caps["telemetry"];
+          if (currentObs?.withSpan) {
+            return await currentObs.withSpan(`HTTP ${req.method} ${url.pathname}`, {
+              "http.method": req.method,
+              "http.url": url.pathname,
+            }, async () => {
+              const response = await rawDispatch(req, ctx);
 
-                 // Lógica de Negocio Corporativa: Metering (Consumo de API y Ancho de Banda)
-                 const billing = caps["billing-metering"];
-                 if (billing && ctx.auth?.userId) {
-                  try {
-                    // Contamos 1 petición
-                    billing.consumeQuota(ctx.auth.userId, "api_requests", 1).catch(() => {});
-                    
-                    // Estimamos ancho de banda basado en Content-Length si existe, sino usamos una aproximación
-                    const cl = response.headers.get("Content-Length");
-                    if (cl) {
-                       const bytes = parseInt(cl, 10);
-                       if (!isNaN(bytes)) {
-                         billing.consumeQuota(ctx.auth.userId, "bandwidth_bytes", bytes).catch(() => {});
-                       }
-                    } else if (response.status === 200) {
-                       // Si no hay Content-Length, hacemos una estimación mínima asumiendo JSON
-                       billing.consumeQuota(ctx.auth.userId, "bandwidth_bytes", 1024).catch(() => {}); // 1KB proxy
+              // Lógica de Negocio Corporativa: Metering (Consumo de API y Ancho de Banda)
+              const billing = caps["billing-metering"];
+              if (billing && ctx.auth?.userId) {
+                try {
+                  // Contamos 1 petición
+                  billing.consumeQuota(ctx.auth.userId, "api_requests", 1).catch(() => {});
+
+                  // Estimamos ancho de banda basado en Content-Length si existe, sino usamos una aproximación
+                  const cl = response.headers.get("Content-Length");
+                  if (cl) {
+                    const bytes = parseInt(cl, 10);
+                    if (!isNaN(bytes)) {
+                      billing.consumeQuota(ctx.auth.userId, "bandwidth_bytes", bytes).catch(
+                        () => {},
+                      );
                     }
-                  } catch (_e) { /* noop: no bloquear el flujo de respuesta */ }
-               }
+                  } else if (response.status === 200) {
+                    // Si no hay Content-Length, hacemos una estimación mínima asumiendo JSON
+                    billing.consumeQuota(ctx.auth.userId, "bandwidth_bytes", 1024).catch(() => {}); // 1KB proxy
+                  }
+                } catch (_e) { /* noop: no bloquear el flujo de respuesta */ }
+              }
 
-               return response;
+              return response;
             });
-            } else {
-               return await rawDispatch(req, ctx);
-            }
-         };
+          } else {
+            return await rawDispatch(req, ctx);
+          }
+        };
 
         const handler = createRequestHandler(pipeline, tracedDispatch);
         return handler;
-      }
+      },
     };
-  }
+  },
 });
