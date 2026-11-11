@@ -77,6 +77,9 @@
       "description": "Favoritos por usuario con drag & drop (posición persistente). Toggle idempotente."
     },
     {
+      "name": "Features"
+    },
+    {
       "name": "Forum",
       "description": "Foro de comunidad con hilos, replies, upvotes/downvotes y respuestas aceptadas."
     },
@@ -14277,6 +14280,207 @@
         "responses": {
           "201": {
             "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/zen/features": {
+      "get": {
+        "operationId": "get_zen_features",
+        "summary": "Loaded features and whether each one is on",
+        "tags": [
+          "Features"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - parámetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - falta API key, JWT o session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - ACL/CLP denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - el recurso no existe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZenithError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "masterKey": []
+          }
+        ]
+      }
+    },
+    "/zen/features/{id}": {
+      "put": {
+        "operationId": "put_zen_features_By_id",
+        "summary": "Turn a loaded feature on or off without restarting. Its routes answer 404 while it is off",
+        "tags": [
+          "Features"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
             "content": {
               "application/json": {
                 "schema": {

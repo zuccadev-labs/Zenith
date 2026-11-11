@@ -5932,6 +5932,83 @@
       ]
     },
     {
+      "name": "Features",
+      "item": [
+        {
+          "name": "Loaded features and whether each one is on",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/features",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "features"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Turn a loaded feature on or off without restarting. Its routes answer 404 while it is off",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/features/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "features",
+                "{id}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Forum",
       "item": [
         {
