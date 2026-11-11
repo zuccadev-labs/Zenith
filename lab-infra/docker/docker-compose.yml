@@ -144,7 +144,7 @@ services:
   # 2. Infraestructura Rápida (ScyllaDB & LuxDB)
   # ──────────────────────────────────────────────────────────
   zenith-scylla:
-    image: scylladb/scylla:2026.1.15
+    image: scylladb/scylla:2026.3.4
     container_name: zenith-scylla
     ports:
       - "53042:9042"
@@ -432,7 +432,7 @@ services:
   #    Dominio: zen.ll | postal.yml se rellena via envsubst
   # ──────────────────────────────────────────────────────────
   zenith-postal-mariadb:
-    image: mariadb:12.3.3
+    image: mariadb:13.0.2
     container_name: zenith-postal-mariadb
     environment:
       MARIADB_ROOT_PASSWORD: ${POSTAL_DB_PASSWORD}
