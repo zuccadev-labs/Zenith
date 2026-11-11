@@ -13,88 +13,31 @@
  * @barrits-runtime deno
  */
 import { composeZenith } from "./core/compose.ts";
-import { DbTrait } from "./traits/db/db.trait.ts";
+import { selectFeatures, traitsOf } from "./core/feature-catalog.ts";
+import { FEATURE_CATALOG } from "./traits/catalog.ts";
+import { runtimeFeaturesTrait } from "./core/runtime-features.ts";
 import { generateOpenApiSchema } from "./core/openapi.ts";
-import { ServerTrait } from "./core/server.trait.ts";
 import { loadMergedTrustStore, parseManifest, verifyPlugin } from "./security/plugin-signing/mod.ts";
 import { ZenLogger } from "./core/cloud.ts";
-import { DatabaseMongoTrait, createMongoAdapter } from "./adapters/database/mongo.adapter.ts";
-import { DatabaseScyllaTrait, createScyllaAdapter } from "./adapters/database/scylla.adapter.ts";
+import { createMongoAdapter } from "./adapters/database/mongo.adapter.ts";
+import { createScyllaAdapter } from "./adapters/database/scylla.adapter.ts";
 import type { DatabaseSurrealTrait, SurrealClient, createSurrealAdapter } from "./adapters/database/surreal.adapter.ts";
-import { StorageRustfsTrait, createRustFSAdapter } from "./adapters/storage/rustfs.adapter.ts";
+import { createRustFSAdapter } from "./adapters/storage/rustfs.adapter.ts";
 import { MongoClient } from "mongodb";
 import cassandra from "cassandra-driver";
 import { S3Client } from "@aws-sdk/client-s3";
 import { generateKeyPairSync } from "node:crypto";
-import { CryptoTrait } from "./traits/auth/crypto.trait.ts";
-import { UserManagementTrait } from "./traits/auth/user.trait.ts";
-import { MediaStreamTrait } from "./traits/media/mediastream.trait.ts";
-import { RealtimeTrait } from "./traits/realtime/realtime.trait.ts";
-import { SchemaManagementTrait } from "./traits/schema/schema.trait.ts";
-import { ObservabilityTrait } from "./traits/observability/observability.trait.ts";
-import { ACLTrait } from "./traits/security/acl.trait.ts";
-import { RateLimitTrait } from "./traits/security/ratelimit.trait.ts";
-import { RestCrudTrait } from "./traits/rest/crud.trait.ts";
-import { CloudCodeTrait } from "./traits/cloud/cloudcode.trait.ts";
-import { FileStorageTrait } from "./traits/storage/storage.trait.ts";
-import { GraphQLTrait } from "./traits/graphql/graphql.trait.ts";
-import { MigrationTrait } from "./traits/migration/migration.trait.ts";
-import { AITrait } from "./traits/ai/ai.trait.ts";
-import { RunnerTrait } from "./traits/runner/runner.trait.ts";
-import { ShellApiTrait } from "./traits/runner/shell.trait.ts";
-import { WebhookTrait } from "./traits/cloud/webhook.trait.ts";
-import { gRPCTrait } from "./traits/cluster/grpc.trait.ts";
-import { ZeroMQTrait } from "./traits/cluster/zeromq.trait.ts";
-import { BillingTrait } from "./traits/billing/billing.trait.ts";
-import { OpenSearchTrait } from "./adapters/database/opensearch.adapter.ts";
-import { SegmentationTrait } from "./traits/users/segmentation.trait.ts";
-import { EdgeTrait } from "./traits/edge/edge.trait.ts";
-import { EventStreamingTrait } from "./traits/events/events.trait.ts";
-import { Web3Trait } from "./traits/web3/web3.trait.ts";
-import { FederationTrait } from "./traits/cluster/federation.trait.ts";
-import { IPFSStorageTrait } from "./adapters/storage/ipfs.adapter.ts";
-import { E2EEKeysTrait } from "./traits/media/e2ee-keys.trait.ts";
-import { SFrameSignalingTrait } from "./traits/media/sframe-signaling.trait.ts";
 import { createKafkaAdapter } from "./adapters/events/kafka.adapter.ts";
 import { createIPFSAdapter } from "./adapters/storage/ipfs.adapter.ts";
 import { createNeo4jAdapter } from "./adapters/database/neo4j.adapter.ts";
 import { createStripeAdapter } from "./adapters/billing/stripe.adapter.ts";
 import { initialSchemaMigration } from "./migrations/001_initial_schema.ts";
-import { VectorDBTrait, type createOllamaEmbedProvider, type createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
-import { IoTTrait } from "./traits/iot/iot.trait.ts";
-import { AgentOrchestratorTrait } from "./traits/agents/agent.orchestrator.trait.ts";
-import { FeatureFlagsTrait } from "./traits/featureflags/featureflags.trait.ts";
+import type { createOllamaEmbedProvider, createOpenAIEmbedProvider } from "./traits/vectordb/vectordb.trait.ts";
 import type { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
-import { TimeSeriesTrait } from "./traits/timeseries/timeseries.trait.ts";
-import { WorkflowTrait } from "./traits/workflow/workflow.trait.ts";
-import { TenantTrait } from "./traits/tenant/tenant.trait.ts";
-import { ComplianceTrait } from "./traits/compliance/compliance.trait.ts";
-import { CacheTrait } from "./traits/cache/cache.trait.ts";
-import { PushTrait } from "./traits/push/push.trait.ts";
-import { JobQueueTrait } from "./traits/queue/job.queue.trait.ts";
-import { CircuitBreakerTrait } from "./traits/resilience/circuit.breaker.trait.ts";
 import type { createScyllaTimeSeriesAdapter } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
 import "./adapters/git.adapter.ts";
 import "./adapters/vault.adapter.ts";
 import "./adapters/lux-cache.adapter.ts";
-import { CRMTrait } from "./traits/crm/crm.trait.ts";
-import { ERPTrait } from "./traits/erp/erp.trait.ts";
-import { CollaborationTrait } from "./traits/collaboration/collaboration.trait.ts";
-import { WorkspaceTrait } from "./traits/workspace/workspace.trait.ts";
-import { ViewsTrait } from "./traits/views/views.trait.ts";
-import { SearchTrait } from "./traits/search/search.trait.ts";
-import { TimelineTrait } from "./traits/timeline/timeline.trait.ts";
-import { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
-import { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
-import { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
-import { PluginMarketplaceTrait } from "./traits/marketplace/marketplace.trait.ts";
-import { NotificationsTrait } from "./traits/notifications/notifications.trait.ts";
-import { FavoritesTagsTrait } from "./traits/favtags/favtags.trait.ts";
-import { WebhookManagerTrait } from "./traits/webhooks/webhook.manager.trait.ts";
-import { CSVTrait } from "./traits/csv/csv.trait.ts";
-import { EmailSyncTrait } from "./traits/email/email.sync.trait.ts";
-import { CalendarSyncTrait } from "./traits/calendar/calendar.sync.trait.ts";
-import { AutomationTrait } from "./traits/automation/automation.trait.ts";
 import type { ZenithConfig } from "./core/types.ts";
 import type { EngineAPI, CloudFunctionService, TriggerService, BillingMeteringService } from "./core/engine-api.ts";
 import { _cloudCodeRegistry, ZENITH_ENGINE } from "./core/cloud.ts";
@@ -155,207 +98,10 @@ function optionalCall<T>(obj: unknown, key: string, ...args: unknown[]): unknown
  * this list, and the composition tests check it for every topology/feature combination.
  */
 export function selectTraits(config: ZenithConfig): unknown[] {
-  const topology = config.topology || ["http", "runner", "ai", "graphql", "zeromq"];
-  
-  const activeTraits: unknown[] = [
-    DbTrait,
-    StorageRustfsTrait,
-    CryptoTrait,
-    SchemaManagementTrait,
-    UserManagementTrait,
-    MediaStreamTrait,
-    ACLTrait,
-    RateLimitTrait,
-    RestCrudTrait,
-    CloudCodeTrait,
-    FileStorageTrait,
-    ObservabilityTrait,
-    MigrationTrait,
-  ];
-
-  if (config.databaseURI?.startsWith("mongodb")) {
-    activeTraits.push(DatabaseMongoTrait);
-  } else if (config.databaseURI?.startsWith("cassandra") || config.databaseURI?.startsWith("scylla")) {
-    activeTraits.push(DatabaseScyllaTrait);
-  } else {
-    activeTraits.push(DatabaseMongoTrait);
-  }
-
-  if (config.features?.saas) {
-    activeTraits.push(BillingTrait);
-    console.log(`[ZenithBoot] 🛒 SaaS/Billing Layer Enabled.`);
-  }
-  
-  if (config.features?.ecommerce) {
-    activeTraits.push(OpenSearchTrait);
-    console.log(`[ZenithBoot] 🛍️ E-Commerce/Search Layer Enabled.`);
-  }
-
-  if (config.features?.gdpr) {
-    activeTraits.push(SegmentationTrait);
-    console.log(`[ZenithBoot] 🛡️ GDPR/Segmentation Layer Enabled.`);
-  }
-  
-  if (config.features?.edge) {
-    activeTraits.push(EdgeTrait);
-    console.log(`[ZenithBoot] ⚡ WASM Edge Computing Enabled.`);
-  }
-
-  if (config.features?.events) {
-    activeTraits.push(EventStreamingTrait);
-    console.log(`[ZenithBoot] 📬 Event Sourcing (Kafka) Enabled.`);
-  }
-
-  if (config.features?.web3) {
-    activeTraits.push(Web3Trait);
-    activeTraits.push(IPFSStorageTrait);
-    console.log(`[ZenithBoot] 🌐 Web3 & IPFS Storage Enabled.`);
-  }
-
-  if (config.features?.federation) {
-    activeTraits.push(FederationTrait);
-    console.log(`[ZenithBoot] 🌍 Multi-Region Federation (CRDT) Enabled.`);
-  }
-
-  if (topology.includes("http")) {
-    activeTraits.push(ServerTrait);
-    activeTraits.push(RealtimeTrait);
-  }
-  
-  if (topology.includes("graphql")) {
-    activeTraits.push(GraphQLTrait);
-  }
-  
-  if (topology.includes("ai") && config.features?.ai) {
-    activeTraits.push(AITrait);
-    console.log(`[ZenithBoot] 🧠 AI Agent Layer Enabled.`);
-  }
-
-  if (topology.includes("runner")) {
-    activeTraits.push(RunnerTrait);
-    activeTraits.push(ShellApiTrait);
-  }
-
-  if (topology.includes("http")) {
-    activeTraits.push(WebhookTrait);
-  }
-
-  if (topology.includes("grpc")) {
-    activeTraits.push(gRPCTrait);
-  }
-
-  if (topology.includes("zeromq")) {
-    activeTraits.push(ZeroMQTrait);
-  }
-
-  if (config.features?.e2ee_media) {
-    activeTraits.push(E2EEKeysTrait);
-    activeTraits.push(SFrameSignalingTrait);
-    console.log(`[ZenithBoot] 🔒 E2EE Media & Signaling Enabled.`);
-  }
-
-  activeTraits.push(FeatureFlagsTrait);
-
-  if (config.features?.vectordb) {
-    activeTraits.push(VectorDBTrait);
-    console.log(`[ZenithBoot] 🧠 Vector DB (Semantic Search + RAG) Enabled.`);
-  }
-
-  if (config.features?.iot) {
-    activeTraits.push(IoTTrait);
-    console.log(`[ZenithBoot] 📡 IoT Layer (MQTT + Device Registry + SenML) Enabled.`);
-  }
-
-  if (config.features?.agents) {
-    activeTraits.push(AgentOrchestratorTrait);
-    console.log(`[ZenithBoot] 🤖 Agent Orchestrator (ReAct Loop + Tool Calling) Enabled.`);
-  }
-
-  if (config.features?.timeseries) {
-    activeTraits.push(TimeSeriesTrait);
-    console.log(`[ZenithBoot] 📈 TimeSeries (ScyllaDB + Grafana DS API) Enabled.`);
-  }
-
-  if (config.features?.workflow) {
-    activeTraits.push(WorkflowTrait);
-    console.log(`[ZenithBoot] ⚡ Workflow Engine (iPaaS Trigger→Action) Enabled.`);
-  }
-
-  if (config.features?.multiTenant) {
-    activeTraits.push(TenantTrait);
-    console.log(`[ZenithBoot] 🏢 Multi-Tenant RLS Enabled.`);
-  }
-
-  if (config.features?.compliance) {
-    activeTraits.push(ComplianceTrait);
-    console.log(`[ZenithBoot] ⚖️  Compliance (GDPR/SOC2 + Immutable Audit Trail) Enabled.`);
-  }
-
-  if (config.features?.cache !== false) {
-    activeTraits.push(CacheTrait);
-    console.log(`[ZenithBoot] ⚡ Cache Layer (LRU in-memory + Redis adapter, tag-invalidation) Enabled.`);
-  }
-
-  if (config.features?.push) {
-    activeTraits.push(PushTrait);
-    console.log(`[ZenithBoot] 🔔 Push Notifications (FCM/APNs, device registry, channels) Enabled.`);
-  }
-
-  if (config.features?.queue !== false) {
-    activeTraits.push(JobQueueTrait);
-    console.log(`[ZenithBoot] 📦 Job Queue (persistent, retry, DLQ, scheduled, priority) Enabled.`);
-  }
-
-  if (config.features?.resilience !== false) {
-    activeTraits.push(CircuitBreakerTrait);
-    console.log(`[ZenithBoot] 🛡️ Circuit Breaker (fail-fast, auto-recovery, fallback) Enabled.`);
-  }
-
-  // ── Capa de negocio principal (CRM + ERP) ──────────────────────────────
-  // Van al final del pipeline base (después de db, cloud, acl, ratelimit, events).
-  activeTraits.push(CRMTrait);
-  activeTraits.push(ERPTrait);
-  console.log(`[ZenithBoot] 💼 CRM + ERP Traits registrados (CRUD, Smart DB Routing, Audit).`);
-
-  // ── Capa de colaboración (depende de db, cloud, events, storage) ────────
-  activeTraits.push(CollaborationTrait);
-  activeTraits.push(WorkspaceTrait);
-  activeTraits.push(ViewsTrait);
-  activeTraits.push(TimelineTrait);
-  console.log(`[ZenithBoot] 🤝 Collaboration Layer: Notes, Tasks, Comments, Attachments, Views, Timeline.`);
-
-  // ── Capa de búsqueda y metadata dinámica ────────────────────────────────
-  activeTraits.push(SearchTrait);
-  activeTraits.push(MetadataTrait);
-  console.log(`[ZenithBoot] 🔍 Search + Metadata API (Custom Objects & Fields) habilitado.`);
-
-  // ── Capa de contenido y comunidad ───────────────────────────────────────
-  activeTraits.push(BlogForumTrait);
-  console.log(`[ZenithBoot] 📝 Blog + Forum (monetizable, SEO, votes) habilitado.`);
-
-  // ── Capa de Agentes AI (Google ADK) ─────────────────────────────────────
-  if (config.features?.agents !== false) {
-    activeTraits.push(ADKAgentsTrait);
-    console.log(`[ZenithBoot] 🤖 AI Agents (CRM Assistant, Lead Scorer, Marketing Writer, Segment Analyzer, Support Agent) habilitados.`);
-  }
-
-  // ── Plugin Marketplace ──────────────────────────────────────────────────
-  activeTraits.push(PluginMarketplaceTrait);
-  console.log(`[ZenithBoot] 🛒 Plugin Marketplace habilitado.`);
-
-  // ── Capa de Fase 2: Notificaciones, Favoritos, Tags, Webhooks, CSV ────────
-  activeTraits.push(NotificationsTrait);
-  activeTraits.push(FavoritesTagsTrait);
-  activeTraits.push(WebhookManagerTrait);
-  activeTraits.push(CSVTrait);
-  console.log(`[ZenithBoot] 🔔 Phase 2: Notifications (SSE), Favorites, Tags, Webhook Manager, CSV Import/Export.`);
-
-  // ── Fase 3: Email Sync, Calendar Sync, Automation Rules Engine ──────────
-  activeTraits.push(EmailSyncTrait);
-  activeTraits.push(CalendarSyncTrait);
-  activeTraits.push(AutomationTrait);
-  console.log(`[ZenithBoot] 📧 Phase 3: Email Sync (IMAP/SMTP), Calendar Sync (Google/CalDAV/iCal), Automation Rules Engine.`);
-  return activeTraits;
+  const features = selectFeatures(FEATURE_CATALOG, config);
+  console.log(`[ZenithBoot] Features: ${features.map((f) => f.id).join(", ")}.`);
+  // The runtime registry goes first: it is core and the router gates every route with it.
+  return [runtimeFeaturesTrait(features, config), ...traitsOf(features, config)];
 }
 
 /**

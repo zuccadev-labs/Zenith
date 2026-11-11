@@ -36,6 +36,7 @@ X-Parse-Master-Key: <master-key>              # rutas master, desde localhost
 - [ERP](./api/ERP.md) (17 endpoints)
 - [Email](./api/Email.md) (11 endpoints)
 - [Favorites](./api/Favorites.md) (3 endpoints)
+- [Features](./api/Features.md) (2 endpoints)
 - [Forum](./api/Forum.md) (7 endpoints)
 - [GRAPHQL](./api/GRAPHQL.md) (2 endpoints)
 - [HR](./api/HR.md) (2 endpoints)

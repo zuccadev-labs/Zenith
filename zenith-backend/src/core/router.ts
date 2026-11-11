@@ -24,6 +24,7 @@ export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD";
 import type { RouteAccess, RouteScope } from "./route-collection.ts";
 import { missingKeyScope } from "../security/api-keys/scopes.ts";
 import { collectTraitRoutes, HEALTH_ROUTE, hasTraitHealthRoute } from "./route-collection.ts";
+import { RUNTIME_FEATURES_CAPABILITY, type RuntimeFeatures } from "./runtime-features.ts";
 export type { RouteAccess, RouteScope };
 
 export interface RouteDefinition {
@@ -33,6 +34,8 @@ export interface RouteDefinition {
   access: RouteAccess;
   /** What an API key needs here (see RouteScope). */
   scope?: RouteScope;
+  /** Feature that owns the route (feature-catalog.ts); while it is off the route answers 404. */
+  feature?: string;
 }
 
 const isMaster = (ctx: ZenithRequestContext) => ctx.masterKey === true || (ctx.apiKey?.scopes ?? []).includes("*");
@@ -79,7 +82,10 @@ export function denied(access: RouteAccess, ctx: ZenithRequestContext, scope?: R
 export class ZenithRouter {
   private readonly routes: RouteDefinition[] = [];
 
-  on(method: HttpMethod | "*", path: string, handler: RouteHandler, access: RouteAccess = "master", scope?: RouteScope): this {
+  /** @param isEnabled Runtime state of features (runtime-features.ts); without it every route is on. */
+  constructor(private readonly isEnabled: (feature: string) => boolean = () => true) {}
+
+  on(method: HttpMethod | "*", path: string, handler: RouteHandler, access: RouteAccess = "master", scope?: RouteScope, feature?: string): this {
     if (!["public", "user", "master"].includes(access)) throw new Error(`route ${method} ${path}: unknown access ${JSON.stringify(access)}`);
     this.routes.push({
       method,
@@ -87,6 +93,7 @@ export class ZenithRouter {
       handler,
       access,
       ...(scope ? { scope } : {}),
+      ...(feature ? { feature } : {}),
     });
     return this;
   }
@@ -139,6 +146,8 @@ export class ZenithRouter {
       for (const route of this.routes) {
         if (route.method !== "*" && route.method !== req.method) continue;
         const match = route.pattern.exec({ pathname });
+        // A feature turned off at runtime: its routes do not exist until it is turned on again.
+        if (match && route.feature && !this.isEnabled(route.feature)) continue;
         if (match) {
           // Inyectar params en el contexto
           const refusal = denied(route.access, ctx, route.scope);
@@ -172,7 +181,9 @@ export const healthHandler: RouteHandler = async (_req, _ctx) => {
  * Esto permite compilar microservicios agnósticos (ej. un pod solo para Media).
  */
 export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
-  const router = new ZenithRouter();
+  const features = (deps.traits || deps)[RUNTIME_FEATURES_CAPABILITY] as RuntimeFeatures | undefined;
+  const router = new ZenithRouter(features ? (id) => features.isEnabled(id) : undefined);
+  void features?.start();
   
   // Rutas de los traits: la misma lista que documenta OpenAPI (route-collection.ts).
   const traitRoutes = collectTraitRoutes(deps.traits || deps);
@@ -182,7 +193,7 @@ export function buildDynamicRouter(deps: Record<string, any>): ZenithRouter {
   const mounted = new Map<string, number>();
   for (const { provider, route } of traitRoutes) {
     if (typeof route.handler !== "function") continue;
-    router.on(route.method as HttpMethod | "*", route.path, route.handler as RouteHandler, route.access ?? "master", route.scope);
+    router.on(route.method as HttpMethod | "*", route.path, route.handler as RouteHandler, route.access ?? "master", route.scope, features?.featureOf(provider));
     mounted.set(provider, (mounted.get(provider) ?? 0) + 1);
   }
   for (const [provider, n] of mounted) console.log(`[Router] Mounting ${n} routes from capability: ${provider}`);

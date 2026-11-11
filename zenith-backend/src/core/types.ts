@@ -141,6 +141,12 @@ export interface ZenithConfig {
     readonly queue?: boolean;       // JobQueueTrait
     readonly resilience?: boolean;  // CircuitBreakerTrait
     readonly push?: boolean;        // PushTrait (desactivado por defecto)
+
+    /**
+     * Cualquier otra pieza del catálogo (`src/traits/catalog.ts`) por su id: `crm: false`,
+     * `webhooks: false`, `graphql: false`… El núcleo no se puede desactivar.
+     */
+    readonly [feature: string]: boolean | string | undefined;
   };
 }
 

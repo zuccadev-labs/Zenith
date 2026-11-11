@@ -6,7 +6,7 @@
 ## Empieza aquí
 
 - **[Quickstart](tutorials/01_quickstart.md):** un servidor con `zen` y una app con el SDK de cliente.
-- **[Referencia de la API HTTP](README.md):** generada con `zen generate docs`. Tiene las mismas rutas que monta el router (220 con las features por defecto); también está en `openapi.json`, en la colección de Postman `zenith.postman.json` y en `index.html` (Redoc).
+- **[Referencia de la API HTTP](README.md):** generada con `zen generate docs`. Tiene las mismas rutas que monta el router (222 con las features por defecto); también está en `openapi.json`, en la colección de Postman `zenith.postman.json` y en `index.html` (Redoc).
 
 ## Servidor y cliente
 
@@ -30,6 +30,7 @@ Los otros lenguajes de `sdk/` (Android, Apple, Dart, Flutter, .NET, PHP y Swift)
 | [ADR-016](architecture-decisions/ADR-016-shared-crypto-and-single-api-keys.md) | Primitivas criptográficas compartidas, firma de webhooks y un solo sistema de API keys |
 | [ADR-002](architecture-decisions/ADR-002-mtls.md) a [ADR-008](architecture-decisions/ADR-008-hashicorp-vault.md) | mTLS, API keys, firma de plugins, OpenAPI, observabilidad, producción y Vault. En lo técnico coinciden, con matices (ADR-007 sin verificar a fondo) |
 | [openapi-swagger.md](architecture/openapi-swagger.md) | Cómo se genera la OpenAPI |
+| [features-and-engines.md](architecture/features-and-engines.md) | Catálogo de piezas, activarlas al arrancar o en caliente, y cómo se acoplan los motores |
 | [zenith-backend/docs/pending.md](../zenith-backend/docs/pending.md) | **Lo que falta o falla, con prioridad** |
 | [zenith-backend/docs/errors.md](../zenith-backend/docs/errors.md) | Códigos de error |
 | [lab-infra/docs/recrear-desde-cero.md](../lab-infra/docs/recrear-desde-cero.md) | Recrear el laboratorio |

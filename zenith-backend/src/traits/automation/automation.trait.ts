@@ -21,8 +21,8 @@
  * @barrits-trait
  * @barrits-summary ZenithAutomation
  * @barrits-provides automation_routes, automation
- * @barrits-consumes db, emailSync, notifications
- * @barrits-tags uses:adkAgents, uses:events
+ * @barrits-consumes db
+ * @barrits-tags uses:adkAgents, uses:events, uses:emailSync, uses:notifications
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -246,8 +246,9 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
 export const AutomationTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithAutomation",
   provides: ["automation_routes", "automation"],
-  consumes: ["db", "emailSync", "notifications"],
-  tags: ["uses:adkAgents", "uses:events"],
+  consumes: ["db"],
+  // Optional: without them, send_notification writes the Notification and send_email emits Email.send.
+  tags: ["uses:adkAgents", "uses:events", "uses:emailSync", "uses:notifications"],
   state: [],
   runtimes: ["deno"],
   summary: "Automation Rules Engine: IF-THEN rules on any event. Built-in actions: create_task, update_record, send_notification, send_email, send_webhook, run_agent, add/remove_tag, assign, create_note, wait, run_sequence. Pluggable custom actions.",
