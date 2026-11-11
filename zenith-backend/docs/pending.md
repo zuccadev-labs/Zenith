@@ -123,17 +123,16 @@ ambas o retirar `express`. Su envoltorio ya espera al handler; antes, un handler
   `export`. `barrits.config.ts` usa `traitsDiscovery.conventions`, que no existe (la clave correcta es
   `discoveryRoots`). Sin carpeta `barrits/`, la CLI sube hasta `labs-packages/barrits`.
 
-**Recomendación:** llevar a barrits lo que Zenith ya resolvió y probó, como extensión compatible del estándar
-(barrits 0.4.0):
-- un contrato de rutas por capacidad (`*routes` con `method`, `path`, `access`, `scope` y `_openapi`);
-- `generateOpenApiFromRoutes`, que es `core/route-collection.ts` más el generador de Zenith, con su prueba de
-  paridad;
-- seguir aceptando las etiquetas `http:method`/`http:path` para los traits de un solo endpoint;
-- exportar `./schema/openapi` e `./ioc` en `jsr.json` y unificar la documentación en esa ruta.
+**Hecho en barrits 0.3.1 (2026-11-10), como versión aditiva tras la 0.3.0 publicada:**
+- un contrato de rutas por capacidad (`*routes` con `method`, `path`, `access`, `scope` y `_openapi`) y
+  `generateOpenApiFromRoutes`, validado con el código real de Zenith (221/221 rutas por defecto, 265/265 con
+  todas las features);
+- `jsr.json` exporta `./schema/openapi`, `./ioc` y `./deno/cli`, y la documentación usa esas rutas;
+- la errata `@baritr-provides` y los ejemplos rotos, corregidos.
 
-Después, Zenith importa el generador de barrits y borra el suyo. Por separado, conviene pegar los JSDoc a los
-`export` y corregir `barrits.config.ts`, para que `barrits build` describa los traits de Zenith (IoC,
-inspección); esto no hace falta para la OpenAPI.
+`generateOpenApiFromState` delega ya en barrits (ver `docs/architecture/openapi-swagger.md`). Queda pendiente,
+por separado, pegar los JSDoc a los `export` y corregir `barrits.config.ts`, para que `barrits build` describa
+los traits de Zenith (IoC, inspección). Esto no hace falta para la OpenAPI.
 
 ### `zenith-backend/scripts/zen.ts`: un segundo `zen` antiguo
 Usa puerto 3000 y las opciones `--app-id`, `--port` y `--target-dir`, distintas del CLI real (`zenith-cli`). Lo usan

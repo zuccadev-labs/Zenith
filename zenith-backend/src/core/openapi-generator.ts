@@ -31,6 +31,7 @@
  * y es compatible con Swagger UI, Redoc, Stoplight Elements, etc.
  */
 
+import { type BarritsCollectedRoute, type BarritsRouteContract, generateOpenApiFromRoutes } from "@zuccadev-labs/barrits/schema/openapi";
 import { collectTraitRoutes, type RouteAccess, type RouteScope } from "./route-collection.ts";
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -528,104 +529,75 @@ export function generateOpenApiFromState(
   const includeBuiltin = options.includeBuiltinSchemas !== false;
 
   // 1. The same routes the router mounts (route-collection.ts), plus those outside the traits.
-  const byProvider = new Map<string, RouteEntry[]>();
+  //    Zenith fills in its defaults (path examples, ZenithError responses) as
+  //    route metadata; barrits builds the document and fails closed on a duplicated
+  //    method+path or operationId, which the router would otherwise serve only once.
+  const routes: BarritsCollectedRoute[] = [];
   for (const { provider, route } of collectTraitRoutes(state)) {
-    byProvider.set(provider, [...(byProvider.get(provider) ?? []), route as RouteEntry]);
+    routes.push({ capability: provider, route: toContract(withZenithDefaults(route as RouteEntry)) });
   }
-  if (options.extraRoutes?.length) byProvider.set("core", [...(byProvider.get("core") ?? []), ...options.extraRoutes]);
-  const discovered = [...byProvider].map(([provider, routes]) => ({ provider, routes }));
+  const extraRoutes = (options.extraRoutes ?? []).map(withZenithDefaults);
 
-  // 2. Construir paths
-  const paths: OpenApiSpec["paths"] = {};
-  const tagSet = new Set<string>();
-
-  for (const { provider, routes } of discovered) {
-    const defaultTag = providerToTag(provider);
-    for (const route of routes) {
-      const method = route.method.toLowerCase();
-      if (!HTTP_METHODS.has(method)) continue;
-
-      const oaPath = toOpenApiPath(route.path);
-      const pathItem = paths[oaPath] ??= {};
-      const meta = route._openapi ?? {};
-
-      const tag = meta.tag ?? defaultTag;
-      const tagsForOp = meta.tags ?? [tag];
-      for (const t of tagsForOp) tagSet.add(t);
-
-      // Combinar path params con los explícitos del meta
-      const pathParams = extractPathParams(route.path);
-      const explicitParams = meta.parameters ?? [];
-      const paramByName = new Map<string, OpenApiParameter>();
-      for (const p of pathParams) paramByName.set(p.name, p);
-      for (const p of explicitParams) paramByName.set(p.name, p);
-
-      const operation: OpenApiOperation = {
-        ...(meta.summary ? { summary: meta.summary } : {}),
-        ...(meta.description ? { description: meta.description } : {}),
-        operationId: meta.operationId ?? `${method}${oaPath.replace(/[^a-zA-Z0-9]/g, "")}`,
-        tags: tagsForOp,
-        parameters: paramByName.size > 0 ? [...paramByName.values()] : undefined,
-        ...(meta.requestBody ? { requestBody: meta.requestBody } : {}),
-        responses: meta.responses ?? defaultResponses(method),
-        security: meta.security ?? securityFor(route.access as RouteAccess | undefined, route.scope as RouteScope | undefined),
-        ...(route.scope === "per-operation"
-          ? { "x-api-key-scope": "Per operation: data:read, data:create, data:write or data:delete (users:read / users:write for _User)." }
-          : {}),
-        ...(meta.deprecated ? { deprecated: true } : {}),
-      };
-
-      pathItem[method] = operation;
-    }
-  }
-
-  // 3. Recolectar schemas adicionales del state (`_openapi_schemas`)
+  // 2. Schemas, security schemes and tag descriptions.
   const stateSchemas = (state._openapi_schemas as Record<string, OpenApiSchema> | undefined) ?? {};
   const schemas: Record<string, OpenApiSchema> = {};
   if (includeBuiltin) Object.assign(schemas, BUILTIN_SCHEMAS);
   Object.assign(schemas, stateSchemas, options.additionalSchemas ?? {});
-
-  // 4. Security schemes
   const securitySchemes: Record<string, OpenApiSecurityScheme> = {
     ...BUILTIN_SECURITY_SCHEMES,
     ...(options.additionalSecuritySchemes ?? {}),
   };
 
-  // 5. Tags
-  const tagDescriptions: Record<string, string> = {
-    ...BUILTIN_TAG_DESCRIPTIONS,
-    ...(options.additionalTagDescriptions ?? {}),
-  };
-  const tags = [...tagSet]
-    .sort()
-    .map((name) => ({
-      name,
-      ...(tagDescriptions[name] ? { description: tagDescriptions[name] } : {}),
-    }));
+  const doc = generateOpenApiFromRoutes(routes, {
+    title: options.title ?? "Zenith API",
+    version: options.version ?? "1.0.0",
+    ...(options.description ? { description: options.description } : {}),
+    ...(options.serverURL ? { servers: [{ url: options.serverURL, description: "Production" }] } : {}),
+    extraRoutes: extraRoutes.map(toContract),
+    schemas,
+    securitySchemes: securitySchemes as unknown as Record<string, Record<string, unknown>>,
+    tagFor: providerToTag,
+    tagDescriptions: { ...BUILTIN_TAG_DESCRIPTIONS, ...(options.additionalTagDescriptions ?? {}) },
+    securityFor: (route) => securityFor(route.access as RouteAccess | undefined, route.scope as RouteScope | undefined),
+  });
 
-  // 6. Spec final
-  const spec: OpenApiSpec = {
-    openapi: "3.1.0",
-    info: {
-      title: options.title ?? "Zenith API",
-      version: options.version ?? "1.0.0",
-      ...(options.description ? { description: options.description } : {}),
-      ...(options.appId ? { "x-app-id": options.appId } : {}),
-    },
-    tags,
-    paths,
-    components: {
-      schemas,
-      securitySchemes,
-      parameters: {},
-    },
-  };
-
-  if (options.serverURL) {
-    spec.servers = [{ url: options.serverURL, description: "Production" }];
+  // 3. Zenith-only fields barrits has no option for.
+  const spec = structuredClone(doc) as unknown as OpenApiSpec;
+  if (options.appId) spec.info["x-app-id"] = options.appId;
+  spec.components.parameters = {};
+  for (const route of [...routes.map((r) => r.route), ...extraRoutes] as readonly { method: string; path: string; scope?: unknown }[]) {
+    if (route.scope !== "per-operation") continue;
+    const op = spec.paths[toOpenApiPath(route.path)]?.[route.method.toLowerCase()];
+    if (op) op["x-api-key-scope"] = PER_OPERATION_SCOPE;
   }
-
   return spec;
+}
+
+/** Zenith's interfaces describe the same JSON as barrits' readonly records. */
+const toContract = (route: RouteEntry): BarritsRouteContract => route as unknown as BarritsRouteContract;
+
+const PER_OPERATION_SCOPE = "Per operation: data:read, data:create, data:write or data:delete (users:read / users:write for _User).";
+
+/**
+ * A route with Zenith's documentation defaults in `_openapi` (path examples, ZenithError
+ * responses); what the trait declares wins. The operationId is barrits' (`get_users_By_id`): the
+ * old format dropped punctuation, so `/zen/apikeys` and `/zen/api-keys` shared one id.
+ */
+function withZenithDefaults(route: RouteEntry): RouteEntry {
+  const method = route.method.toLowerCase();
+  if (!HTTP_METHODS.has(method)) return route;
+  const meta = route._openapi ?? {};
+  const params = new Map<string, OpenApiParameter>();
+  for (const p of extractPathParams(route.path)) params.set(p.name, p);
+  for (const p of meta.parameters ?? []) params.set(p.name, p);
+  return {
+    ...route,
+    _openapi: {
+      ...meta,
+      responses: meta.responses ?? defaultResponses(method),
+      ...(params.size > 0 ? { parameters: [...params.values()] } : {}),
+    },
+  };
 }
 
 /**

@@ -44,12 +44,24 @@ con `zen compile` sirve la misma spec, porque se genera en memoria a partir del 
 
 ## barrits y OpenAPI
 
-barrits trae su propio generador (`generateOpenApiSchema`, en `schema/openapi`), pero Zenith no lo usa:
+Desde barrits 0.3.1, `generateOpenApiFromState` delega el documento en `generateOpenApiFromRoutes`
+(`@zuccadev-labs/barrits/schema/openapi`), el generador por rutas de barrits. Zenith le pasa:
 
-- la versión 0.3.0 publicada en JSR no exporta ese subpath;
-- solo admite un endpoint por trait, mientras que los traits de Zenith exponen listas de rutas con
-  metadatos `_openapi`.
+- **Las rutas:** las de `route-collection.ts`, más `extraRoutes`. Son las mismas que monta el router.
+- **Los valores por defecto de Zenith,** como metadatos de cada ruta: ejemplos de parámetros de ruta y
+  respuestas con `ZenithError`.
+- **La seguridad, los esquemas y las etiquetas:** `securityFor` (tabla anterior), los esquemas
+  `Zenith*`, los esquemas de seguridad y `providerToTag`.
 
-Zenith compone con barrits (`createTraitDescriptor` y `composeTraitDescriptors`) y genera la OpenAPI
-con su propio generador sobre esa composición. Las mejoras pendientes en barrits están en
-`zenith-backend/docs/pending.md`.
+Después añade lo que barrits no cubre: `info.x-app-id`, `x-api-key-scope` y las rutas de `/openapi.json`
+y `/swagger`.
+
+barrits falla si dos rutas tienen el mismo método y ruta, o el mismo `operationId`, en vez de
+documentar solo una. Así apareció `/health` montado dos veces, y `/zen/apikeys` (workspace) y
+`/zen/api-keys` compartiendo un `operationId`. Los `operationId` usan el formato de barrits
+(`get_users_By_id`, `get_zen_api_keys`). El anterior (`getusersid`) quitaba la puntuación y podía
+repetirse. El cambio se hizo antes de publicar Zenith, así que ningún cliente generado depende del
+formato anterior.
+
+El generador antiguo de barrits (`generateOpenApiSchema`) sigue sin servir a Zenith: documenta un
+endpoint por trait.

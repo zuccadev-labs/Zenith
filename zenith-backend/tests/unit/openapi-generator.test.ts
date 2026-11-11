@@ -15,7 +15,7 @@
  */
 
 // deno-lint-ignore-file no-unused-vars
-import { assertEquals, assertExists, type assertStringIncludes } from "@std/assert";
+import { assertEquals, assertExists, type assertStringIncludes, assertThrows } from "@std/assert";
 import {
   extractAllRoutes,
   generateOpenApiFromState,
@@ -255,8 +255,8 @@ Deno.test("openapi-generator: operationId is auto-generated from method+path", (
     ],
   };
   const spec = generateOpenApiFromState(state);
-  assertEquals(spec.paths["/users/{id}"].get.operationId, "getusersid");
-  assertEquals(spec.paths["/users"].post.operationId, "postusers");
+  assertEquals(spec.paths["/users/{id}"].get.operationId, "get_users_By_id");
+  assertEquals(spec.paths["/users"].post.operationId, "post_users");
 });
 
 Deno.test("openapi-generator: explicit operationId wins over auto-generated", () => {
@@ -393,7 +393,7 @@ Deno.test("openapi-generator: paths and security schemes are alphabetically stab
     z_routes: [{ method: "GET", path: "/z", handler: () => null }],
     a_routes: [{ method: "GET", path: "/a", handler: () => null }],
     m_routes: [{ method: "GET", path: "/m", handler: () => null },
-                { method: "GET", path: "/a", handler: () => null }],
+                { method: "POST", path: "/a", handler: () => null }],
   };
   const spec = generateOpenApiFromState(state);
   // Los tags están ordenados alfabéticamente
@@ -403,6 +403,25 @@ Deno.test("openapi-generator: paths and security schemes are alphabetically stab
   // Lo importante: regenerar el mismo state produce el mismo JSON
   const spec2 = generateOpenApiFromState(state);
   assertEquals(JSON.stringify(spec), JSON.stringify(spec2));
+});
+
+Deno.test("openapi-generator: a route declared twice fails instead of documenting one silently", () => {
+  // The router serves only one of them; the spec must not hide which (fail-closed, barrits).
+  const state: ZenithState = {
+    a_routes: [{ method: "GET", path: "/x", handler: () => null }],
+    b_routes: [{ method: "GET", path: "/x", handler: () => null }],
+  };
+  assertThrows(() => generateOpenApiFromState(state), Error, "Duplicated route GET /x");
+});
+
+Deno.test("openapi-generator: operationIds stay unique when paths differ only in punctuation", () => {
+  const state: ZenithState = {
+    a_routes: [{ method: "GET", path: "/zen/apikeys", handler: () => null }],
+    b_routes: [{ method: "GET", path: "/zen/api-keys", handler: () => null }],
+  };
+  const spec = generateOpenApiFromState(state);
+  assertEquals(spec.paths["/zen/apikeys"].get.operationId, "get_zen_apikeys");
+  assertEquals(spec.paths["/zen/api-keys"].get.operationId, "get_zen_api_keys");
 });
 
 Deno.test("openapi-generator: path with same name in two providers merges HTTP methods", () => {
