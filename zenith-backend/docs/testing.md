@@ -51,6 +51,36 @@ La primera ejecución contra SurrealDB 4 (la versión del laboratorio) encontró
 2.x: no creaba el namespace ni la base, usaba `type::thing` (ahora `type::record`) y fallaba al leer una tabla aún
 vacía.
 
+## El laboratorio completo, en local
+
+`tests/integration/engine.test.ts` arranca Zenith con todos los servicios del laboratorio, con las mismas imágenes
+que `lab-infra/docker/docker-compose.yml`. Necesita `ZENITH_MASTER_KEY`, `MONGO_URI`, el binario y la biblioteca de
+engine-auth; sin ellos sus 20 pruebas se omiten.
+
+```bash
+docker run -d --rm --name zenith-it-scylla -p 127.0.0.1:29042:9042 --memory 3g scylladb/scylla:2026.1.15 \
+  --smp 1 --memory 1G --overprovisioned 1 --developer-mode 1
+docker run -d --rm --name zenith-it-lux -p 127.0.0.1:29079:6379 -e LUX_BIND_HOST=0.0.0.0 -e LUX_PASSWORD=$LUXPW \
+  ghcr.io/lux-db/lux:0.37.1
+docker run -d --rm --name zenith-it-rustfs -p 127.0.0.1:29000:9000 -e "RUSTFS_VOLUMES=/data/rustfs{0..3}" \
+  -e RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true -e RUSTFS_ADDRESS=0.0.0.0:9000 -e RUSTFS_ACCESS_KEY=zenithlab \
+  -e RUSTFS_SECRET_KEY=$RSK rustfs/rustfs:1.0.4
+export ZENITH_MASTER_KEY=$(openssl rand -hex 40) MONGO_URI="mongodb://127.0.0.1:27999/lab?directConnection=true" \
+  SCYLLA_URI=127.0.0.1:29042 RUSTFS_URI=http://127.0.0.1:29000 RUSTFS_ACCESS_KEY=zenithlab RUSTFS_SECRET_KEY=$RSK \
+  REDIS_URI="redis://:$LUXPW@127.0.0.1:29079"
+```
+
+## Carga y fallos
+
+`tests/integration/stress.test.ts` (con `ZENITH_STRESS=1`, el replica set y `ZENITH_STRESS_MONGO_CONTAINER`):
+- **Cola:** 3 instancias procesan 600 trabajos sobre el mismo MongoDB. El 10 % falla una vez y MongoDB se pausa
+  3 s en mitad de la ejecución.
+- **Webhooks:** 300 mensajes, con un receptor que rechaza el 20 %.
+- **Lo que comprueba:** cada trabajo se ejecuta y cada mensaje se acepta **exactamente una vez**.
+
+Quitando la concesión de la condición de reclamo (`core/outbox.ts`), la prueba falla con duplicados reales.
+Durante la pausa el driver de MongoDB espera en lugar de fallar, y el trabajo continúa al reanudarse.
+
 ## La imagen, de verdad
 
 ```bash

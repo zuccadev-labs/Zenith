@@ -2,13 +2,16 @@
 import { assertEquals, assertExists, type assertNotEquals } from "@std/assert";
 import { createZenithApp } from "../../src/mod.ts";
 import type { ZenithConfig } from "../../src/core/types.ts";
+import { AUD, BIN, EngineAuth, LIB_DIR } from "./_engine_auth_lab.ts";
 
 /**
  * Needs the whole lab (MongoDB, ScyllaDB, RustFS, Redis) and its master key: ZENITH_MASTER_KEY and MONGO_URI
  * (plus SCYLLA_URI, RUSTFS_URI, REDIS_URI). Without them every test here is skipped, like the other
  * integration tests without their service; it used to throw while loading and fail the whole run.
  */
-const LAB = !!Deno.env.get("ZENITH_MASTER_KEY") && !!Deno.env.get("MONGO_URI");
+// Users and sessions go through engine-auth (ADR-012): its binary and FFI library are needed too.
+const LAB = !!Deno.env.get("ZENITH_MASTER_KEY") && !!Deno.env.get("MONGO_URI") && !!BIN &&
+  !!LIB_DIR;
 
 const TEST_CONFIG: ZenithConfig = {
   appId: Deno.env.get("ZENITH_APP_ID") || "zenith-dev",
@@ -35,6 +38,7 @@ const TEST_CONFIG: ZenithConfig = {
 } as any;
 
 let engineInstance: any;
+let engineAuth: { url: string; stop: () => Promise<void> } | undefined;
 let abortController: AbortController;
 let sessionToken: string;
 let createdObjectId: string;
@@ -57,14 +61,30 @@ Deno.test({
       throw new Error("RUSTFS_SECRET_KEY env variable missing");
     }
 
-    const { engine, handler } = await createZenithApp(TEST_CONFIG);
+    engineAuth = await EngineAuth.start();
+    const { engine, handler } = await createZenithApp({
+      ...TEST_CONFIG,
+      engineAuth: {
+        issuer: engineAuth.url,
+        clientId: "zenith",
+        audience: AUD,
+        libDir: LIB_DIR,
+        sessionKey: btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))),
+      },
+    } as any);
     assertExists(engine);
     assertExists(handler);
     engineInstance = engine;
 
-    Deno.serve({ port: 1337, signal: abortController.signal }, async (req, info) => {
-      return await handler(req, { info });
-    });
+    // As the real server does (mod.ts): the client address comes from the socket.
+    Deno.serve(
+      { port: 1337, signal: abortController.signal, onListen: () => {} },
+      async (req, info) => {
+        (req as unknown as { __socketAddr: Deno.NetAddr }).__socketAddr = info
+          .remoteAddr as Deno.NetAddr;
+        return await handler!(req);
+      },
+    );
 
     await new Promise((r) => setTimeout(r, 1000));
   },
@@ -124,7 +144,8 @@ Deno.test({
     });
     assertEquals(res.status, 200);
     const data = await res.json();
-    assertExists(data.sub);
+    assertEquals(data.sessionToken, sessionToken); // Parse's session shape (ADR-012)
+    assertExists(data.user?.objectId);
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -143,7 +164,8 @@ Deno.test({
     });
     assertEquals(res.status, 200);
     const data = await res.json();
-    assertExists(data.sub);
+    assertEquals(data.sessionToken, sessionToken); // Parse's session shape (ADR-012)
+    assertExists(data.user?.objectId);
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -196,22 +218,33 @@ Deno.test({
 
 Deno.test({
   ignore: !LAB,
-  name: "08. Cloud Function: hello",
+  name: "08. Cloud Function: health",
   async fn() {
-    const res = await fetch("http://localhost:1337/functions/hello", {
+    // /functions is still master-only: one of the business routes to open to users after review
+    // (ADR-013, pending.md). A signed-in user gets 403 for now. "health" is the boilerplate's.
+    const asUser = await fetch("http://localhost:1337/functions/health", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Zen-Application-Id": TEST_CONFIG.appId,
+        "X-Parse-Session-Token": sessionToken,
       },
-      body: JSON.stringify({ name: "Integration" }),
+      body: "{}",
+    });
+    assertEquals(asUser.status, 403);
+    await asUser.body?.cancel();
+    const res = await fetch("http://localhost:1337/functions/health", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Zen-Application-Id": TEST_CONFIG.appId,
+        "X-Parse-Master-Key": TEST_CONFIG.masterKey,
+      },
+      body: JSON.stringify({}),
     });
     assertEquals(res.status, 200);
     const data = await res.json();
-    assertEquals(
-      data.result,
-      "Hello, Integration! This is Zenith Cloud Code running in a secure Deno isolate.",
-    );
+    assertEquals(data.result.status, "ok");
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -259,6 +292,20 @@ Deno.test({
       },
     });
     assertEquals(res.status, 200);
+    // The old token no longer works…
+    const gone = await fetch("http://localhost:1337/users/me", {
+      headers: { "Zen-Application-Id": TEST_CONFIG.appId, "X-Parse-Session-Token": sessionToken },
+    });
+    assertEquals(gone.status, 400);
+    await gone.body?.cancel();
+    // …and the rest of the suite signs in again (POST /login, never credentials in the URL).
+    const login = await fetch("http://localhost:1337/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Zen-Application-Id": TEST_CONFIG.appId },
+      body: JSON.stringify({ username: TEST_USERNAME, password: TEST_PASSWORD }),
+    });
+    assertEquals(login.status, 200);
+    sessionToken = (await login.json()).sessionToken;
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -359,17 +406,19 @@ Deno.test({
 
 Deno.test({
   ignore: !LAB,
-  name: "15. User Login (GET /login)",
+  name: "15. User Login (POST /login; GET with the password in the URL is refused)",
   async fn() {
-    const res = await fetch(
+    const viaGet = await fetch(
       `http://localhost:1337/login?username=${TEST_USERNAME}&password=${TEST_PASSWORD}`,
-      {
-        method: "GET",
-        headers: {
-          "Zen-Application-Id": TEST_CONFIG.appId,
-        },
-      },
+      { headers: { "Zen-Application-Id": TEST_CONFIG.appId } },
     );
+    assertEquals(viaGet.status, 405, "credentials in URLs end up in logs");
+    await viaGet.body?.cancel();
+    const res = await fetch("http://localhost:1337/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Zen-Application-Id": TEST_CONFIG.appId },
+      body: JSON.stringify({ username: TEST_USERNAME, password: TEST_PASSWORD }),
+    });
     assertEquals(res.status, 200);
     const data = await res.json();
     assertExists(data.sessionToken);
@@ -403,7 +452,13 @@ Deno.test({
   ignore: !LAB,
   name: "17. Cloud Code Background Jobs (POST /jobs/:jobName)",
   async fn() {
-    const res = await fetch("http://localhost:1337/jobs/cleanupStaleSessions", {
+    // The boilerplate's main.ts does not import jobs.ts: register a job for this run.
+    let ran = false;
+    engineInstance.cloud.define("labJob", () => {
+      ran = true;
+      return "done";
+    });
+    const res = await fetch("http://localhost:1337/jobs/labJob", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -412,8 +467,11 @@ Deno.test({
       },
       body: JSON.stringify({ force: true }),
     });
-    // Accepted
+    // Accepted, then run in the background
     assertEquals(res.status, 202);
+    await res.body?.cancel();
+    for (let i = 0; i < 20 && !ran; i++) await new Promise((r) => setTimeout(r, 50));
+    assertEquals(ran, true);
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -421,22 +479,27 @@ Deno.test({
 
 Deno.test({
   ignore: !LAB,
-  name: "18. Webhook Compatibility (POST /webhooks/function/:functionName)",
+  name: "18. Cloud Code Hooks (Parse /hooks, master key)",
   async fn() {
-    const res = await fetch("http://localhost:1337/webhooks/function/hello", {
+    const master = {
+      "Content-Type": "application/json",
+      "Zen-Application-Id": TEST_CONFIG.appId,
+      "X-Parse-Master-Key": TEST_CONFIG.masterKey,
+    };
+    const list = await fetch("http://localhost:1337/hooks/functions", { headers: master });
+    assertEquals(list.status, 200);
+    assertEquals(Array.isArray(await list.json()), true);
+    const bad = await fetch("http://localhost:1337/hooks/functions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Zen-Application-Id": TEST_CONFIG.appId,
-      },
-      body: JSON.stringify({ name: "Webhook" }),
+      headers: master,
+      body: JSON.stringify({ functionName: "x" }), // no url
     });
-    assertEquals(res.status, 200);
-    const data = await res.json();
-    assertEquals(
-      data.result,
-      "Hello, Webhook! This is Zenith Cloud Code running in a secure Deno isolate.",
-    );
+    assertEquals((await bad.json()).code, 143, "Parse's invalid hook declaration");
+    const anonymous = await fetch("http://localhost:1337/hooks/functions", {
+      headers: { "Zen-Application-Id": TEST_CONFIG.appId },
+    });
+    assertEquals(anonymous.status, 401, "master key only");
+    await anonymous.body?.cancel();
   },
   sanitizeOps: false,
   sanitizeResources: false,
@@ -451,6 +514,7 @@ Deno.test({
       headers: {
         "Content-Type": "image/png",
         "Zen-Application-Id": TEST_CONFIG.appId,
+        "X-Parse-Master-Key": TEST_CONFIG.masterKey, // uploads: master key by default (ADR-013)
       },
       body: "Hello Zenith RustFS!",
     });
@@ -474,6 +538,7 @@ Deno.test({
   name: "99. Teardown",
   async fn() {
     abortController.abort();
+    await engineAuth?.stop();
     await new Promise((r) => setTimeout(r, 500));
     console.log("Teardown complete.");
   },

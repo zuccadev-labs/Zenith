@@ -349,6 +349,30 @@ export class EngineAuthFacade {
   }
 
   /**
+   * Parse `GET /sessions/me`: the caller's session, in Parse's shape. Only for session handles (a JWT
+   * bearer is not a Parse session). Never returns the sealed refresh token or the lease.
+   */
+  async currentSession(token: string) {
+    if (!HANDLE.test(token ?? "") || !(await this.verifySession(token))) {
+      throw new ParseError(P.INVALID_SESSION_TOKEN, "Invalid session token.", 400);
+    }
+    const doc = await this.#session(await sha256(token));
+    if (!doc) throw new ParseError(P.INVALID_SESSION_TOKEN, "Invalid session token.", 400);
+    const d = doc as SessionDoc & { createdAt?: string; updatedAt?: string };
+    return {
+      objectId: d.objectId,
+      sessionToken: token,
+      user: d.user,
+      createdWith: d.createdWith,
+      restricted: false,
+      expiresAt: { __type: "Date", iso: new Date(d.expiresAt).toISOString() },
+      ...(d.installationId ? { installationId: d.installationId } : {}),
+      ...(d.createdAt ? { createdAt: d.createdAt } : {}),
+      ...(d.updatedAt ? { updatedAt: d.updatedAt } : {}),
+    };
+  }
+
+  /**
    * The `authentication` capability: the pipeline calls it for every request with a token.
    * Returns the identity, or `null` (anonymous) for anything not proven right now.
    */
@@ -822,6 +846,19 @@ export function userRoutes(facade: () => EngineAuthFacade) {
       handler: async (req: Request, ctx: Ctx) => {
         try {
           return json(await facade().me(tokenOf(req, ctx)));
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    },
+    {
+      access: "public" as const,
+      method: "GET" as const,
+      path: "/sessions/me",
+      _openapi: { summary: "Current session (Parse Server)", tags: ["User Management"] },
+      handler: async (req: Request, ctx: Ctx) => {
+        try {
+          return json(await facade().currentSession(tokenOf(req, ctx)));
         } catch (e) {
           return fail(e);
         }

@@ -262,3 +262,14 @@ El binario de `deno compile` no incluía `apps.config.ts`; ahora va con `--inclu
 seguridad de Debian en la imagen final (Trivy: 0 CRITICAL/HIGH con arreglo) y `ZENITH_FILES_DIR=/data/files`.
 Probado arrancando el contenedor de solo lectura con MongoDB y ScyllaDB reales.
 
+### Prueba del laboratorio completo (`engine.test.ts`): al día el 2026-11-11
+Estaba escrita antes de ADR-012/013 y no podía pasar. Ahora arranca engine-auth real y pasa 20/20 contra MongoDB,
+ScyllaDB, RustFS, LuxDB y engine-auth locales (receta en `docs/testing.md`). Destapó:
+- **`GET /sessions/me` (Parse Server) no existía.** Ya existe: devuelve la sesión en el formato de Parse, sin el
+  refresh token sellado.
+- **`loadCloudCode` no aceptaba URLs `file://`:** las daba por "no encontradas" y no cargaba el código cloud.
+- **`GET /login` con la contraseña en la URL:** Parse lo admite y Zenith responde 405 a propósito. Las credenciales
+  en una URL acaban en logs de proxies y servidores; solo `POST /login`.
+- **`/functions/:name` sigue siendo solo de master key.** Es una de las rutas de negocio de ADR-013 por abrir a
+  usuarios tras revisar cada función. Parse las abre a cualquier usuario.
+
