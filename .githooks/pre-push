@@ -2,7 +2,7 @@
 # Zenith pre-push gate: the fast checks of the CI, before anything reaches GitHub.
 # The organisation's free plan has no branch protection for private repositories, and GitHub only runs
 # the CI on manual dispatch there, so this is the gate. Enable it once (each developer, by choice):
-#   git config core.hooksPath .githooks && chmod +x .githooks/pre-push
+#   git config core.hooksPath .githooks
 # Skip it (emergencies only):  ZENITH_SKIP_PREPUSH=1 git push
 set -euo pipefail
 [[ "${ZENITH_SKIP_PREPUSH:-}" == "1" ]] && { echo "pre-push: skipped (ZENITH_SKIP_PREPUSH=1)"; exit 0; }
@@ -25,7 +25,7 @@ step "cli: typecheck (frozen lock)"
 (cd "$root/zenith-cli" && deno check --frozen zen.ts mod.ts)
 if command -v docker >/dev/null 2>&1; then
   step "secrets: gitleaks (whole history)"
-  docker run --rm -v "$root:/repo:ro" zricethezav/gitleaks:v8.30.1 git /repo --no-banner --redact \
+  docker run --rm -v "$root:/repo:ro" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --no-banner --redact \
     --gitleaks-ignore-path /repo/.gitleaksignore
 fi
 printf "\n✅ pre-push: all checks passed. tools/ship.sh pushes and waits for the full CI.\n"
