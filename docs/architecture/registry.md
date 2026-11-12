@@ -53,7 +53,11 @@ Con la clave de cosign configurada (`supply-chain.md`), cada CI de `main` hace e
 2. lo firma;
 3. le adjunta la provenance SLSA y el SBOM;
 4. lo verifica;
-5. deja la referencia por digest en el artefacto `zenith-backend.image-ref`.
+5. deja la referencia por digest en el archivo `zenith-backend.image-ref` del artefacto `sbom-zenith-backend-<sha>`
+   (`gh run download <run> -n sbom-zenith-backend-<sha>`).
+
+Primera publicación verificada el 2026-11-12 (run 43159733424): la firma y las atestaciones SLSA y CycloneDX
+validan con `cosign.pub`, `reader` descarga pero no puede publicar y el acceso anónimo recibe 401.
 
 ## Usarlo en Kubernetes
 
