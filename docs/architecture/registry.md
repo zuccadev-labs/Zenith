@@ -18,6 +18,8 @@ La imagen de Zenith comprimida ocupa unos 97 MB.
   - `ci` puede leer y escribir (lo usa el CI);
   - `reader` solo lee (despliegues y personas);
   - el acceso anónimo está cerrado (401).
+- **Formatos:** OCI y, con `http.compat: ["docker2s2"]`, el manifiesto clásico de Docker (schema 2), que es lo
+  que publica Docker con el almacén de imágenes clásico, como en los runners de GitHub. Sin eso Zot responde 415.
 - **Retención:** las últimas 20 etiquetas por repositorio. Se borran las imágenes sin etiqueta, pero nunca las firmas
   ni las atestaciones de una imagen que se conserva. Hay scrub diario de integridad.
 - **Contenedor:**
