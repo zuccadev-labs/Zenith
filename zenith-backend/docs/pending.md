@@ -308,5 +308,5 @@ Detalle en `docs/architecture/supply-chain.md`:
   el veredicto. La causa la puede ver un administrador de la organización en Settings → Actions.
 - **Atestaciones nativas de GitHub:** exigen Enterprise en repos privados. Cubiertas sin pagar (2026-11-11) con
   provenance SLSA v1 firmada con cosign, y la imagen se publica, firma y atesta en un registro Zot propio
-  (`docs/architecture/registry.md`; falta desplegarlo en el servidor con `infra/registry/deploy.sh`).
+  (`docs/architecture/registry.md`; desplegado en `registry.vemar.app` el 2026-11-12, con la clave de cosign activa).
 

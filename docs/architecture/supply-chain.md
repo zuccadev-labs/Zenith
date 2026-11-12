@@ -26,6 +26,10 @@ actualiza.
 
 ## Activar la firma (una vez)
 
+> Hecho el 2026-11-12: `zenith-backend/cosign.pub` está versionada y los secretos están en GitHub. La clave privada
+> cifrada y su contraseña quedaron en `~/.config/zenith/cosign/` (0600) de la máquina que la generó: muévelas a un
+> gestor de secretos. Para rotarla, repite estos pasos.
+
 La firma usa **una clave propia** y **no** publica nada en el log de transparencia público de Sigstore. La firma
 *keyless* sí lo haría, y con ella el nombre de este repositorio privado y de su workflow. Esa es la razón.
 
