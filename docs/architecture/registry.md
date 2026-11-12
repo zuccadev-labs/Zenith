@@ -1,7 +1,8 @@
 # Registro de imágenes propio (Zot)
 
-> Vigente a 2026-11-11. Probado en local con Zot 2.1.23 y la imagen real de Zenith: push, firma, provenance SLSA y
-> SBOM CycloneDX con cosign, y verificación. Pendiente de desplegar en el servidor (ver «Desplegar»).
+> Vigente a 2026-11-12. Desplegado en `registry.vemar.app` (Zot 2.1.23 en el droplet 209.38.1.195; DNS en Cloudflare,
+> registro A sin proxy, porque el proxy gratuito corta las subidas de más de 100 MB). La contraseña de `reader` está
+> en `~/.config/zenith/registry-reader.env` (0600) de la máquina que lo desplegó.
 
 ## Por qué
 
