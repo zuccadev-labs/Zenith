@@ -36,7 +36,13 @@ for _ in $(seq 1 60); do
 done
 [[ -z "$run" ]] && { echo "the CI run did not appear; check: gh run list -R $repo" >&2; exit 1; }
 # The verdict must be about this commit, not about whatever the branch pointed to.
-run_sha="$(gh run view "$run" -R "$repo" --json headSha --jq .headSha)"
+# Right after the dispatch the run can still answer 404 for a few seconds (it happened): retry.
+run_sha=""
+for _ in $(seq 1 20); do
+  run_sha="$(gh run view "$run" -R "$repo" --json headSha --jq .headSha 2>/dev/null || true)"
+  [[ -n "$run_sha" ]] && break
+  sleep 3
+done
 if [[ "$run_sha" != "$sha" ]]; then
   echo "the CI run $run tests ${run_sha:0:7}, not ${sha:0:7}: run tools/ship.sh again" >&2
   exit 1
