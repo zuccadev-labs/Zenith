@@ -6,11 +6,15 @@
  * Sin dependencia de WebSocket externo — SSE es suficiente para
  * notificaciones unidireccionales y funciona sobre HTTP/1.1 y HTTP/2.
  *
+ * Con `enginePush` (engine-push de zutool, por su socket) cada notificación llega además a los
+ * dispositivos, Telegram, Slack o email que el usuario tenga suscritos (titular
+ * `zenith:<app>:<userId>`), sin esperar. Si engine-push no contesta, queda solo in-app, como antes.
+ *
  * @barrits-trait
  * @barrits-summary ZenithNotifications
  * @barrits-provides notifications_routes, notifications
  * @barrits-consumes cloud, db
- * @barrits-tags uses:events
+ * @barrits-tags uses:events, uses:enginePush
  * @barrits-stability stable
  * @barrits-runtime deno
  */
@@ -60,7 +64,7 @@ export const NotificationsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithNotifications",
   provides: ["notifications_routes", "notifications"],
   consumes: ["cloud", "db"],
-  tags: ["uses:events"],
+  tags: ["uses:events", "uses:enginePush"],
   state: [],
   runtimes: ["deno"],
   summary:
@@ -110,7 +114,29 @@ export const NotificationsTrait: AnyTraitDescriptor = createTraitDescriptor({
       });
     }
 
+    /** engine-push, sin esperar: un proveedor lento o caído nunca frena la notificación in-app. */
+    const relayToDevices = (userId: string, n: any): void => {
+      const enginePush = deps.traits["enginePush"];
+      if (!enginePush?.enabled || !n) return;
+      const message = enginePush.message({
+        title: n.title,
+        body: n.body,
+        kind: `zenith-${n.type ?? "info"}`,
+        urgency: n.type === "error" || n.type === "mention" ? "high" : "normal",
+        data: {
+          notificationId: n.objectId,
+          link: n.link,
+          targetClassName: n.targetClassName,
+          targetId: n.targetId,
+        },
+      });
+      api.relayed = enginePush.sendToUser(userId, message).catch(() => null);
+    };
+
     const api = {
+      /** El último reenvío a engine-push (para pruebas y diagnóstico). */
+      relayed: Promise.resolve(null) as Promise<unknown>,
+
       async create(
         userId: string,
         data: Partial<
@@ -136,6 +162,7 @@ export const NotificationsTrait: AnyTraitDescriptor = createTraitDescriptor({
           updatedAt: now(),
         });
         pushSSE(userId, { event: "notification", data: notification });
+        relayToDevices(userId, notification);
         return notification;
       },
 

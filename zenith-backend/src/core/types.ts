@@ -43,6 +43,13 @@ export interface ZenithConfig {
   readonly engineAuth?: import("../traits/auth/engine-auth.ts").EngineAuthConfig;
 
   /**
+   * engine-push (zutool): socket and timeout of the daemon that delivers notices to people. Without it,
+   * the zutool convention (`ENGINE_PUSH_SOCKET`, `$XDG_RUNTIME_DIR/zutool/engine-push.sock`). When the
+   * socket does not answer, push and notifications keep their own path.
+   */
+  readonly enginePush?: import("../traits/push/engine-push.trait.ts").EnginePushConfig;
+
+  /**
    * Configuración de Logs y Observabilidad (Parse Parity)
    */
   readonly logsFolder?: string;

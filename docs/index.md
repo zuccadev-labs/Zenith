@@ -29,6 +29,7 @@ Los otros lenguajes de `sdk/` (Android, Apple, Dart, Flutter, .NET, PHP y Swift)
 | [ADR-015](architecture-decisions/ADR-015-api-key-access-policy.md) | API keys: scopes aplicados, política de IP, keys `*` acotadas |
 | [ADR-016](architecture-decisions/ADR-016-shared-crypto-and-single-api-keys.md) | Primitivas criptográficas compartidas, firma de webhooks y un solo sistema de API keys |
 | [ADR-017](architecture-decisions/ADR-017-webhooks-hooks-event-bus.md) | Webhooks con Standard Webhooks, Cloud Code Hooks de Parse y bus de eventos en el núcleo |
+| [ADR-018](architecture-decisions/ADR-018-engine-push.md) | Los avisos a personas salen por engine-push (zutool), por su socket |
 | [ADR-002](architecture-decisions/ADR-002-mtls.md) a [ADR-008](architecture-decisions/ADR-008-hashicorp-vault.md) | mTLS, API keys, firma de plugins, OpenAPI, observabilidad, producción y Vault. En lo técnico coinciden, con matices (ADR-007 sin verificar a fondo) |
 | [openapi-swagger.md](architecture/openapi-swagger.md) | Cómo se genera la OpenAPI |
 | [features-and-engines.md](architecture/features-and-engines.md) | Catálogo de piezas, activarlas al arrancar o en caliente, y cómo se acoplan los motores |
