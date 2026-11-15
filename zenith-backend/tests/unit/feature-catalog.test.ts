@@ -70,7 +70,7 @@ Deno.test("feature catalog: every trait appears in exactly one feature", () => {
 Deno.test("feature catalog: selectTraits keeps the boot order and defaults it had as an if-chain", () => {
   // Captured from the if-chain selectTraits before the catalog (2026-11-11), then: the event bus
   // became core (after ZenithDb), the process-level ZenithWebhook was retired and Parse's Cloud Code
-  // Hooks were added (ADR-017).
+  // Hooks were added (ADR-017), and ZenithEnginePush (notices by zutool's engine-push socket).
   const legacyDefault = [
     "ZenithDb",
     "ZenithEventBus",
@@ -95,6 +95,7 @@ Deno.test("feature catalog: selectTraits keeps the boot order and defaults it ha
     "ZenithZeroMQ",
     "ZenithFeatureFlags",
     "ZenithCache",
+    "ZenithEnginePush",
     "ZenithJobQueue",
     "ZenithCircuitBreaker",
     "ZenithCRMTrait",

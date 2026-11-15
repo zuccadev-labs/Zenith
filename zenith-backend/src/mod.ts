@@ -278,6 +278,11 @@ export async function createZenithApp(
       );
     }
 
+    // engine-push: notices to people by its socket; the owners carry this app's id.
+    const enginePush =
+      (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["enginePush"];
+    enginePush?.configure?.({ appId: config.appId, ...(config.enginePush ?? {}) });
+
     // /classes for users: only schema-defined classes unless the app opts into client class creation.
     const crud =
       (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["crud"];

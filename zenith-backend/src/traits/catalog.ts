@@ -58,6 +58,7 @@ import { WorkflowTrait } from "./workflow/workflow.trait.ts";
 import { TenantTrait } from "./tenant/tenant.trait.ts";
 import { ComplianceTrait } from "./compliance/compliance.trait.ts";
 import { CacheTrait } from "./cache/cache.trait.ts";
+import { EnginePushTrait } from "./push/engine-push.trait.ts";
 import { PushTrait } from "./push/push.trait.ts";
 import { JobQueueTrait } from "./queue/job.queue.trait.ts";
 import { CircuitBreakerTrait } from "./resilience/circuit.breaker.trait.ts";
@@ -385,6 +386,14 @@ export const FEATURE_CATALOG: readonly FeatureEntry[] = [
     default: true,
     summary: "Caché LRU y Redis con invalidación por etiquetas",
     traits: [CacheTrait],
+  },
+  {
+    id: "enginePush",
+    group: "integrations",
+    default: true,
+    summary:
+      "Avisos por engine-push de zutool (socket local): dispositivos, Telegram, Slack y email",
+    traits: [EnginePushTrait],
   },
   {
     id: "push",

@@ -1,10 +1,16 @@
 /**
  * Push notifications: device installation registry, channel-based subscriptions, FCM/APNs adapter, Parse Server-compatible /push endpoint, scheduled delivery.
  *
+ * Delivery goes through zutool's engine-push (`enginePush`, by its socket) when it answers: one
+ * subscription per installation (owner `zenith:<app>:installation:<id>`, provider `fcm`/`apns`, the
+ * device token as target) and `push/send` to it. Without engine-push, `send` records the delivery
+ * (`_PushDelivery`) without sending, as before.
+ *
  * @barrits-trait
  * @barrits-summary ZenithPush
  * @barrits-provides push-routes, push, pushManager
  * @barrits-consumes db
+ * @barrits-tags uses:enginePush
  * @barrits-state installations, pushChannels
  * @barrits-stability experimental
  * @barrits-runtime deno
@@ -15,6 +21,7 @@ export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithPush",
   provides: ["push-routes", "push", "pushManager"],
   consumes: ["db"],
+  tags: ["uses:enginePush"],
   state: ["installations", "pushChannels"],
   runtimes: ["deno"],
   summary:
@@ -91,12 +98,53 @@ export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
             payload: data.data,
           });
         }
+        // engine-push when it answers; otherwise the delivery is only recorded, as before.
+        const enginePush = deps.traits["enginePush"];
+        let via: "engine-push" | "none" = "none";
+        let delivered = 0;
+        if (enginePush && deliveryLog.length && await enginePush.available()) {
+          via = "engine-push";
+          const payload = data.data ?? {};
+          const message = enginePush.message({
+            title: payload.title,
+            body: payload.alert ?? payload.body,
+            kind: "zenith-push",
+            urgency: payload.priority === "high" ? "high" : "normal",
+            collapseKey: payload.collapseKey,
+            data: payload,
+          });
+          await Promise.all(deliveryLog.map(async (entry) => {
+            const inst = traitApi.installations.get(entry.installationId)!;
+            try {
+              const r = await enginePush.deliver(
+                await enginePush.installationOwner(inst.installationId),
+                inst.pushType,
+                inst.deviceToken,
+                message,
+              );
+              const bad = (r.results ?? []).find((x: { ok: boolean }) => !x.ok);
+              entry.ok = r.delivered > 0 && !bad;
+              if (!entry.ok) entry.error = bad?.error ?? "engine-push has no subscription for it";
+            } catch (e) {
+              entry.ok = false;
+              entry.error = (e as Error).message;
+            }
+            if (entry.ok) delivered++;
+          }));
+        }
         await db.create("_PushDelivery", {
           targetCount: targets.length,
           payload: data.data,
+          via,
+          ...(via === "engine-push" ? { delivered } : {}),
           sentAt: new Date().toISOString(),
         });
-        return { sent: targets.length, deliveryLog };
+        return {
+          sent: targets.length,
+          deliveryLog,
+          via,
+          ...(via === "engine-push" ? { delivered } : {}),
+        };
       },
     };
 
