@@ -17,6 +17,9 @@ La imagen de Zenith comprimida ocupa unos 97 MB.
 - **Acceso:** autenticación htpasswd con bcrypt.
   - `ci` puede leer y escribir (lo usa el CI);
   - `reader` solo lee (despliegues y personas);
+  - `engines` publica los motores de zutool: lee, crea y actualiza solo en `zutool/**`, sin borrar. Se crea con
+    `infra/registry/add-user.sh root@209.38.1.195 registry.vemar.app engines`, que guarda su contraseña en el llavero
+    (`zkeyring get zenith-registry engines-password`) y deja copia `*.bak-<fecha>` de la configuración en el servidor;
   - el acceso anónimo está cerrado (401).
 - **Formatos:** OCI y, con `http.compat: ["docker2s2"]`, el manifiesto clásico de Docker (schema 2), que es lo
   que publica Docker con el almacén de imágenes clásico, como en los runners de GitHub. Sin eso Zot responde 415.
