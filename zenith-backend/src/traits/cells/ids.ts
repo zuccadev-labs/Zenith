@@ -3,11 +3,11 @@
  *
  * Cell ids, as celld builds them: 32 bytes in hexadecimal. The first 16 bytes are the HMAC-SHA-256 of
  * the name (`idFromName`) or random (`newUniqueId`); the last 16 are the HMAC of the first 16, so
- * `idFromString` refuses an id of another namespace. The key comes from the script (app) name and the
- * class name, as in celld: renaming either reaches new, empty cells.
+ * `idFromString` refuses an id of another namespace. The namespace key is derived (SHA-256) from the script (app)
+ * name and the class name, as in celld: renaming either reaches new, empty cells.
  */
 import { Buffer } from "node:buffer";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { CellError, type DurableObjectId } from "./types.ts";
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -41,7 +41,11 @@ export class CellIdFactory {
   readonly #key: Buffer;
   /** The namespace of class `className` in app (script) `scriptName`. */
   constructor(scriptName: string, className: string) {
-    this.#key = createHmac("sha256", "zenith-cells/v1").update(`${scriptName}\0${className}`)
+    // The namespace key is derived, not secret: SHA-256 over a domain label and the two names (ids are
+    // addresses, not credentials; ADR-019).
+    this.#key = createHash("sha256").update("zenith-cells/v1\0").update(
+      `${scriptName}\0${className}`,
+    )
       .digest();
   }
   #mac(label: string, data: Uint8Array | string): Buffer {
