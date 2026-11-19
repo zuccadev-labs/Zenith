@@ -314,6 +314,30 @@ class Store extends DurableObject {
       size: sql.databaseSize > 0,
     };
   }
+  forbidden(): string[] {
+    const errors: string[] = [];
+    for (
+      const q of [
+        "ATTACH DATABASE '/tmp/x.sqlite' AS other",
+        "  /* c */ attach '/tmp/y' as y",
+        "VACUUM INTO '/tmp/copy.sqlite'",
+        "PRAGMA max_page_count = 100000",
+        "PRAGMA journal_mode=DELETE",
+        "SELECT * FROM _cf_KV",
+        "UPDATE _zc_meta SET v = 0",
+      ]
+    ) {
+      try {
+        this.ctx.storage.sql.exec(q);
+        errors.push(`allowed: ${q}`);
+      } catch (e) {
+        if (!(e instanceof CellError) || e.code !== "bad_request") errors.push(String(e));
+      }
+    }
+    // Reading its own schema is fine.
+    this.ctx.storage.sql.exec("PRAGMA table_list").toArray();
+    return errors;
+  }
   async wipe(): Promise<unknown> {
     await this.ctx.storage.deleteAll();
     return {
@@ -351,6 +375,7 @@ Deno.test("cells storage: list options, structured values, transactions and SQL"
       raw: [["x", 1], ["y", 2], ["z", 3]],
       size: true,
     });
+    assertEquals(await s.forbidden(), []);
     assertEquals(await s.wipe(), { keys: 0, tables: 0 });
   });
 });
