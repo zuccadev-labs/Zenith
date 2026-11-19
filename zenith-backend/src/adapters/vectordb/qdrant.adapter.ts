@@ -11,64 +11,85 @@
  * API Key: QDRANT__SERVICE__API_KEY del .env
  */
 
+/** Connection settings of a Qdrant server. */
 export interface QdrantConfig {
-  url: string; // ej. "http://localhost:56333"
-  apiKey?: string; // ej. "zenithqdrant"
+  /** Base URL of the Qdrant REST API, e.g. `http://localhost:56333`. */
+  url: string;
+  /** API key sent as the `api-key` header, when the server requires one. */
+  apiKey?: string;
 }
 
+/** A vector stored in a collection, with its id and optional metadata payload. */
 export interface VectorPoint {
+  /** Point id, unique within the collection. */
   id: string;
+  /** The embedding; its length must match the collection's vector size. */
   vector: number[];
+  /** Metadata stored with the point; filters match against it. */
   payload?: Record<string, any>;
 }
 
+/** One hit of a similarity search. */
 export interface VectorSearchResult {
+  /** Id of the matching point. */
   id: string;
+  /** Similarity score under the collection's distance (higher is closer for Cosine and Dot). */
   score: number;
+  /** The point's payload, when requested with `withPayload`. */
   payload?: Record<string, any>;
+  /** The point's vector, when requested with `withVector`. */
   vector?: number[];
 }
 
+/** Options of a similarity search. */
 export interface VectorSearchOptions {
+  /** Maximum number of hits returned (default 10). */
   topK?: number;
+  /**
+   * Payload filter: `key: value` for equality, `key: [a, b]` for any-of, and
+   * `key: { $gte, $lte, $gt, $lt }` for ranges; all conditions must hold.
+   */
   filter?: Record<string, any>;
+  /** Whether to return each hit's payload. */
   withPayload?: boolean;
+  /** Whether to return each hit's vector. */
   withVector?: boolean;
+  /** Hits scoring below this value are dropped. */
   scoreThreshold?: number;
 }
 
 /**
- * Interfaz estándar de VectorDB para Zenith.
- * Permite cambiar el backend (Qdrant → pgvector → Weaviate) sin tocar el código de negocio.
+ * Standard Zenith VectorDB interface.
+ * Lets the backend change (Qdrant, pgvector, Weaviate) without touching business code.
  */
 export interface VectorDBAdapter {
-  /** Crear una colección vectorial si no existe */
+  /** Creates a vector collection with the given size and distance if it does not exist. */
   ensureCollection(
     name: string,
     vectorSize: number,
     distance?: "Cosine" | "Dot" | "Euclid",
   ): Promise<void>;
-  /** Insertar o actualizar puntos (upsert semántico) */
+  /** Inserts or replaces points by id. */
   upsert(collection: string, points: VectorPoint[]): Promise<void>;
-  /** Búsqueda por similitud de vector */
+  /** Returns the points most similar to `vector`. */
   search(
     collection: string,
     vector: number[],
     options?: VectorSearchOptions,
   ): Promise<VectorSearchResult[]>;
-  /** Búsqueda por texto usando un vector pre-computado (RAG helper) */
+  /** Text search using an embedding computed beforehand (RAG helper). */
   searchByText?(
     collection: string,
     embedding: number[],
     options?: VectorSearchOptions,
   ): Promise<VectorSearchResult[]>;
-  /** Eliminar puntos por ID */
+  /** Deletes points by id. */
   delete(collection: string, ids: string[]): Promise<void>;
-  /** Obtener punto por ID */
+  /** Returns a point by id, or null when it does not exist. */
   get(collection: string, id: string): Promise<VectorPoint | null>;
-  /** Listar colecciones */
+  /** Lists the collection names. */
   listCollections(): Promise<string[]>;
-  /** Eliminar colección completa */
+  /** Deletes a whole collection. */
   dropCollection(collection: string): Promise<void>;
 }
 

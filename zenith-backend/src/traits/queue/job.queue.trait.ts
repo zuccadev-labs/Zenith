@@ -350,4 +350,8 @@ export function createJobQueueTrait(options: JobQueueOptions = {}): AnyTraitDesc
   });
 }
 
+/**
+ * Durable job queue trait: jobs are `_Job` records, so they survive restarts and are shared
+ * between instances without duplication; workers register per job type (`/queue/*` routes).
+ */
 export const JobQueueTrait: AnyTraitDescriptor = createJobQueueTrait();

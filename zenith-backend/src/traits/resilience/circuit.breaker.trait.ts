@@ -12,6 +12,10 @@
  */
 import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/**
+ * Circuit breaker trait: named breakers that fail fast while a downstream service is unhealthy,
+ * probe it to recover, and run a fallback when open.
+ */
 export const CircuitBreakerTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCircuitBreaker",
   provides: ["circuit-breaker", "circuitBreaker", "resilience"],

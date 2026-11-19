@@ -14,12 +14,19 @@ import { apiKeyRouteSpecs } from "../security/api-keys/routes.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** Metadata and extra routes of a generated OpenAPI 3.1 spec. */
 export interface OpenApiOptions {
+  /** `info.title` (default `Zenith API`). */
   title?: string;
+  /** `info.description`; omitted when not given. */
   description?: string;
+  /** `info.version` (default `1.0.0`). */
   version?: string;
+  /** Base URL listed under `servers`; no `servers` entry when not given. */
   serverURL?: string;
+  /** App id, written to `info["x-app-id"]`. */
   appId?: string;
+  /** Tag descriptions added to (or overriding) the built-in ones, by tag name. */
   additionalTagDescriptions?: Record<string, string>;
   /** Routes outside the traits (`/health`, `/zen/api-keys`); by default, the engine's own. */
   extraRoutes?: Array<{ method: string; path: string; [key: string]: unknown }>;

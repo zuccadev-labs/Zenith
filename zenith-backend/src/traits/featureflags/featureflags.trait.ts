@@ -12,19 +12,30 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/** Subscription plan of a project; selects its {@link PlanLimits} and gates feature flags. */
 export type Plan = "free" | "starter" | "pro" | "enterprise";
 
+/** Quotas and feature switches of a {@link Plan}. A numeric limit of `-1` means unlimited. */
 export interface PlanLimits {
+  /** Maximum API requests per day. */
   requestsPerDay: number;
+  /** Maximum file storage, in megabytes. */
   storageMb: number;
+  /** Maximum push notifications sent per month. */
   pushNotificationsPerMonth: number;
+  /** Maximum number of deployed cloud functions. */
   cloudFunctions: number;
+  /** Maximum database operations per second. */
   databaseOpsPerSecond: number;
+  /** Maximum number of custom domains. */
   customDomains: number;
+  /** Maximum number of team members (`-1` for unlimited). */
   seats: number;
+  /** Plan-level switches for optional capabilities such as `graphql`, `vault`, `mfa` or `audit`. */
   features: Record<string, boolean>;
 }
 
+/** Built-in limits of every {@link Plan}, used by `getLimits` and `checkLimit`. */
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
     requestsPerDay: 10000,
@@ -76,6 +87,11 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
 };
 
+/**
+ * Built-in feature flags keyed by flag name: whether each is enabled, the percentage of users it
+ * is rolled out to, the plans allowed to use it and a human-readable description. Unknown flags
+ * evaluate to disabled.
+ */
 export const FEATURE_FLAGS: Record<
   string,
   { enabled: boolean; rolloutPercentage: number; allowedPlans: Plan[]; description: string }
@@ -172,6 +188,12 @@ export const FEATURE_FLAGS: Record<
   },
 };
 
+/**
+ * Barrits trait providing `featureflags` / `featureFlagManager`: `isEnabled(flag, { userId, plan })`
+ * evaluates {@link FEATURE_FLAGS} (runtime overrides first, then plan gating and a per-user hash
+ * for percentage rollouts), `setOverride` / `clearOverride` toggle flags at runtime, and
+ * `getLimits` / `checkLimit` read {@link PLAN_LIMITS}.
+ */
 export const FeatureFlagsTrait = createTraitDescriptor({
   name: "ZenithFeatureFlags",
   provides: ["featureflags", "featureFlagManager"],

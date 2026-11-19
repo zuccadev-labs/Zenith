@@ -60,6 +60,11 @@ function pushSSE(userId: string, payload: unknown): void {
   }
 }
 
+/**
+ * Notifications trait: in-app notifications with read state under `/zen/notifications`, streamed
+ * live over Server-Sent Events at `/zen/notifications/stream`, and also delivered through
+ * engine-push when `enginePush` is configured.
+ */
 export const NotificationsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithNotifications",
   provides: ["notifications_routes", "notifications"],

@@ -17,6 +17,10 @@
  */
 import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/**
+ * Push trait: device installations (`/installations`) and the Parse-compatible `/push` endpoint.
+ * Delivers through engine-push when it answers; otherwise only records the delivery.
+ */
 export const PushTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithPush",
   provides: ["push-routes", "push", "pushManager"],

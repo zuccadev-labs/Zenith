@@ -25,32 +25,53 @@ import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/b
 import { ZenithErrors } from "../../core/errors.ts";
 import { errRes, jsonRes, now, pathParams, ptr } from "../../core/trait-utils.ts";
 
-/** Definición de un Agente ADK */
+/** Definition of an ADK agent, built-in or registered with `adkAgents.registerAgent()`. */
 export interface ADKAgentDef {
+  /** Unique id used to run the agent (`POST /zen/agents/:agentId/run`). */
   id: string;
+  /** Human-readable name. */
   name: string;
+  /** What the agent is for, shown when listing agents. */
   description: string;
+  /** System prompt that opens every conversation with the agent. */
   systemPrompt: string;
+  /** Tools the agent may call during its reasoning loop. */
   tools: ADKTool[];
+  /** Model id passed to the `ai` capability's `chat()`. */
   model: string;
+  /** Provider family the agent was designed for. */
   provider: "google-adk" | "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+  /** Sampling temperature; defaults to 0.5. */
   temperature?: number;
+  /** Maximum tokens per model response; defaults to 1024. */
   maxTokens?: number;
+  /** True for the agents shipped with Zenith (CRM assistant, lead scorer, etc.). */
   isBuiltin: boolean;
 }
 
+/** A tool an agent can invoke; registered globally with `adkAgents.registerTool()`. */
 export interface ADKTool {
+  /** Unique tool name the model refers to in a `tool_use` block. */
   name: string;
+  /** What the tool does, for the model. */
   description: string;
+  /** JSON-schema-like description of each input parameter. */
   parameters: Record<string, { type: string; description: string; required?: boolean }>;
+  /** Runs the tool with the model-supplied input and the request context; its result is fed back to the model. */
   handler: (params: any, ctx: any) => Promise<any>;
 }
 
+/** A persisted conversation with an agent, stored in the `ADKSession` collection. */
 export interface ADKSession {
+  /** Unique id of the session. */
   sessionId: string;
+  /** Id of the agent the session talks to. */
   agentId: string;
+  /** Conversation history, oldest first. */
   messages: Array<{ role: string; content: string; timestamp: string }>;
+  /** ISO timestamp of creation. */
   createdAt: string;
+  /** ISO timestamp of the last message. */
   updatedAt: string;
 }
 
@@ -58,6 +79,14 @@ export interface ADKSession {
 const AGENT_REGISTRY = new Map<string, ADKAgentDef>();
 const TOOL_REGISTRY = new Map<string, ADKTool>();
 
+/**
+ * AI agents trait (`ZenithADKAgents`). Provides `adkAgents` (list, register and run agents and
+ * tools, create sessions) and `adk_routes` (`/zen/agents...`). Agents run a ReAct loop of up to
+ * 8 model calls through the `ai` capability, executing registered tools between calls. Ships
+ * built-in CRM/marketing agents: `crm_assistant`, `lead_scorer`, `marketing_writer`,
+ * `segment_analyzer` and `support_agent`. Consumes `db`; uses `ai`, `events` and `vectordb`
+ * when present (without `ai`, runs return a placeholder answer).
+ */
 export const ADKAgentsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithADKAgents",
   provides: ["adk_routes", "adkAgents"],

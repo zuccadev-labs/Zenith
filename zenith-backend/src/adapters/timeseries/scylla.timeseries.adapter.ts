@@ -24,32 +24,57 @@
  * Lab: ScyllaDB en puerto 53042 (host) → 9042 (interno)
  */
 
+/** One reading of one metric from one device, as stored in the `ts_readings` table. */
 export interface TimeSeriesPoint {
+  /** Device that produced the reading; together with the day bucket it forms the partition key. */
   deviceId: string;
+  /** Reading time in Unix milliseconds. */
   ts: number; // Unix ms
+  /** Name of the measured quantity, e.g. `"temperature"`. */
   metric: string; // ej. "temperature"
+  /** Numeric value; the only value downsampling aggregates. */
   valueNum?: number;
+  /** Textual value, for readings that are not numbers. */
   valueStr?: string;
+  /** SenML unit of the value, e.g. `"Cel"`, `"hPa"`, `"%RH"`, `"A"`, `"V"`. */
   unit?: string; // SenML: "Cel", "hPa", "%RH", "A", "V"
+  /** Free-form labels stored with the reading. */
   tags?: Record<string, string>;
 }
 
+/** Range query over the readings of one device. */
 export interface TimeSeriesQuery {
+  /** Device whose readings are read. */
   deviceId: string;
+  /** Only return readings of this metric; all metrics when omitted. */
   metric?: string;
+  /** Start of the time range (inclusive). */
   from: Date;
+  /** End of the time range (inclusive); defaults to now. */
   to?: Date;
+  /** Maximum number of points returned (default 1000). */
   limit?: number;
+  /**
+   * Aggregate the numeric values into fixed time buckets in memory. Points without
+   * `valueNum` are dropped when downsampling.
+   */
   downsample?: {
+    /** Width of each time bucket. */
     interval: "1m" | "5m" | "15m" | "1h" | "1d";
+    /** Aggregate applied to the values of each bucket. */
     fn: "avg" | "max" | "min" | "sum" | "count";
   };
 }
 
+/** Time-series store for device telemetry, as returned by {@link createScyllaTimeSeriesAdapter}. */
 export interface TimeSeriesAdapter {
+  /** Creates the keyspace, the `ts_readings` table and its `metric` index if they do not exist. */
   initialize(): Promise<void>;
+  /** Inserts the points in batches of 100, each row with a 90-day TTL. */
   write(points: TimeSeriesPoint[]): Promise<void>;
+  /** Reads the points matching the query, newest first, optionally downsampled. */
   query(q: TimeSeriesQuery): Promise<TimeSeriesPoint[]>;
+  /** Best-effort deletion of a device's readings; errors are ignored and TTL expiry is the reliable path. */
   deleteDevice(deviceId: string): Promise<void>;
 }
 

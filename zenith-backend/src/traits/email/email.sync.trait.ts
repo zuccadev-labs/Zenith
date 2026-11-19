@@ -41,59 +41,115 @@ import {
 
 // ── Tipos públicos ─────────────────────────────────────────────────────────────
 
+/**
+ * A mailbox connected to Zenith for synchronization (`EmailChannel` class). Credentials are
+ * never stored in plain text on this record; only the connection endpoints are kept here.
+ */
 export interface EmailChannel {
+  /** Unique identifier of the channel record. */
   objectId: string;
-  name: string; // "Sales Inbox", "Support"
-  email: string; // direccion@empresa.com
+  /** Human-readable name of the mailbox, e.g. "Sales Inbox" or "Support". */
+  name: string;
+  /** Address of the mailbox, e.g. `sales@company.com`. */
+  email: string;
+  /** Provider that serves the mailbox; selects the registered {@linkcode EmailAdapterDef}. */
   provider: "imap" | "gmail" | "outlook" | "sendgrid" | "ses" | "mailgun" | "custom";
+  /**
+   * Sync state: `active` is synchronized, `paused` is skipped by the sync job and `error`
+   * means the last fetch failed (see {@linkcode EmailChannel.errorMsg}).
+   */
   status: "active" | "error" | "paused";
-  // Credenciales almacenadas encriptadas (solo referencias, nunca plain)
+  /** IMAP server host used to fetch incoming mail. */
   imapHost?: string;
+  /** IMAP server port. */
   imapPort?: number;
+  /** SMTP server host used to send outgoing mail. */
   smtpHost?: string;
+  /** SMTP server port. */
   smtpPort?: number;
+  /** ISO timestamp of the last completed sync; the next sync fetches messages since then. */
   lastSyncAt?: string;
+  /** Error message of the last failed fetch, cleared by the next successful sync. */
   errorMsg?: string;
-  syncInterval: number; // segundos, default 300
+  /** Seconds between syncs of this channel (300 by default). */
+  syncInterval: number;
 }
 
+/**
+ * A conversation of email messages linked to a CRM record (`MessageThread` class). Messages
+ * are grouped by channel and subject.
+ */
 export interface MessageThread {
+  /** Unique identifier of the thread record. */
   objectId: string;
+  /** Subject shared by the messages of the thread. */
   subject: string;
-  targetClassName: string; // Contact | Lead | Deal | Account
+  /** Class of the linked CRM record: `Contact`, `Lead`, `Deal` or `Account`. */
+  targetClassName: string;
+  /** `objectId` of the linked CRM record. */
   targetId: string;
+  /** `objectId` of the {@linkcode EmailChannel} the thread belongs to. */
   channelId: string;
-  participants: string[]; // emails
+  /** Email addresses taking part in the conversation. */
+  participants: string[];
+  /** Number of messages in the thread. */
   messageCount: number;
+  /** ISO timestamp of the most recent message. */
   lastMessageAt: string;
+  /** Workflow state of the conversation. */
   status: "open" | "closed" | "snoozed";
+  /** Pointer to the `_User` the thread is assigned to, if any. */
   assignedTo?: { objectId: string };
+  /** Whether every message in the thread has been read; a new inbound message clears it. */
   isRead: boolean;
 }
 
+/** A single email inside a {@linkcode MessageThread} (`EmailMessage` class). */
 export interface EmailMessage {
+  /** Unique identifier of the message record. */
   objectId: string;
+  /** `objectId` of the thread the message belongs to. */
   threadId: string;
+  /** `objectId` of the channel the message was received on or sent from. */
   channelId: string;
+  /** Sender address. */
   from: string;
+  /** Recipient addresses. */
   to: string[];
+  /** Carbon-copy recipient addresses. */
   cc: string[];
+  /** Subject line. */
   subject: string;
+  /** Plain-text body. */
   bodyText: string;
+  /** HTML body, when the message has one. */
   bodyHtml?: string;
-  messageId: string; // RFC 2822 Message-ID
+  /** RFC 2822 `Message-ID` header, or the id the provider returned when sending. */
+  messageId: string;
+  /** `inbound` for messages fetched by the sync job, `outbound` for messages sent through Zenith. */
   direction: "inbound" | "outbound";
+  /** ISO timestamp the message was sent. */
   sentAt: string;
+  /** Whether the message has been read; outbound messages are created as read. */
   isRead: boolean;
+  /** Attached files with their name, size in bytes, MIME type and download URL. */
   attachments: Array<{ name: string; size: number; mimeType: string; url: string }>;
 }
 
-/** Registro de adaptadores de email pluggables */
+/** Registry of pluggable email adapters, keyed by provider. */
 const EMAIL_ADAPTERS = new Map<string, EmailAdapterDef>();
 
+/**
+ * Contract of an email provider adapter (IMAP, Gmail, SendGrid, SES, ...). Register one with
+ * `emailSync.registerAdapter`; channels whose `provider` matches use it to fetch and send mail.
+ * Without a registered adapter, sync only touches `lastSyncAt` and sends are recorded locally.
+ */
 export interface EmailAdapterDef {
+  /** Provider name this adapter serves; matched against {@linkcode EmailChannel.provider}. */
   provider: string;
+  /** Fetches the messages received on `channel` since `since`. */
   fetchMessages: (channel: EmailChannel, since: Date) => Promise<Partial<EmailMessage>[]>;
+  /** Sends a message through `channel` and resolves to the provider's message id. */
   sendMessage: (
     channel: EmailChannel,
     to: string[],
@@ -136,6 +192,13 @@ const EMAIL_SCHEMA = {
   },
 };
 
+/**
+ * Email sync trait: connects mailboxes ({@linkcode EmailChannel}), fetches new mail through the
+ * registered {@linkcode EmailAdapterDef}, matches senders to CRM records and files messages into
+ * {@linkcode MessageThread}s. Provides the `emailSync` API (adapters, channels, threads, send,
+ * sync) and the `/zen/email/*` routes (channels CRUD and manual sync, threads list/detail/close/
+ * assign, thread messages and send).
+ */
 export const EmailSyncTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithEmailSync",
   provides: ["email_routes", "emailSync"],

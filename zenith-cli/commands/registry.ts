@@ -15,11 +15,17 @@ import {
   createTraitDescriptor,
 } from "@zuccadev-labs/barrits";
 
+/** One `zen` command as it appears in the composed command table. */
 export interface ZenCommand {
+  /** Command name typed after the binary, e.g. `dev`. */
   name: string;
+  /** Help section the command is listed under. */
   group: string;
+  /** One-line description shown in the help. */
   summary: string;
+  /** Other names that run the same command (old spellings such as `plugins:lock`). */
   aliases: string[];
+  /** Loads the command's module and runs it with the arguments after the command name. */
   run(args: string[]): Promise<void>;
 }
 
@@ -57,6 +63,10 @@ const dev = (name: "init" | "dev" | "compile") => (): Promise<Module> =>
     run: async (args: string[]) => await (await import("../zen.ts")).runDevCommand(name, args),
   });
 
+/**
+ * Every `zen` command as a barrits trait providing `command:<name>`. Composing them builds the
+ * command table; each command's module is imported only when it runs.
+ */
 export const COMMANDS: readonly AnyTraitDescriptor[] = [
   command(
     "init",
@@ -179,6 +189,13 @@ export function commandTable(): Map<string, ZenCommand> {
   return table;
 }
 
+/**
+ * The CLI help: usage line, every command grouped by section with its summary, and the
+ * environment variables it reads.
+ *
+ * @param binary Name shown in the usage line (`zen` or `zenith`).
+ * @param version CLI version shown in the header.
+ */
 export function helpText(binary: string, version: string): string {
   const groups = new Map<string, ZenCommand[]>();
   for (const c of new Set(commandTable().values())) {

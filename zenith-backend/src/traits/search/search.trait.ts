@@ -35,6 +35,11 @@ const SEARCH_INDEX: Record<string, string[]> = {
   Employee: ["name", "email", "role", "department"],
 };
 
+/**
+ * Search trait: one full-text search endpoint over the business classes (contacts, deals, leads,
+ * accounts, products, notes…) ranked by score, plus suggestions (`/zen/search`,
+ * `/zen/search/suggest`).
+ */
 export const SearchTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithSearch",
   provides: ["search_routes", "search"],

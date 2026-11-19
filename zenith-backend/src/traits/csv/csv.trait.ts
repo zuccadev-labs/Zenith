@@ -176,6 +176,10 @@ function toCSV(rows: Record<string, any>[], fields: string[]): string {
   return `${header}\n${body}`;
 }
 
+/**
+ * CSV trait: bulk import (multipart upload, validated per class, inserted in batches) and export
+ * (query and filters to CSV) of the CRM/ERP classes, under `/zen/csv/*`.
+ */
 export const CSVTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCSV",
   provides: ["csv_routes", "csvManager"],

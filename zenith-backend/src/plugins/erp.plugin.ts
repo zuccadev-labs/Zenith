@@ -14,7 +14,10 @@
  *   Zen.Cloud.afterSave("Invoice", async (req) => { ... });
  */
 
-// No-op: el ZenithERPTrait gestiona toda la inicialización del ERP.
+/**
+ * No-op kept as the entry point of the ERP plugin: `ERPTrait` already sets up the ERP schemas,
+ * triggers and routes. Extend the ERP from cloud code with `Zen.Cloud` hooks instead.
+ */
 export function installERPPlugin(_Zen: any): void {
   // La inicialización completa del ERP (schemas, triggers, rutas)
   // se realiza automáticamente a través de ZenithERPTrait en el motor.

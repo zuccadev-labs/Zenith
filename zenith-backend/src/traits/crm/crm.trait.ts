@@ -169,6 +169,11 @@ function errorResponse(err: any): Response {
 
 // ─── Trait Principal ──────────────────────────────────────────────────────────
 
+/**
+ * CRM trait: contacts, leads, deals, accounts, pipelines and campaigns, with lead qualification
+ * and conversion, under `/zen/crm/*`. Documents go to the main database and activities to the
+ * event store.
+ */
 export const CRMTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCRMTrait",
   provides: ["crm_routes", "crm"],

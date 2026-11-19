@@ -77,6 +77,11 @@ const COLLAB_SCHEMAS = {
   },
 } as const;
 
+/**
+ * Collaboration trait: notes, tasks, comments and attachments that can be linked to a record of
+ * any class through `targetClassName` + `targetId` (`/zen/notes`, `/zen/tasks`, `/zen/comments`,
+ * `/zen/attachments`).
+ */
 export const CollaborationTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCollaboration",
   provides: ["collaboration_routes", "collaboration"],

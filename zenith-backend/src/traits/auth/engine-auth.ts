@@ -36,6 +36,7 @@ import { triggerFailure } from "../cloud/validator.ts";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
+/** How Zenith reaches and trusts engine-auth for users, sessions and bearer tokens. */
 export interface EngineAuthConfig {
   /** `iss` of the tokens, e.g. `https://auth.example.com`. */
   readonly issuer: string;

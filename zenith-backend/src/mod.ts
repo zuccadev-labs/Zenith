@@ -1,14 +1,38 @@
 /**
- * @module @zenith/mod
+ * Zenith, the deterministic BaaS for the AI era: a Parse Server-compatible backend composed of
+ * traits (Barrits).
  *
- * Punto de entrada principal del motor Zenith.
- * Exporta `createZenithApp()` que compone traits vía Barrits, conecta
- * adaptadores (MongoDB, ScyllaDB, RustFS/S3, Kafka, etc.), carga claves
- * JWT desde Vault o MongoDB, y retorna un engine listo para manejar
- * requests HTTP, WebSocket, gRPC y ZeroMQ.
+ * `createZenithApp()` composes the traits a {@link ZenithConfig} selects, connects the adapters
+ * (MongoDB, ScyllaDB, RustFS/S3, Kafka, etc.), loads the JWT keys from Vault or MongoDB and returns
+ * an engine ready to serve HTTP, WebSocket, gRPC and ZeroMQ requests. Cloud code imports the
+ * {@link Zen} namespace from here. The package also exports the business traits, the adapters
+ * that can be created standalone (SurrealDB, Qdrant, Scylla time series, embedders) and their types.
  *
- * En `if (import.meta.main)` arranca el servidor multi-app usando la
- * configuración de `apps.config.ts`.
+ * Projects usually boot through the CLI (`zen dev`, `zen compile`); run directly, this module
+ * starts the monorepo's multi-app server from `apps.config.ts`.
+ *
+ * @example Serve one app
+ * ```ts
+ * import { createZenithApp } from "@zuccadev-labs/zenith";
+ *
+ * const { handler } = await createZenithApp({
+ *   appId: "my-app",
+ *   masterKey: Deno.env.get("ZEN_MASTER_KEY")!,
+ *   serverURL: "http://localhost:23614",
+ *   port: 23614,
+ *   databaseURI: "mongodb://localhost:27017/my-app",
+ * });
+ * if (handler) Deno.serve({ port: 23614 }, handler);
+ * ```
+ *
+ * @example Cloud code (`cloud/main.ts`)
+ * ```ts
+ * import { Zen } from "@zuccadev-labs/zenith";
+ *
+ * Zen.Cloud.define("hello", (request) => ({ message: `Hello ${request.params.name}!` }));
+ * ```
+ *
+ * @module
  *
  * @barrits-runtime deno
  */
@@ -44,11 +68,20 @@ import type { BillingMeteringService, CloudFunctionService, EngineAPI } from "./
 import { _cloudCodeRegistry, ZENITH_ENGINE } from "./core/cloud.ts";
 
 export { createSurrealAdapter, SurrealClient } from "./adapters/database/surreal.adapter.ts";
+export type { SurrealConfig } from "./adapters/database/surreal.adapter.ts";
 export { createQdrantAdapter } from "./adapters/vectordb/qdrant.adapter.ts";
+export type {
+  QdrantConfig,
+  VectorDBAdapter,
+  VectorPoint,
+  VectorSearchOptions,
+  VectorSearchResult,
+} from "./adapters/vectordb/qdrant.adapter.ts";
 export {
   createOllamaEmbedProvider,
   createOpenAIEmbedProvider,
 } from "./traits/vectordb/vectordb.trait.ts";
+export type { EmbedFn } from "./traits/vectordb/vectordb.trait.ts";
 // The namespace cloud code uses: `import { Zen } from "@zuccadev-labs/zenith"` (cloud/main.ts).
 export { Zen } from "./core/cloud.ts";
 export { installERPPlugin } from "./plugins/erp.plugin.ts";
@@ -65,6 +98,7 @@ export { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
 export { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
 export { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
 export { PluginMarketplaceTrait } from "./traits/marketplace/marketplace.trait.ts";
+export { FIELD_TYPES } from "./traits/metadata/metadata.trait.ts";
 export type { FieldType, MetaField, MetaObject } from "./traits/metadata/metadata.trait.ts";
 export type { ADKAgentDef, ADKSession, ADKTool } from "./traits/agents/adk.agents.trait.ts";
 export type { InstalledPlugin, PluginManifest } from "./traits/marketplace/marketplace.trait.ts";
@@ -93,6 +127,7 @@ export type {
   AutoCondition,
   AutoConditionGroup,
   AutomationRule,
+  ConditionOp,
 } from "./traits/automation/automation.trait.ts";
 export { CacheTrait } from "./traits/cache/cache.trait.ts";
 export { PushTrait } from "./traits/push/push.trait.ts";
@@ -100,6 +135,7 @@ export { JobQueueTrait } from "./traits/queue/job.queue.trait.ts";
 export { CircuitBreakerTrait } from "./traits/resilience/circuit.breaker.trait.ts";
 export { createScyllaTimeSeriesAdapter } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
 export type {
+  TimeSeriesAdapter,
   TimeSeriesPoint,
   TimeSeriesQuery,
 } from "./adapters/timeseries/scylla.timeseries.adapter.ts";
@@ -117,6 +153,24 @@ export type {
   DataClassification,
   PII_Field,
 } from "./traits/compliance/compliance.trait.ts";
+export type { DatabaseAdapter, ZenithConfig, ZenithObject, ZenithQuery } from "./core/types.ts";
+export type { EngineAuthConfig } from "./traits/auth/engine-auth.ts";
+export type { EnginePushConfig } from "./traits/push/engine-push.trait.ts";
+export type {
+  AclService,
+  AiService,
+  BillingMeteringService,
+  CloudFunctionService,
+  CryptoService,
+  EngineAPI,
+  GrpcService,
+  MediaService,
+  ObservabilityService,
+  RateLimitService,
+  RealtimePubSubService,
+  SchemaService,
+  TriggerService,
+} from "./core/engine-api.ts";
 
 function optionalCall<T>(obj: unknown, key: string, ...args: unknown[]): unknown {
   const fn = (obj as Record<string, unknown>)[key];

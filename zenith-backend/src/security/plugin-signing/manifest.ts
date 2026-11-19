@@ -34,11 +34,17 @@ import {
 
 /** Opciones para `buildPluginArtifact`. */
 export interface BuildArtifactOptions {
+  /** Plugin file name (letters, digits, `.`, `_`, `-`), e.g. `crm.plugin.ts`. */
   readonly name: string;
+  /** Plugin version as semver (`MAJOR.MINOR.PATCH` with an optional pre-release). */
   readonly version: string;
+  /** SHA-256 of the plugin file as 64 lowercase hex chars (see `sha256OfFile`). */
   readonly sha256: string;
+  /** Size of the plugin file in bytes (non-negative integer). */
   readonly size: number;
+  /** Permissions the plugin requests. */
   readonly permissions: readonly PluginPermission[];
+  /** Plugin author; `id` must be lowercase alphanumeric with hyphens. */
   readonly author: PluginAuthor;
 }
 
@@ -84,8 +90,11 @@ export async function sha256OfFile(path: string): Promise<{ sha256: string; size
 
 /** Opciones para `signPlugin`. */
 export interface SignOptions {
+  /** The artifact to sign; its `author.keyId` must match the signing key id. */
   readonly artifact: PluginArtifact;
+  /** Author's raw Ed25519 private key, base64-encoded. */
   readonly privateKeyB64: string;
+  /** Author id, used to derive the key id when `keyId` is not given. */
   readonly authorId: string;
   /** Override del keyId (default: derivado de la clave). */
   readonly keyId?: string;
@@ -123,7 +132,9 @@ export async function signPlugin(
 
 /** Opciones para `verifyPluginSignature` (low-level, sin trust check). */
 export interface VerifySignatureOptions {
+  /** The manifest whose signature is checked. */
   readonly manifest: SignedPluginManifest;
+  /** Raw Ed25519 public key of the signer, base64-encoded. */
   readonly publicKeyB64: string;
 }
 

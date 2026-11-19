@@ -13,26 +13,46 @@
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { hmacSha256Hex, signingKey } from "../../core/crypto.ts";
 
+/** An entry of the append-only audit trail, persisted in `_AuditLog`. */
 export interface AuditEntry {
+  /** Unique id generated when the entry is recorded. */
   objectId: string;
+  /** Who performed the action (user id, service name, ...). */
   actor: string;
+  /** What was done (for example `create`, `delete`, `export`). */
   action: string;
+  /** Kind of resource acted on (for example a class name). */
   resource: string;
+  /** Id of the resource acted on. */
   resourceId: string;
+  /** When the entry was recorded (ISO 8601). */
   timestamp: string;
+  /** Client IP address, if known. */
   ipAddress?: string;
+  /** Client user agent, if known. */
   userAgent?: string;
+  /** Additional context about the action. */
   metadata?: Record<string, any>;
+  /** HMAC-SHA256 (hex) of the entry, keyed with `AUDIT_SIGNING_KEY`, to detect tampering. */
   signature?: string;
 }
 
+/** A field of a class registered as personal or sensitive data. */
 export interface PII_Field {
+  /** Name of the field. */
   field: string;
+  /** Sensitivity class of the data the field holds. */
   classification: DataClassification;
+  /** Whether `encryptPII` replaces the value with a Vault transit ciphertext (`<field>__encrypted`). */
   encryptionRequired: boolean;
+  /** String `maskPII` repeats (up to 8 times) in place of the value; defaults to `*`. */
   maskingPattern?: string;
 }
 
+/**
+ * Sensitivity class of a data field, from `public` to `restricted`, plus `pii` (personally
+ * identifiable information) and `phi` (protected health information).
+ */
 export type DataClassification =
   | "public"
   | "internal"

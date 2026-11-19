@@ -12,38 +12,68 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/** A registered IoT device, persisted in the `_IoTDevice` collection. */
 export interface IoTDevice {
+  /** Database object id of the device record. */
   objectId: string;
+  /** Caller-chosen device identifier used in telemetry routes. */
   deviceId: string;
+  /** Human-readable device name. */
   name: string;
+  /** Device kind (e.g. sensor model or category). */
   type: string;
+  /** Arbitrary metadata supplied at registration. */
   metadata?: Record<string, any>;
+  /** ISO timestamp of the last telemetry received from the device. */
   lastSeen?: string;
+  /** Hash of the device's auth token, when one has been issued. */
   deviceTokenHash?: string;
+  /** ISO timestamp of the registration. */
   createdAt: string;
 }
 
+/** Normalized telemetry sample: named numeric measurements taken at one instant. */
 export interface TelemetryPayload {
+  /** Device that produced the measurements. */
   deviceId: string;
+  /** Sample time in milliseconds since the Unix epoch. */
   timestamp: number;
+  /** Measurement values keyed by name (e.g. `{ temperature: 21.5 }`). */
   measurements: Record<string, number>;
 }
 
+/** Alert raised when a telemetry measurement crosses a configured threshold. */
 export interface IoTAlert {
+  /** Database object id of the alert record. */
   objectId: string;
+  /** Device whose telemetry triggered the alert. */
   deviceId: string;
+  /** Name of the alert rule that fired. */
   rule: string;
+  /** Severity taken from the rule. */
   severity: "info" | "warning" | "critical";
+  /** Description of the comparison and the actual value. */
   message: string;
+  /** ISO timestamp at which the alert fired. */
   triggeredAt: string;
 }
 
+/**
+ * One record of a SenML pack (RFC 8428). Only records with both `n` and `v` are kept as
+ * measurements when ingested.
+ */
 export interface SenMLRecord {
+  /** Measurement name. */
   n?: string;
+  /** Numeric value. */
   v?: number;
+  /** String value. */
   vs?: string;
+  /** Boolean value. */
   vb?: boolean;
+  /** Time of the measurement. */
   t?: number;
+  /** Unit of the value (e.g. `Cel`). */
   u?: string;
 }
 

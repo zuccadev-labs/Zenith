@@ -31,22 +31,34 @@ import type { DatabaseAdapter, ZenithObject, ZenithQuery } from "../../core/type
  *   DELETE /key/:table/:id → Delete
  */
 
+/** Connection settings of a SurrealDB server reached over its HTTP API. */
 export interface SurrealConfig {
-  url: string; // ej. "http://localhost:58000"
-  user: string; // ej. "root"
-  pass: string; // ej. "zenithlab"
-  namespace: string; // ej. "zenith"
-  database: string; // ej. "main"
+  /** Base URL of the server, e.g. `http://localhost:58000`. */
+  url: string;
+  /** User for HTTP basic auth, e.g. `root`. */
+  user: string;
+  /** Password for HTTP basic auth. */
+  pass: string;
+  /** Namespace (identifier: letters, digits, `_`), e.g. `zenith`. Created on first use if missing. */
+  namespace: string;
+  /** Database (identifier: letters, digits, `_`), e.g. `main`. Created on first use if missing. */
+  database: string;
 }
 
 /**
- * Cliente HTTP puro para SurrealDB — sin SDK externo.
- * Usa fetch nativo, compatible con Deno Edge.
+ * Plain HTTP client for SurrealDB, with no external SDK.
+ * Uses native fetch, so it also runs on Deno edge runtimes.
  */
 export class SurrealClient {
   private baseHeaders: Record<string, string>;
   private ensured: Promise<void> | null = null;
 
+  /**
+   * Prepares the auth and namespace headers for `config`.
+   *
+   * @throws Error if `namespace` or `database` is not a plain identifier (they are interpolated
+   *   into DEFINE statements).
+   */
   constructor(private config: SurrealConfig) {
     // They go into DEFINE statements: identifiers only, never data.
     for (
@@ -71,6 +83,12 @@ export class SurrealClient {
     };
   }
 
+  /**
+   * Sends raw SurrealQL to `POST /sql` and returns one result entry per statement. `$name`
+   * placeholders are replaced by the JSON encoding of `vars[name]` (null when missing).
+   *
+   * @throws Error when the server answers with a non-2xx status.
+   */
   async sql(query: string, vars?: Record<string, unknown>): Promise<any[]> {
     const body = vars
       ? query.replace(/\$(\w+)/g, (_, k) => JSON.stringify(vars[k] ?? null))
@@ -88,7 +106,7 @@ export class SurrealClient {
     }
 
     const results: any[] = await res.json();
-    // SurrealDB devuelve array de resultados por statement
+    // SurrealDB returns one result entry per statement
     return results;
   }
 
@@ -122,7 +140,12 @@ export class SurrealClient {
     return this.ensured;
   }
 
-  /** Ejecuta una query SurrealQL y retorna los resultados del primer statement */
+  /**
+   * Runs a SurrealQL query and returns the rows of its first statement. Creates the namespace and
+   * database once if they do not exist yet, and treats a table that does not exist as empty.
+   *
+   * @throws Error when the first statement fails for any other reason.
+   */
   async query<T = any>(surrealQL: string, vars?: Record<string, unknown>): Promise<T[]> {
     let results = await this.sql(surrealQL, vars);
     const missing = (r: any) =>
@@ -149,6 +172,7 @@ export class SurrealClient {
     return (first.result ?? []) as T[];
   }
 
+  /** Whether the server answers `GET /health` with a 2xx status (false on network errors). */
   async ping(): Promise<boolean> {
     try {
       const res = await fetch(`${this.config.url}/health`);

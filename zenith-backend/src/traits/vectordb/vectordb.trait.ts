@@ -11,14 +11,25 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/** An embedder: maps a text to its embedding vector. */
+export type EmbedFn = (text: string) => Promise<number[]>;
+
+/** Signature of {@link createOllamaEmbedProvider}. */
 export type createOllamaEmbedProvider = (
   config: { endpoint?: string; model?: string },
 ) => (text: string) => Promise<number[]>;
+/** Signature of {@link createOpenAIEmbedProvider}. */
 export type createOpenAIEmbedProvider = (
   config: { apiKey: string; model?: string },
 ) => (text: string) => Promise<number[]>;
 
-export const createOllamaEmbedProvider: createOllamaEmbedProvider = (config = {}) => {
+/**
+ * Embedder backed by a local Ollama server (`POST {endpoint}/api/embeddings`).
+ *
+ * @param config `endpoint` (default `http://localhost:11434`) and `model` (default `nomic-embed-text`).
+ * @returns A function that embeds one text per request.
+ */
+export const createOllamaEmbedProvider: createOllamaEmbedProvider = (config = {}): EmbedFn => {
   const endpoint = config.endpoint || "http://localhost:11434";
   const model = config.model || "nomic-embed-text";
   return async (text: string) => {
@@ -32,7 +43,13 @@ export const createOllamaEmbedProvider: createOllamaEmbedProvider = (config = {}
   };
 };
 
-export const createOpenAIEmbedProvider: createOpenAIEmbedProvider = (config) => {
+/**
+ * Embedder backed by the OpenAI embeddings API (`POST https://api.openai.com/v1/embeddings`).
+ *
+ * @param config `apiKey` (sent as a bearer token) and `model` (default `text-embedding-3-small`).
+ * @returns A function that embeds one text per request.
+ */
+export const createOpenAIEmbedProvider: createOpenAIEmbedProvider = (config): EmbedFn => {
   const model = config.model || "text-embedding-3-small";
   return async (text: string) => {
     const res = await fetch("https://api.openai.com/v1/embeddings", {

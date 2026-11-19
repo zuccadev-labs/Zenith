@@ -12,6 +12,10 @@
  */
 import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/**
+ * Cache trait: an in-memory LRU cache (or a Redis adapter) with TTL expiry and tag-based
+ * invalidation, exposed as `cache` and over `/cache/:key`.
+ */
 export const CacheTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCache",
   provides: ["cache-routes", "cache", "cacheManager"],

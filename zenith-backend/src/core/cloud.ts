@@ -1388,6 +1388,18 @@ export interface ZenAppHandle {
 
 export const ZENITH_ENGINE: { current: Record<string, unknown> | null } = { current: null };
 
+/**
+ * The namespace cloud code uses: `Cloud` (functions, jobs, triggers), `DB`, `Config`,
+ * `Federation`, `GeoPoint`, `Logger`, `API`, `Plugins`, `Shell`, and `App(appId)` for database
+ * access to another app of the same server.
+ *
+ * @example
+ * ```ts
+ * import { Zen } from "@zuccadev-labs/zenith";
+ *
+ * Zen.Cloud.define("hello", (req) => `Hello ${req.params.name}`);
+ * ```
+ */
 export const Zen = {
   Cloud: ZenCloud,
   DB: ZenDB,

@@ -20,7 +20,10 @@ import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/b
 import { ZenithErrors } from "../../core/errors.ts";
 import { errRes, jsonRes, NO_CONTENT, now, pathParams } from "../../core/trait-utils.ts";
 
-/** Tipos de campo soportados (superset de Parse + Twenty) */
+/**
+ * Field types a custom field can declare (a superset of the Parse and Twenty CRM types).
+ * `GET /zen/metadata/field-types` returns this list, and `addField` rejects any other type.
+ */
 export const FIELD_TYPES = [
   "String",
   "Text",
@@ -45,38 +48,59 @@ export const FIELD_TYPES = [
   "Position",
 ] as const;
 
+/** One of the field types listed in {@linkcode FIELD_TYPES}. */
 export type FieldType = typeof FIELD_TYPES[number];
 
-/** Campo de un Custom Object */
+/** A field of a custom object, as stored in its metadata and applied to the class schema. */
 export interface MetaField {
+  /** Field (column) name, unique within the object. */
   name: string;
+  /** Data type of the field. */
   type: FieldType;
+  /** Human-readable label shown in UIs. */
   label?: string;
+  /** Free-text description of what the field holds. */
   description?: string;
+  /** Whether the schema requires a value for this field. */
   required?: boolean;
+  /** Value the schema uses when a record omits the field. */
   defaultValue?: unknown;
-  /** Solo para Select/MultiSelect: opciones disponibles */
+  /** Select/MultiSelect only: the allowed options. */
   options?: Array<{ value: string; label: string; color?: string }>;
-  /** Solo para Pointer/Relation: clase destino */
+  /** Pointer/Relation only: the class the field points to. */
   targetClass?: string;
-  /** Solo para Currency: código ISO 4217 */
+  /** Currency only: ISO 4217 currency code. */
   currency?: string;
-  /** Solo para Rating: valor máximo */
+  /** Rating only: maximum rating value. */
   maxRating?: number;
-  isSystem?: boolean; // true = no eliminable por el usuario
+  /**
+   * Built-in field (`objectId`, `createdAt`, `updatedAt`, `ACL`): it cannot be updated or removed
+   * and is not sent to the schema manager.
+   */
+  isSystem?: boolean;
 }
 
-/** Custom Object */
+/** A custom object (a user-defined class) created at runtime through the metadata API. */
 export interface MetaObject {
+  /** Unique id of the metadata record. */
   objectId: string;
-  name: string; // nombre de clase (PascalCase)
+  /** Class name in PascalCase; it cannot be one of the reserved system classes. */
+  name: string;
+  /** Singular display name (defaults to `name`). */
   nameSingular: string;
+  /** Plural display name (defaults to `name` + "s"). */
   namePlural: string;
+  /** Icon identifier shown in UIs. */
   icon?: string;
+  /** Free-text description of the object. */
   description?: string;
+  /** True for objects created through the API; only custom objects can be modified or deleted. */
   isCustom: boolean;
+  /** The object's fields, starting with the built-in system fields. */
   fields: MetaField[];
+  /** Creation time (ISO 8601). */
   createdAt: string;
+  /** Last update time (ISO 8601). */
   updatedAt: string;
 }
 
@@ -115,6 +139,12 @@ const SYSTEM_CLASSES = new Set([
   "InventoryEntry",
 ]);
 
+/**
+ * Trait that provides the runtime custom objects and custom fields API (`metadata`) and its routes
+ * under `/zen/metadata` (`metadata_routes`). Objects are persisted in `_CustomObject` and their
+ * fields are applied to the class schema through the `schema` capability, so a new entity gets
+ * CRUD, views, search and API support without a redeploy.
+ */
 export const MetadataTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithMetadata",
   provides: ["metadata_routes", "metadata"],

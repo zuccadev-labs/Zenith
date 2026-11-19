@@ -44,6 +44,10 @@ const WORKSPACE_SCHEMAS = {
   },
 } as const;
 
+/**
+ * Workspace trait: workspace members, their roles (`admin`, `member`, `guest`) and invitations
+ * under `/zen/workspace/*`.
+ */
 export const WorkspaceTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithWorkspace",
   provides: ["workspace_routes", "workspace"],
