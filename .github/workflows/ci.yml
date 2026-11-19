@@ -28,7 +28,7 @@ concurrency:
 
 env:
   DENO_VERSION: "2.9.8"
-  NODE_VERSION: "24"
+  NODE_VERSION: "26"
 
 jobs:
   engine:
@@ -74,8 +74,8 @@ jobs:
       - name: Start MongoDB (standalone and replica set)
         working-directory: .
         run: |
-          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
-          docker run -d --name mongors -p 127.0.0.1:28000:27017 mongo:9.0.4 --replSet rs0 --bind_ip_all
+          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.8
+          docker run -d --name mongors -p 127.0.0.1:28000:27017 mongo:9.0.8 --replSet rs0 --bind_ip_all
           for c in mongo mongors; do
             until docker exec $c mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; do sleep 1; done
           done
@@ -86,7 +86,7 @@ jobs:
         run: |
           docker run -d --name surreal -p 127.0.0.1:28800:8000 surrealdb/surrealdb:v4.0.1 start --user root --pass root memory
           docker run -d --name vault -p 127.0.0.1:28200:8200 --cap-add IPC_LOCK -e VAULT_DEV_ROOT_TOKEN_ID=root \
-            hashicorp/vault:2.2.1 server -dev -dev-tls -dev-listen-address=0.0.0.0:8200 -dev-tls-san=127.0.0.1
+            hashicorp/vault:2.2.2 server -dev -dev-tls -dev-listen-address=0.0.0.0:8200 -dev-tls-san=127.0.0.1
           until curl -sf http://127.0.0.1:28800/health; do sleep 1; done
           until docker exec vault sh -c 'ls /tmp/vault-tls*/vault-ca.pem' >/dev/null 2>&1; do sleep 1; done
           docker exec vault sh -c 'cat /tmp/vault-tls*/vault-ca.pem' > "$RUNNER_TEMP/vault-ca.pem"
@@ -124,7 +124,7 @@ jobs:
           repository: devzucca/zutool
           ssh-key: ${{ secrets.ZUTOOL_DEPLOY_KEY }}
           path: zutool
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: zutool
@@ -136,7 +136,7 @@ jobs:
           deno-version: ${{ env.DENO_VERSION }}
       - name: Start MongoDB
         run: |
-          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
+          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.8
           until docker exec mongo mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; do sleep 1; done
       - name: End-to-end tests
         working-directory: zenith-backend
@@ -169,7 +169,7 @@ jobs:
         run: deno audit --lock=deno.lock
       - name: Start MongoDB (zen init + zen dev end to end)
         run: |
-          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.4
+          docker run -d --name mongo -p 127.0.0.1:27999:27017 mongo:9.0.8
           until docker exec mongo mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep -q 1; do sleep 1; done
       - name: Tests
         env:
@@ -305,7 +305,7 @@ jobs:
       - name: Lint and render (default and production values)
         run: |
           mkdir -p "$RUNNER_TEMP/chart"
-          helm() { docker run --rm -u "$(id -u)" -v "$PWD/k8s/helm:/c:ro" -w /c alpine/helm:4.3.1 "$@"; }
+          helm() { docker run --rm -u "$(id -u)" -v "$PWD/k8s/helm:/c:ro" -w /c alpine/helm:4.3.2 "$@"; }
           for v in values values-prod; do
             helm lint zenith -f "zenith/$v.yaml"
             helm template zenith zenith -n zenith -f "zenith/$v.yaml" --set prometheusRule.enabled=true \
@@ -318,14 +318,14 @@ jobs:
       - name: Kubernetes manifests (kubeconform)
         run: |
           # CRDs (ServiceMonitor, PrometheusRule, ExternalSecret…) validate against the datree catalog.
-          docker run --rm -v "$RUNNER_TEMP/chart:/m:ro" ghcr.io/yannh/kubeconform:v0.7.0 -strict -summary \
+          docker run --rm -v "$RUNNER_TEMP/chart:/m:ro" ghcr.io/yannh/kubeconform:v0.8.0 -strict -summary \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             /m/values.yaml /m/values-prod.yaml
       - name: Kubernetes policies (Checkov on the rendered manifests; reviewed skips in .checkov.yaml)
         run: |
           cp .checkov.yaml "$RUNNER_TEMP/chart/"
-          docker run --rm -v "$RUNNER_TEMP/chart:/m:ro" bridgecrew/checkov:3.4.3 \
+          docker run --rm -v "$RUNNER_TEMP/chart:/m:ro" bridgecrew/checkov:3.4.5 \
             --config-file /m/.checkov.yaml -d /m --framework kubernetes --quiet --compact
       - name: Alert rules (promtool)
         run: |
@@ -347,7 +347,7 @@ jobs:
             --no-banner --redact --gitleaks-ignore-path /repo/.gitleaksignore
       - name: Static analysis (Semgrep OSS, p/default; WARNING and above fail)
         run: |
-          docker run --rm -v "$PWD:/src" semgrep/semgrep:1.185.0 semgrep scan --config p/default \
+          docker run --rm -v "$PWD:/src" semgrep/semgrep:1.186.0 semgrep scan --config p/default \
             --metrics=off --severity WARNING --severity ERROR --error \
             /src/zenith-backend/src /src/zenith-cli /src/sdk/Typescript/src
       # Free and open source, in place of what GitHub sells for private repositories (supply-chain.md).
@@ -364,7 +364,7 @@ jobs:
             --ignorefile /src/.trivyignore.yaml --exit-code 1 /src
       - name: Dockerfile and workflows (Checkov)
         run: |
-          docker run --rm -v "$PWD:/src:ro" bridgecrew/checkov:3.4.3 --config-file /src/.checkov.yaml \
+          docker run --rm -v "$PWD:/src:ro" bridgecrew/checkov:3.4.5 --config-file /src/.checkov.yaml \
             -d /src --framework dockerfile github_actions --quiet --compact
       - name: npm dependencies (OSV-Scanner; per-directory osv-scanner.toml for reviewed exceptions)
         run: docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.1 scan source -r /src

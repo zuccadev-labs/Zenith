@@ -15,7 +15,7 @@ permissions:
 
 env:
   DENO_VERSION: "2.9.8"
-  NODE_VERSION: "24"
+  NODE_VERSION: "26"
 
 jobs:
   jsr:

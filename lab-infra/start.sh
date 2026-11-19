@@ -38,7 +38,7 @@ ssh root@$PVE_IP "qm start $VM_ID"
 echo "[5/5] Esperando agente e inicializando base de datos de Postal..."
 sleep 20
 ssh root@$PVE_IP <<EOF
-qm guest exec $VM_ID -- sh -c 'sudo docker run --rm --network zenith-lab_zenith-net -v /opt/zenith-lab/postal.yml:/config/postal.yml:ro ghcr.io/postalserver/postal:3.3.7 postal initialize 2>&1 || true'
+qm guest exec $VM_ID -- sh -c 'sudo docker run --rm --network zenith-lab_zenith-net -v /opt/zenith-lab/postal.yml:/config/postal.yml:ro ghcr.io/postalserver/postal:3.4.0 postal initialize 2>&1 || true'
 EOF
 
 echo -e "\n\033[1;32m✅ ¡Zenith Lab Desplegado Exitosamente!\033[0m"

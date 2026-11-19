@@ -3,7 +3,7 @@ services:
   # 1. Base de Datos Principal (MongoDB & PostgreSQL Core)
   # ──────────────────────────────────────────────────────────
   zenith-mongo:
-    image: mongo:9.0.4
+    image: mongo:9.0.8
     container_name: zenith-mongo
     ports:
       - "53017:27017"
@@ -21,7 +21,7 @@ services:
       - zenith-net
 
   zenith-mongo-init:
-    image: mongo:9.0.4
+    image: mongo:9.0.8
     container_name: zenith-mongo-init
     depends_on:
       zenith-mongo:
@@ -34,7 +34,7 @@ services:
       - zenith-net
 
   zenith-postgres:
-    image: postgres:18.6-alpine
+    image: postgres:18.7-alpine
     container_name: zenith-postgres
     environment:
       POSTGRES_USER: ${PG_USER}
@@ -84,7 +84,7 @@ services:
   #     UI: http://<VM_IP>:56333/dashboard
   # ──────────────────────────────────────────────────────────
   zenith-qdrant:
-    image: qdrant/qdrant:v1.20.0
+    image: qdrant/qdrant:v1.20.2
     container_name: zenith-qdrant
     ports:
       - "56333:6333"   # REST + Dashboard
@@ -111,7 +111,7 @@ services:
   #     Compatible: MQTT 3.1, 3.1.1, 5.0 | Soporte QoS 0/1/2
   # ──────────────────────────────────────────────────────────
   zenith-emqx:
-    image: emqx/emqx:6.3.2
+    image: emqx/emqx:6.3.3
     container_name: zenith-emqx
     hostname: zenith-emqx
     environment:
@@ -144,7 +144,7 @@ services:
   # 2. Infraestructura Rápida (ScyllaDB & LuxDB)
   # ──────────────────────────────────────────────────────────
   zenith-scylla:
-    image: scylladb/scylla:2026.3.4
+    image: scylladb/scylla:2026.3.6
     container_name: zenith-scylla
     ports:
       - "53042:9042"
@@ -178,7 +178,7 @@ services:
   #    api + worker + ws + web
   # ──────────────────────────────────────────────────────────
   zenith-novu-api:
-    image: ghcr.io/novuhq/novu/api:3.19.0
+    image: ghcr.io/novuhq/novu/api:3.20.0
     container_name: zenith-novu-api
     ports:
       - "3614:3000"
@@ -208,7 +208,7 @@ services:
       - zenith-net
 
   zenith-novu-worker:
-    image: ghcr.io/novuhq/novu/worker:3.19.0
+    image: ghcr.io/novuhq/novu/worker:3.20.0
     container_name: zenith-novu-worker
     environment:
       NODE_ENV: production
@@ -233,7 +233,7 @@ services:
       - zenith-net
 
   zenith-novu-ws:
-    image: ghcr.io/novuhq/novu/ws:3.19.0
+    image: ghcr.io/novuhq/novu/ws:3.20.0
     container_name: zenith-novu-ws
     ports:
       - "3615:3002"
@@ -254,7 +254,7 @@ services:
 
   zenith-novu-web:
     # Novu 3: the "web" image was replaced by "dashboard" (port 4000, VITE_* variables).
-    image: ghcr.io/novuhq/novu/dashboard:3.19.0
+    image: ghcr.io/novuhq/novu/dashboard:3.20.0
     container_name: zenith-novu-web
     ports:
       - "4614:4000"
@@ -271,7 +271,7 @@ services:
   # 4. Almacenamiento (RustFS)
   # ──────────────────────────────────────────────────────────
   zenith-rustfs:
-    image: rustfs/rustfs:1.0.4
+    image: rustfs/rustfs:1.0.6
     container_name: zenith-rustfs
     ports:
       - "8614:9000"
@@ -294,7 +294,7 @@ services:
   # 5. Zitadel IAM (Ports: 51xxx) — driver POSTGRES
   # ──────────────────────────────────────────────────────────
   zenith-postgres-zitadel:
-    image: postgres:18.6-alpine
+    image: postgres:18.7-alpine
     container_name: zenith-postgres-zitadel
     environment:
       POSTGRES_USER: zitadel
@@ -314,7 +314,7 @@ services:
       - zenith-net
 
   zenith-zitadel:
-    image: ghcr.io/zitadel/zitadel:v4.20.2
+    image: ghcr.io/zitadel/zitadel:v4.20.4
     container_name: zenith-zitadel
     user: "0"
     environment:
@@ -360,7 +360,7 @@ services:
       start_period: 10s
 
   zenith-zitadel-login:
-    image: ghcr.io/zitadel/zitadel-login:v4.20.2
+    image: ghcr.io/zitadel/zitadel-login:v4.20.4
     container_name: zenith-zitadel-login
     ports:
       - "8082:3000"
@@ -385,7 +385,7 @@ services:
   # 6. Keycloak IAM (Ports: 52xxx)
   # ──────────────────────────────────────────────────────────
   zenith-postgres-keycloak:
-    image: postgres:18.6-alpine
+    image: postgres:18.7-alpine
     container_name: zenith-postgres-keycloak
     environment:
       POSTGRES_USER: keycloak
@@ -455,7 +455,7 @@ services:
       - zenith-net
 
   zenith-postal-rabbitmq:
-    image: rabbitmq:4.4.0-alpine
+    image: rabbitmq:4.4.1-alpine
     container_name: zenith-postal-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: postal
@@ -476,7 +476,7 @@ services:
       - zenith-net
 
   zenith-postal:
-    image: ghcr.io/postalserver/postal:3.3.7
+    image: ghcr.io/postalserver/postal:3.4.0
     container_name: zenith-postal
     depends_on:
       zenith-postal-mariadb:
@@ -500,7 +500,7 @@ services:
       - zenith-net
 
   zenith-postal-worker:
-    image: ghcr.io/postalserver/postal:3.3.7
+    image: ghcr.io/postalserver/postal:3.4.0
     container_name: zenith-postal-worker
     depends_on:
       zenith-postal-mariadb:
