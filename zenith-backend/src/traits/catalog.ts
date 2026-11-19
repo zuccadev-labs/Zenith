@@ -61,6 +61,7 @@ import { CacheTrait } from "./cache/cache.trait.ts";
 import { EnginePushTrait } from "./push/engine-push.trait.ts";
 import { PushTrait } from "./push/push.trait.ts";
 import { JobQueueTrait } from "./queue/job.queue.trait.ts";
+import { CellsTrait } from "./cells/cells.trait.ts";
 import { CircuitBreakerTrait } from "./resilience/circuit.breaker.trait.ts";
 import { CRMTrait } from "./crm/crm.trait.ts";
 import { ERPTrait } from "./erp/erp.trait.ts";
@@ -408,6 +409,14 @@ export const FEATURE_CATALOG: readonly FeatureEntry[] = [
     default: true,
     summary: "Cola de trabajos persistente (reintentos, DLQ, prioridad)",
     traits: [JobQueueTrait],
+  },
+  {
+    id: "cells",
+    group: "platform",
+    default: true,
+    summary:
+      "Celdas (Durable Objects): actores con SQLite propio, alarmas e hibernación; proveedor local y celld (experimental)",
+    traits: [CellsTrait],
   },
   {
     id: "resilience",
