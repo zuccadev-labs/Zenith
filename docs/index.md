@@ -30,10 +30,12 @@ Los otros lenguajes de `sdk/` (Android, Apple, Dart, Flutter, .NET, PHP y Swift)
 | [ADR-016](architecture-decisions/ADR-016-shared-crypto-and-single-api-keys.md) | Primitivas criptográficas compartidas, firma de webhooks y un solo sistema de API keys |
 | [ADR-017](architecture-decisions/ADR-017-webhooks-hooks-event-bus.md) | Webhooks con Standard Webhooks, Cloud Code Hooks de Parse y bus de eventos en el núcleo |
 | [ADR-018](architecture-decisions/ADR-018-engine-push.md) | Los avisos a personas salen por engine-push (zutool), por su socket |
+| [ADR-019](architecture-decisions/ADR-019-cells.md) | La celda (Durable Object) como unidad estándar de trabajo con estado; proveedores `local` y `celld` (experimental); sesiones de agentes como celdas |
 | [ADR-002](architecture-decisions/ADR-002-mtls.md) a [ADR-008](architecture-decisions/ADR-008-hashicorp-vault.md) | mTLS, API keys, firma de plugins, OpenAPI, observabilidad, producción y Vault. En lo técnico coinciden, con matices (ADR-007 sin verificar a fondo) |
 | [openapi-swagger.md](architecture/openapi-swagger.md) | Cómo se genera la OpenAPI |
 | [features-and-engines.md](architecture/features-and-engines.md) | Catálogo de piezas, activarlas al arrancar o en caliente, y cómo se acoplan los motores |
 | [webhooks-and-hooks.md](architecture/webhooks-and-hooks.md) | Webhooks salientes (verificación en el receptor) y Cloud Code Hooks de Parse |
+| [cells.md](architecture/cells.md) | Celdas (Durable Objects): escribirlas, configuración, agentes, proveedor celld y diferencias |
 | [supply-chain.md](architecture/supply-chain.md) | Secretos, SAST, Trivy, SBOM y firma con cosign; lo que queda para un plan de pago |
 | [metrics.md](architecture/metrics.md) | Listener de métricas, catálogo y etiquetas, alertas canónicas y dashboard; cómo se probó |
 | [registry.md](architecture/registry.md) | Registro de imágenes propio (Zot): firmas y atestaciones cosign, despliegue y rollback |
