@@ -1,6 +1,6 @@
 # Registro de imágenes propio (Zot)
 
-> Vigente a 2026-11-12. Desplegado en `registry.vemar.app` (Zot 2.1.23 en el droplet 209.38.1.195; DNS en Cloudflare,
+> Vigente a 2026-11-12. Desplegado en `registry.vemar.app` (Zot 2.1.23 en un droplet de DigitalOcean; DNS en Cloudflare,
 > registro A sin proxy, porque el proxy gratuito corta las subidas de más de 100 MB). La contraseña de `reader` está
 > en `~/.config/zenith/registry-reader.env` (0600) de la máquina que lo desplegó.
 
@@ -18,7 +18,7 @@ La imagen de Zenith comprimida ocupa unos 97 MB.
   - `ci` puede leer y escribir (lo usa el CI);
   - `reader` solo lee (despliegues y personas);
   - `engines` publica los motores de zutool: lee, crea y actualiza solo en `zutool/**`, sin borrar. Se crea con
-    `infra/registry/add-user.sh root@209.38.1.195 registry.vemar.app engines`, que guarda su contraseña en el llavero
+    `infra/registry/add-user.sh root@<servidor> registry.vemar.app engines`, que guarda su contraseña en el llavero
     (`zkeyring get zenith-registry engines-password`) y deja copia `*.bak-<fecha>` de la configuración en el servidor;
   - el acceso anónimo está cerrado (401).
 - **Formatos:** OCI y, con `http.compat: ["docker2s2"]`, el manifiesto clásico de Docker (schema 2), que es lo
@@ -36,7 +36,7 @@ La imagen de Zenith comprimida ocupa unos 97 MB.
 2. Ejecuta desde la raíz del repo:
 
 ```bash
-infra/registry/deploy.sh root@209.38.1.195 registry.vemar.app
+infra/registry/deploy.sh root@<servidor> registry.vemar.app
 ```
 
 El script es aditivo:

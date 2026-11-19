@@ -3,7 +3,7 @@
 # gives that name. Run it yourself: the password is generated here, kept in the GNOME keyring
 # (zkeyring, service zenith-registry, item <user>-password) and reaches the server only as a bcrypt hash.
 #
-#   infra/registry/add-user.sh root@209.38.1.195 registry.vemar.app engines
+#   infra/registry/add-user.sh root@<servidor> registry.vemar.app engines
 #
 # On the host it backs up /etc/zot/{config.json,htpasswd} as *.bak-<date>, replaces that user's htpasswd line,
 # installs the config of this repository and restarts the container zenith-zot (a few seconds without registry).
