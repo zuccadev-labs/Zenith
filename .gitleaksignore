@@ -1,6 +1,8 @@
 # gitleaks: findings reviewed one by one (2026-11-11). Each line is the fingerprint of one occurrence;
 # a new secret, even in the same file, is still reported.
 # test vector published in the Standard Webhooks spec (endpoint-verification.md)
+a31c976c6a0ac1030440d7b6337e38c29ae2b591:zenith-backend/tests/unit/webhook-signature.test.ts:generic-api-key:61
+# earlier fingerprints of the same vector (local archive branches)
 53d60c54183ec9336602f6f1091da8ea637ee9ce:zenith-backend/tests/unit/webhook-signature.test.ts:generic-api-key:61
 # the same vector in the history before the rewrite for the public repository (local archive branches)
 2e95f050f90b4256b8251dd03aea8c48c80b6bcb:zenith-backend/tests/unit/webhook-signature.test.ts:generic-api-key:61
