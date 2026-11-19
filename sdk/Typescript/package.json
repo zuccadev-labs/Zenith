@@ -21,7 +21,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
@@ -41,5 +42,17 @@
     "@types/react": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zuccadev-labs/Zenith.git",
+    "directory": "sdk/Typescript"
+  },
+  "homepage": "https://github.com/zuccadev-labs/Zenith/tree/main/sdk/Typescript#readme",
+  "bugs": {
+    "url": "https://github.com/zuccadev-labs/Zenith/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

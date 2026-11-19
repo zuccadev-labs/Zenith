@@ -18,5 +18,17 @@
     "test": "node --test"
   },
   "author": "Zuccadev Labs",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zuccadev-labs/Zenith.git",
+    "directory": "create-zenith"
+  },
+  "homepage": "https://github.com/zuccadev-labs/Zenith/tree/main/create-zenith#readme",
+  "bugs": {
+    "url": "https://github.com/zuccadev-labs/Zenith/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
