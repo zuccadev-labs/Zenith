@@ -37,6 +37,48 @@ export const MAX_VALUE_BYTES = 2 * 1024 * 1024;
 const enc = new TextEncoder();
 const RESERVED = /^(_cf_|_zc_|sqlite_)/i;
 
+/** PRAGMAs a cell may run: reads of its own schema (as Cloudflare allows). */
+const SAFE_PRAGMAS = new Set([
+  "table_info",
+  "table_xinfo",
+  "table_list",
+  "index_info",
+  "index_xinfo",
+  "index_list",
+  "foreign_key_list",
+  "foreign_key_check",
+  "quick_check",
+  "integrity_check",
+  "page_count",
+  "page_size",
+  "freelist_count",
+  "data_version",
+]);
+
+/**
+ * Refuses what would let a cell leave its own database or bypass the runtime: attaching other files
+ * (another cell's database), `VACUUM INTO` a file, PRAGMAs that change limits or journaling, and the
+ * runtime's own tables (`_cf_*`, `_zc_*`).
+ */
+function guardSql(stmt: string): void {
+  const head = stmt.replace(/^(\s|--[^\n]*\n|\/\*[\s\S]*?\*\/)+/, "");
+  const word = /^(\w+)/.exec(head)?.[1]?.toUpperCase();
+  if (word === "ATTACH" || word === "DETACH" || (word === "VACUUM" && /\bINTO\b/i.test(head))) {
+    throw new CellError("bad_request", `sql.exec(): ${word} is not allowed in a cell`);
+  }
+  if (word === "PRAGMA") {
+    const name = /^PRAGMA\s+(?:\w+\.)?(\w+)\s*(=|\()?/i.exec(head);
+    const pragma = name?.[1]?.toLowerCase() ?? "";
+    const setting = name?.[2] === "=";
+    if (!SAFE_PRAGMAS.has(pragma) || setting) {
+      throw new CellError("bad_request", `sql.exec(): PRAGMA ${pragma} is not allowed in a cell`);
+    }
+  }
+  if (/\b(_cf_|_zc_)\w*/i.test(head)) {
+    throw new CellError("bad_request", "sql.exec(): the _cf_ and _zc_ tables are reserved");
+  }
+}
+
 /** What the storage needs from the cell that owns it. */
 export interface CellStorageHooks {
   /** The alarm changed (after commit); `null` when removed. */
@@ -499,6 +541,7 @@ export class CellStorage implements DurableObjectStorage {
       const src = stmt.sourceSQL;
       const at = rest.indexOf(src);
       if (!src || at < 0) throw new Error("sql.exec(): cannot split the statements of this query");
+      guardSql(src);
       statements.push(src);
       rest = rest.slice(at + src.length);
       const isLast = !rest.trim().replace(/^;+/, "").trim();
