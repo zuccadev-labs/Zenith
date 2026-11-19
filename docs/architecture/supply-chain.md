@@ -1,6 +1,6 @@
 # Cadena de suministro: análisis, SBOM y firma
 
-> Vigente a 2026-11-11. Todo lo de esta página funciona con el plan gratuito de GitHub. Lo que exige un plan de
+> Vigente a 2026-11-19 (repositorio público). Todo lo de esta página funciona con el plan gratuito de GitHub. Lo que exige un plan de
 > pago está al final.
 
 ## Qué hace el CI en cada ejecución
@@ -14,6 +14,9 @@
 | Firma del SBOM y del ID de la imagen | cosign 3.1.4, con clave propia | la firma no verifica con `zenith-backend/cosign.pub` |
 | Provenance SLSA v1 | `tools/supply-chain/slsa-provenance.sh` + `cosign attest-blob` | la atestación no verifica |
 | Publicación en el registro (desde `main`) | Zot propio + `cosign sign`/`attest` sobre el digest | la firma o la provenance no verifican |
+| Firma *keyless* de la imagen (desde `main`) | cosign con la identidad OIDC del workflow, en el log público Rekor | la firma no verifica con la identidad exacta de `ci.yml@refs/heads/main` |
+| Atestaciones de GitHub (desde `main`) | `actions/attest` 4.2: provenance SLSA y SBOM CycloneDX sobre el digest | — (las verifica `gh attestation verify`) |
+| Paquetes npm y JSR | `release.yml` por tag, OIDC sin tokens; npm `--provenance`, JSR con provenance del repositorio vinculado | la versión del tag no es la del manifiesto |
 | Vulnerabilidades de dependencias npm | OSV-Scanner 2.7 (`osv-scanner.toml` por carpeta para excepciones revisadas, con fecha de caducidad) | hay una vulnerabilidad conocida |
 | Vulnerabilidades de dependencias Deno | `deno audit` (OSV-Scanner no lee `deno.lock`) | hay una vulnerabilidad conocida |
 | Infraestructura como código | Trivy config 0.76 (`.trivyignore.yaml`) y Checkov 3.4 (`.checkov.yaml`, y sobre el chart renderizado) | un hallazgo HIGH/CRITICAL sin justificar |
@@ -71,6 +74,22 @@ La provenance dice qué se construyó (repositorio y commit), cómo (workflow, e
 (los digests de las imágenes base del Dockerfile). Es el mismo predicado SLSA que generan las atestaciones de GitHub,
 firmado con nuestra clave en lugar de la de GitHub.
 
+## Verificar sin nuestra clave (keyless y atestaciones de GitHub)
+
+Desde que el repositorio es público, cada imagen de `main` lleva además una firma *keyless* registrada en Rekor y
+las atestaciones de GitHub. Las dos se verifican solo con la identidad del workflow:
+
+```bash
+cosign verify <registro>/zenith/zenith-backend@sha256:… \
+  --certificate-identity https://github.com/zuccadev-labs/Zenith/.github/workflows/ci.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://<registro>/zenith/zenith-backend@sha256:… -R zuccadev-labs/Zenith
+gh attestation verify oci://<registro>/zenith/zenith-backend@sha256:… -R zuccadev-labs/Zenith \
+  --predicate-type https://cyclonedx.org/bom
+```
+
+La firma con clave propia se mantiene: sirve sin conexión y sin depender de Sigstore.
+
 ## Lo que GitHub cobra y cómo se cubre gratis
 
 | De pago en un repo privado | Alternativa libre en uso |
@@ -81,15 +100,8 @@ firmado con nuestra clave en lugar de la de GitHub.
 | Protección de ramas / rulesets | `.githooks/pre-push` + `tools/ship.sh` (push → CI de ese commit → veredicto) |
 | CI en cada push | `tools/ship.sh` lanza el CI del commit empujado y espera su resultado |
 
-## Pendiente para el futuro (planes de pago o infraestructura que no hay)
+## Pendiente para el futuro
 
-- **CodeQL.** Su licencia prohíbe usarlo en código de un repositorio privado sin GitHub Advanced Security (*"any
-  codebase that is not an Open Source Codebase (e.g., code in a private repo in GitHub)"*), incluso la CLI. Hasta
-  entonces cubre Semgrep.
-- **Protección de rama y rulesets.** No existen en repos privados del plan gratuito de organizaciones. La cubren, del
-  lado del cliente, el hook pre-push y `tools/ship.sh`. Las alternativas de servidor gratuitas son hacer el repo
-  público o un Forgejo propio como espejo con ramas protegidas.
-- **Atestaciones nativas de GitHub** (`actions/attest-build-provenance`) en el repo privado: exigen GitHub Enterprise.
-  Las cubre la provenance SLSA firmada con cosign (arriba).
-- **Firma keyless con OIDC.** Es gratuita, pero publica la identidad del repo en el log público. Tiene sentido si el
-  repo se hace público.
+- **CodeQL.** Con el repositorio público su licencia ya lo permite; añadirlo es el siguiente paso de análisis.
+- La tabla anterior describe el repositorio cuando era privado. Hoy las atestaciones de GitHub, la firma *keyless*
+  y los rulesets (`main` sin force-push ni borrado) ya están activos.

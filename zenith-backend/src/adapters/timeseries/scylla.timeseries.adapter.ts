@@ -10,7 +10,7 @@
  * Schema de tabla optimizado para IoT:
  *   CREATE TABLE zenith.ts_readings (
  *     device_id  TEXT,
- *     bucket     DATE,        -- Partición diaria (hotspot controlado)
+ *     bucket     TEXT,        -- Partición diaria YYYY-MM-DD (hotspot controlado)
  *     ts         TIMESTAMP,   -- Tiempo preciso
  *     metric     TEXT,        -- Nombre de la medición (ej. "temperature")
  *     value_num  DOUBLE,
@@ -19,7 +19,7 @@
  *     tags       MAP<TEXT,TEXT>,
  *     PRIMARY KEY ((device_id, bucket), ts, metric)
  *   ) WITH CLUSTERING ORDER BY (ts DESC)
- *     AND default_time_to_live = 2592000;  -- 30 días TTL
+ *     AND default_time_to_live = 7776000;  -- 90 días TTL
  *
  * Lab: ScyllaDB en puerto 53042 (host) → 9042 (interno)
  */
