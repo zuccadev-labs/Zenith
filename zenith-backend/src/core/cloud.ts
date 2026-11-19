@@ -20,6 +20,7 @@ import type { ZenithAuthContext, ZenithObject, ZenithPluginsRegistry } from "./t
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ZenithError, ZenithErrorCode } from "./errors.ts";
 import { applySchema, defineSchema, getSchema } from "./cloud-schema.ts";
+import { createZenCells, type ZenCellsAPI } from "../traits/cells/registry.ts";
 
 // ─── Multi-Tenant Context & App Registry ───────────────────────────────────────
 
@@ -1388,6 +1389,20 @@ export interface ZenAppHandle {
 
 export const ZENITH_ENGINE: { current: Record<string, unknown> | null } = { current: null };
 
+/**
+ * `Zen.Cells` (ADR-019): cell classes (Durable Objects) from Cloud Code.
+ *
+ * @example
+ * export class Room {
+ *   constructor(ctx, env) { this.ctx = ctx; }
+ *   async join(user) { ... }
+ * }
+ * Zen.Cells.define("Room", Room, { binding: "ROOMS" });
+ * Zen.Cloud.define("join", async (req) => Zen.Cells.get("ROOMS", req.params.room).join(req.user));
+ */
+export const ZenCells: ZenCellsAPI = createZenCells(() => zenithContext.getStore()?.appId);
+
+/** The namespace Cloud Code uses: `Zen.Cloud`, `Zen.DB`, `Zen.Cells`… */
 export const Zen = {
   Cloud: ZenCloud,
   DB: ZenDB,
@@ -1398,6 +1413,7 @@ export const Zen = {
   API: ZenAPI,
   Plugins: ZenPlugins,
   Shell: ZenShell,
+  Cells: ZenCells,
   App: (appId: string): ZenAppHandle => ({
     DB: {
       find: (c: string, q: any) => ZenDB.find(c, q, { targetAppId: appId }),

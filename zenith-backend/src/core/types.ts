@@ -50,6 +50,12 @@ export interface ZenithConfig {
   readonly enginePush?: import("../traits/push/engine-push.trait.ts").EnginePushConfig;
 
   /**
+   * Cells (ADR-019): provider (`local` by default, `celld` experimental), directory, limits, KV and
+   * Queue bindings. Without it, the local provider in `ZENITH_CELLS_DIR` (or `.zenith/cells`).
+   */
+  readonly cells?: import("../traits/cells/api.ts").CellsConfig;
+
+  /**
    * Configuración de Logs y Observabilidad (Parse Parity)
    */
   readonly logsFolder?: string;
@@ -148,6 +154,7 @@ export interface ZenithConfig {
     readonly queue?: boolean; // JobQueueTrait
     readonly resilience?: boolean; // CircuitBreakerTrait
     readonly push?: boolean; // PushTrait (desactivado por defecto)
+    readonly cells?: boolean; // CellsTrait (ADR-019): celdas/Durable Objects, sesiones de agentes
 
     /**
      * Cualquier otra pieza del catálogo (`src/traits/catalog.ts`) por su id: `crm: false`,
