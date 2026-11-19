@@ -34,6 +34,31 @@ errores. Varios eran fallos reales:
 ### Conectar `defineSchema` con `SchemaManagementTrait`
 Cada uno tiene su propio registro de clases. Conviene unificarlos para que las clases de los plugins aparezcan en las rutas de esquemas.
 
+## Celdas (ADR-019)
+
+### Proveedor celld: probarlo en producción
+Solo se ha probado con `celld dev`, un nodo con almacén local (`tests/unit/cells-celld.test.ts`). Falta
+`celld deploy` contra un bucket real, una flota de dos o más nodos, el *failover* y el TLS del *ingress*. Hasta
+entonces se activa con `cells.celld.experimental: true`.
+
+### Service bindings de vuelta a Zenith
+En celld, una celda no ve la IA, `db` ni las herramientas de Zenith. `AgentSessionCell` necesita un
+`AGENT_RUNTIME` que llame a Zenith por HTTP.
+
+### Bindings que faltan
+R2 sobre `storage`, Workflows y Cron sobre alarmas, D1, WebSockets hibernables y facets. En celld no hay KV ni
+Queue cableados.
+
+### Pasar a celdas
+`realtime` (salas), `ratelimit`, `workflow` y `ZenithAgentOrchestrator` (que `runAgent` acepte `sessionId`).
+
+### Sesiones de agentes para usuarios
+Las rutas de sesiones son solo para la master key. Antes de abrirlas a usuarios hay que comprobar que la sesión
+(`ADKSession.userId`) es del usuario.
+
+### Cuotas y métricas por celda
+Faltan cuotas de CPU y de peticiones por celda, y contadores de celdas en `observability`.
+
 ## Autenticación (engine-auth, ADR-012)
 
 ### Abrir las rutas de negocio a usuarios (ADR-013)

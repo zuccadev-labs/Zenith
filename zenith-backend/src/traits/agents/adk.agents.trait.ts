@@ -6,6 +6,12 @@
  * Proyectos externos pueden agregar sus propios agentes vía `registerAgent`.
  * Soporta: Google ADK, OpenAI Assistants, Anthropic Agents, Ollama local.
  *
+ * Sesiones (ADR-019): con la capacidad `cells`, cada sesión es una celda `ZenithAgentSession`
+ * (binding `AGENT_SESSIONS`, nombre = `sessionId`). La celda guarda el historial en su SQLite, el
+ * modelo lo recibe en cada turno y los turnos de una sesión van de uno en uno. `run(agentId, input,
+ * ctx, sessionId)` usa ese camino; sin `cells`, el de antes (solo `ADKSession` en la base de datos,
+ * sin historial previo). `ADKSession.messages` se sigue escribiendo como espejo de la conversación.
+ *
  * Agentes preconstruidos:
  *   - crm_assistant     : Consultas, resúmenes y acciones sobre CRM data
  *   - lead_scorer       : Califica leads con AI basada en historial
@@ -17,13 +23,23 @@
  * @barrits-summary ZenithADKAgents
  * @barrits-provides adk_routes, adkAgents
  * @barrits-consumes db
- * @barrits-tags uses:ai, uses:events, uses:vectordb
+ * @barrits-tags uses:ai, uses:events, uses:vectordb, uses:cells
  * @barrits-stability stable
  * @barrits-runtime deno
  */
 import { type AnyTraitDescriptor, createTraitDescriptor } from "@zuccadev-labs/barrits";
 import { ZenithErrors } from "../../core/errors.ts";
 import { errRes, jsonRes, now, pathParams, ptr } from "../../core/trait-utils.ts";
+import {
+  type AgentMessage,
+  type AgentRuntime,
+  AgentSessionCell,
+  type AgentTurnOutput,
+} from "../cells/agent-cell.ts";
+import type { CellsApi } from "../cells/api.ts";
+
+/** Clase y binding de las celdas de sesión de agentes. */
+export const AGENT_SESSION_CELL = { className: "ZenithAgentSession", binding: "AGENT_SESSIONS" };
 
 /** Definition of an ADK agent, built-in or registered with `adkAgents.registerAgent()`. */
 export interface ADKAgentDef {
@@ -91,7 +107,7 @@ export const ADKAgentsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithADKAgents",
   provides: ["adk_routes", "adkAgents"],
   consumes: ["db"],
-  tags: ["uses:ai", "uses:events", "uses:vectordb"],
+  tags: ["uses:ai", "uses:events", "uses:vectordb", "uses:cells"],
   state: [],
   runtimes: ["deno"],
 
@@ -103,6 +119,7 @@ export const ADKAgentsTrait: AnyTraitDescriptor = createTraitDescriptor({
     const vectordb = deps.traits["vectordb"];
     const db = deps.traits["db"];
     const events = deps.traits["events"];
+    const cells = deps.traits["cells"] as CellsApi | undefined;
 
     // ─── Herramientas CRM compartidas ─────────────────────────────────────────
 
@@ -286,27 +303,16 @@ Si no tienes la respuesta, escala al equipo humano. Sé empático y claro.`,
 
     // ─── ReAct Loop (Reasoning + Acting) ────────────────────────────────────
 
-    async function executeAgent(
-      agentId: string,
+    /** Un turno ReAct sobre `history` (mensajes anteriores) + `input`. */
+    async function react(
+      agent: ADKAgentDef,
+      history: AgentMessage[],
       input: string,
       ctx: any,
-      sessionId?: string,
-    ): Promise<any> {
-      const agent = AGENT_REGISTRY.get(agentId);
-      if (!agent) throw ZenithErrors.notFound("ADKAgent", agentId);
-
-      if (!ai) {
-        return {
-          agentId,
-          finalAnswer: `[AI no configurado] Input recibido: ${input}`,
-          iterations: [],
-          durationMs: 0,
-        };
-      }
-
-      const start = Date.now();
-      const messages = [
+    ): Promise<AgentTurnOutput & { messages: Array<{ role: string; content: string }> }> {
+      const messages: Array<{ role: string; content: string }> = [
         { role: "system", content: agent.systemPrompt },
+        ...history.map((m) => ({ role: m.role, content: m.content })),
         { role: "user", content: input },
       ];
       const iterations: any[] = [];
@@ -340,6 +346,82 @@ Si no tienes la respuesta, escala al equipo humano. Sé empático y claro.`,
         messages.push({ role: "assistant", content: text });
         messages.push({ role: "user", content: `Tool result: ${JSON.stringify(observation)}` });
       }
+      return { finalAnswer, iterations, messages };
+    }
+
+    // ─── Sesiones como celdas ─────────────────────────────────────────────────
+
+    /** El contexto de la petición no cruza la celda (RPC copia los argumentos): viaja una referencia. */
+    const contexts = new Map<string, any>();
+    const runtime: AgentRuntime = {
+      async turn(agentId, history, input, contextRef) {
+        const agent = AGENT_REGISTRY.get(agentId);
+        if (!agent) throw ZenithErrors.notFound("ADKAgent", agentId);
+        const ctx = contextRef ? contexts.get(contextRef) ?? {} : {};
+        if (!ai) {
+          return { finalAnswer: `[AI no configurado] Input recibido: ${input}`, iterations: [] };
+        }
+        const { finalAnswer, iterations } = await react(agent, history, input, ctx);
+        return { finalAnswer, iterations };
+      },
+    };
+    const sessions = cells?.define(AGENT_SESSION_CELL.className, AgentSessionCell, {
+      binding: AGENT_SESSION_CELL.binding,
+      env: { AGENT_RUNTIME: runtime },
+    });
+    const sessionCell = (sessionId: string) => sessions!.getByName(sessionId);
+
+    async function runInSession(agentId: string, input: string, ctx: any, sessionId: string) {
+      if (!AGENT_REGISTRY.has(agentId)) throw ZenithErrors.notFound("ADKAgent", agentId);
+      const ref = crypto.randomUUID();
+      contexts.set(ref, ctx);
+      try {
+        const cell = sessionCell(sessionId);
+        const r = await cell.turn(agentId, String(input ?? ""), { contextRef: ref });
+        const result = {
+          agentId,
+          sessionId,
+          finalAnswer: r.finalAnswer,
+          iterations: r.iterations,
+          durationMs: r.durationMs,
+          turn: r.turn,
+          backend: "cells" as const,
+        };
+        // Espejo en ADKSession (la API anterior lo lee de ahí).
+        const history = await cell.history();
+        await db.update("ADKSession", { objectId: sessionId }, {
+          messages: history,
+          updatedAt: now(),
+        }).catch(() => {});
+        if (events) events.emit("ADK.agentCompleted", result);
+        return result;
+      } finally {
+        contexts.delete(ref);
+      }
+    }
+
+    async function executeAgent(
+      agentId: string,
+      input: string,
+      ctx: any,
+      sessionId?: string,
+    ): Promise<any> {
+      const agent = AGENT_REGISTRY.get(agentId);
+      if (!agent) throw ZenithErrors.notFound("ADKAgent", agentId);
+
+      if (sessionId && sessions) return runInSession(agentId, input, ctx, sessionId);
+
+      if (!ai) {
+        return {
+          agentId,
+          finalAnswer: `[AI no configurado] Input recibido: ${input}`,
+          iterations: [],
+          durationMs: 0,
+        };
+      }
+
+      const start = Date.now();
+      const { finalAnswer, iterations, messages } = await react(agent, [], input, ctx);
 
       const result = {
         agentId,
@@ -379,6 +461,23 @@ Si no tienes la respuesta, escala al equipo humano. Sé empático y claro.`,
         return tool;
       },
       run: executeAgent,
+
+      /** Dónde viven las sesiones: `cells` (celda por sesión) o `db` (sin historial previo). */
+      sessionBackend: (sessions ? "cells" : "db") as "cells" | "db",
+
+      /** El historial de una sesión (celdas) o `ADKSession.messages` (base de datos). */
+      async history(agentId: string, sessionId: string) {
+        if (sessions) {
+          const cell = sessionCell(sessionId);
+          const info = await cell.info();
+          if (info.agentId !== null && info.agentId !== agentId) {
+            throw ZenithErrors.notFound("ADKSession", sessionId);
+          }
+          return { sessionId, ...info, agentId, history: await cell.history() };
+        }
+        const row = await db.read?.("ADKSession", sessionId).catch(() => null);
+        return { sessionId, agentId, history: row?.messages ?? [] };
+      },
 
       async createSession(agentId: string, ctx: any) {
         return db.create("ADKSession", {
@@ -433,6 +532,36 @@ Si no tienes la respuesta, escala al equipo humano. Sé empático y claro.`,
           try {
             const p = pathParams("/zen/agents/:agentId/sessions", req.url)!;
             return jsonRes(await api.createSession(p.agentId, ctx), 201);
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
+      {
+        method: "GET" as const,
+        path: "/zen/agents/:agentId/sessions/:sessionId/messages",
+        _openapi: { summary: "Historial de una sesión de conversación", tags: ["Agents"] },
+        handler: async (req: Request, _ctx: any) => {
+          try {
+            const p = pathParams("/zen/agents/:agentId/sessions/:sessionId/messages", req.url)!;
+            return jsonRes(await api.history(p.agentId, p.sessionId));
+          } catch (e) {
+            return errRes(e);
+          }
+        },
+      },
+      {
+        method: "POST" as const,
+        path: "/zen/agents/:agentId/sessions/:sessionId/messages",
+        _openapi: {
+          summary: "Un turno de la sesión (uno a la vez por sesión, con su historial)",
+          tags: ["Agents"],
+        },
+        handler: async (req: Request, ctx: any) => {
+          try {
+            const p = pathParams("/zen/agents/:agentId/sessions/:sessionId/messages", req.url)!;
+            const b = await req.json();
+            return jsonRes(await api.run(p.agentId, b.input, ctx, p.sessionId));
           } catch (e) {
             return errRes(e);
           }

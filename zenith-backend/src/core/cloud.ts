@@ -20,6 +20,7 @@ import type { ZenithAuthContext, ZenithObject, ZenithPluginsRegistry } from "./t
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ZenithError, ZenithErrorCode } from "./errors.ts";
 import { applySchema, defineSchema, getSchema } from "./cloud-schema.ts";
+import { createZenCells, type ZenCellsAPI } from "../traits/cells/registry.ts";
 
 // ─── Multi-Tenant Context & App Registry ───────────────────────────────────────
 
@@ -1389,9 +1390,26 @@ export interface ZenAppHandle {
 export const ZENITH_ENGINE: { current: Record<string, unknown> | null } = { current: null };
 
 /**
- * The namespace cloud code uses: `Cloud` (functions, jobs, triggers), `DB`, `Config`,
- * `Federation`, `GeoPoint`, `Logger`, `API`, `Plugins`, `Shell`, and `App(appId)` for database
- * access to another app of the same server.
+ * `Zen.Cells` (ADR-019): cell classes (Durable Objects) from Cloud Code.
+ *
+ * @example
+ * ```ts
+ * import { Zen } from "@zuccadev-labs/zenith";
+ *
+ * class Room {
+ *   constructor(private ctx: { storage: { put(k: string, v: unknown): Promise<void> } }) {}
+ *   async join(user: string) { await this.ctx.storage.put(`member:${user}`, true); }
+ * }
+ * Zen.Cells.define("Room", Room, { binding: "ROOMS" });
+ * Zen.Cloud.define("join", (req) => Zen.Cells.get<Room>("ROOMS", req.params.room).join(req.params.user));
+ * ```
+ */
+export const ZenCells: ZenCellsAPI = createZenCells(() => zenithContext.getStore()?.appId);
+
+/**
+ * The namespace cloud code uses: `Cloud` (functions, jobs, triggers), `DB`, `Config`, `Cells` (stateful
+ * cells, ADR-019), `Federation`, `GeoPoint`, `Logger`, `API`, `Plugins`, `Shell`, and `App(appId)` for
+ * database access to another app of the same server.
  *
  * @example
  * ```ts
@@ -1410,6 +1428,7 @@ export const Zen = {
   API: ZenAPI,
   Plugins: ZenPlugins,
   Shell: ZenShell,
+  Cells: ZenCells,
   App: (appId: string): ZenAppHandle => ({
     DB: {
       find: (c: string, q: any) => ZenDB.find(c, q, { targetAppId: appId }),

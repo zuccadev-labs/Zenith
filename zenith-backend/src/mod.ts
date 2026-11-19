@@ -96,7 +96,72 @@ export { SearchTrait } from "./traits/search/search.trait.ts";
 export { TimelineTrait } from "./traits/timeline/timeline.trait.ts";
 export { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
 export { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
-export { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
+export { ADKAgentsTrait, AGENT_SESSION_CELL } from "./traits/agents/adk.agents.trait.ts";
+export {
+  type AgentCellTurnResult,
+  type AgentMessage,
+  type AgentRuntime,
+  AgentSessionCell,
+  type AgentSessionInfo,
+  type AgentTurnOptions,
+  type AgentTurnOutput,
+  type AlarmInvocationInfo,
+  type CellClass,
+  type CellClassOptions,
+  type CelldCellClass,
+  CelldCellsClient,
+  type CelldClientOptions,
+  celldDeploy,
+  type CelldDeployOptions,
+  type CelldDevNode,
+  type CelldNamespace,
+  type CelldProject,
+  type CelldProjectOptions,
+  type CelldWranglerConfig,
+  celldWranglerConfig,
+  type CellEnv,
+  CellError,
+  type CellErrorCode,
+  type CellHandlers,
+  type CellsApi,
+  type CellsConfig,
+  type CellsDeps,
+  type CellsHandle,
+  type CellsStats,
+  CellsTrait,
+  type CellValue,
+  createCellsApi,
+  DurableObject,
+  type DurableObjectId,
+  type DurableObjectListOptions,
+  type DurableObjectNamespace,
+  type DurableObjectState,
+  type DurableObjectStorage,
+  type DurableObjectStub,
+  type DurableObjectTransaction,
+  generateCelldProject,
+  type JobQueueLike,
+  type KVGetType,
+  type KVListOptions,
+  type KVListResult,
+  type KVNamespace,
+  type KVPutOptions,
+  type LocalCellsOptions,
+  LocalCellsProvider,
+  type MessageBatch,
+  type Queue,
+  type QueueConsumer,
+  type QueueMessage,
+  type QueueSendOptions,
+  type RpcMethods,
+  type SqlRow,
+  type SqlStorage,
+  type SqlStorageCursor,
+  type SqlStorageValue,
+  startCelldDev,
+  type SyncKvStorage,
+  type ZenCellsAPI,
+} from "./traits/cells/mod.ts";
 export { PluginMarketplaceTrait } from "./traits/marketplace/marketplace.trait.ts";
 export { FIELD_TYPES } from "./traits/metadata/metadata.trait.ts";
 export type { FieldType, MetaField, MetaObject } from "./traits/metadata/metadata.trait.ts";
@@ -336,6 +401,14 @@ export async function createZenithApp(
     const enginePush =
       (engine as unknown as Record<string, { configure?: (c: unknown) => void }>)["enginePush"];
     enginePush?.configure?.({ appId: config.appId, ...(config.enginePush ?? {}) });
+
+    // cells (ADR-019): this app's provider and directory; the local one arms its pending alarms now.
+    const cells = (engine as unknown as Record<
+      string,
+      { configure?: (c: unknown) => void; start?: () => void }
+    >)["cells"];
+    cells?.configure?.({ appId: config.appId, ...(config.cells ?? {}) });
+    cells?.start?.();
 
     // /classes for users: only schema-defined classes unless the app opts into client class creation.
     const crud =
