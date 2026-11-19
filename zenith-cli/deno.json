@@ -1,6 +1,6 @@
 {
   "name": "@zuccadev-labs/zenith-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Zenith CLI — Developer, Agent and Backend operations",
   "license": "MIT",
   "exports": {
@@ -36,7 +36,7 @@
     "@std/path": "jsr:@std/path@^1.1.6",
     "@std/streams": "jsr:@std/streams@^1.2.0",
     "@zuccadev-labs/barrits": "jsr:@zuccadev-labs/barrits@^0.3.1",
-    "@zuccadev-labs/zenith": "jsr:@zuccadev-labs/zenith@^0.1.0"
+    "@zuccadev-labs/zenith": "jsr:@zuccadev-labs/zenith@^0.2.0"
   },
   "links": [
     "../zenith-backend"

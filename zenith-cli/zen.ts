@@ -25,10 +25,10 @@ import { fromFileUrl, join, relative, resolve } from "@std/path";
 import { commandTable, helpText } from "./commands/registry.ts";
 
 /** Version of this CLI. */
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 
 /** The engine release new projects depend on. Keep in step with zenith-backend/deno.json (a test checks it). */
-export const ENGINE_VERSION = "0.1.0";
+export const ENGINE_VERSION = "0.2.0";
 /** JSR specifier of the engine written into new projects' import map. */
 export const ENGINE_JSR = `jsr:@zuccadev-labs/zenith@^${ENGINE_VERSION}`;
 
