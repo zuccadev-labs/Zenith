@@ -39,6 +39,15 @@
           "defaultPolicy": [],
           "anonymousPolicy": []
         },
+        "chifof/**": {
+          "policies": [
+            { "users": ["ci"], "actions": ["read", "create", "update", "delete"] },
+            { "users": ["engines"], "actions": ["read", "create", "update"] },
+            { "users": ["reader"], "actions": ["read"] }
+          ],
+          "defaultPolicy": [],
+          "anonymousPolicy": []
+        },
         "**": {
           "policies": [
             { "users": ["ci"], "actions": ["read", "create", "update", "delete"] },
