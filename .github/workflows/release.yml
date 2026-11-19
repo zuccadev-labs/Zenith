@@ -1,17 +1,14 @@
-# Publishes the packages from CI with no stored token: JSR and npm both trust this workflow through GitHub OIDC
+# Publishes one package from CI with no stored token: JSR and npm both trust this workflow through GitHub OIDC
 # (JSR: the package is linked to this repository; npm: trusted publisher = this repository + release.yml), and npm
-# adds a provenance attestation. Run it by hand after bumping the version in the package's manifest:
-#   gh workflow run release.yml -f package=zenith-client
-# A version already published is refused by the registry, so a re-run cannot overwrite anything.
+# adds a provenance attestation. Bump the version in the package's manifest, commit, then push its tag:
+#   git tag zenith-client-v0.2.1 && git push origin zenith-client-v0.2.1
+# Tags: zenith-v*, zenith-cli-v*, zenith-client-v*, create-zenith-v*. The job checks that the tag's version is the
+# manifest's; a version already published is refused by the registry, so nothing can be overwritten.
 name: release
 
 on:
-  workflow_dispatch:
-    inputs:
-      package:
-        description: Package to publish
-        type: choice
-        options: [zenith, zenith-cli, zenith-client, create-zenith]
+  push:
+    tags: ["zenith-v*", "zenith-cli-v*", "zenith-client-v*", "create-zenith-v*"]
 
 permissions:
   contents: read
@@ -22,7 +19,7 @@ env:
 
 jobs:
   jsr:
-    if: inputs.package == 'zenith' || inputs.package == 'zenith-cli'
+    if: startsWith(github.ref_name, 'zenith-v') || startsWith(github.ref_name, 'zenith-cli-v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -35,11 +32,16 @@ jobs:
         with:
           deno-version: ${{ env.DENO_VERSION }}
       - name: Publish to JSR
-        working-directory: ${{ inputs.package == 'zenith' && 'zenith-backend' || 'zenith-cli' }}
-        run: deno publish
+        working-directory: ${{ startsWith(github.ref_name, 'zenith-cli-v') && 'zenith-cli' || 'zenith-backend' }}
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(jq -r .version deno.json)"
+          [ "${TAG##*-v}" = "$version" ] || { echo "::error::tag $TAG but deno.json says $version"; exit 1; }
+          deno publish
 
   npm:
-    if: inputs.package == 'zenith-client' || inputs.package == 'create-zenith'
+    if: startsWith(github.ref_name, 'zenith-client-v') || startsWith(github.ref_name, 'create-zenith-v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -52,8 +54,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false # a release never restores a cache (cache poisoning)
       - name: Publish to npm (with provenance)
-        working-directory: ${{ inputs.package == 'zenith-client' && 'sdk/Typescript' || 'create-zenith' }}
+        working-directory: ${{ startsWith(github.ref_name, 'zenith-client-v') && 'sdk/Typescript' || 'create-zenith' }}
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
+          version="$(jq -r .version package.json)"
+          [ "${TAG##*-v}" = "$version" ] || { echo "::error::tag $TAG but package.json says $version"; exit 1; }
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; fi
           npm publish --provenance --access public
