@@ -388,7 +388,7 @@ Zen.Cloud.beforeSave("Todo", (req: any) => {
       const drop = await new Deno.Command(Deno.execPath(), {
         args: [
           "eval",
-          `const m = await import("npm:mongodb@^7.8.0"); const c = await new m.MongoClient(${
+          `const m = await import("npm:mongodb@^7.9.0"); const c = await new m.MongoClient(${
             JSON.stringify(MONGO)
           }).connect(); await c.db(${JSON.stringify(appId)}).dropDatabase(); await c.close();`,
         ],
