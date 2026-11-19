@@ -41,74 +41,123 @@ import {
 
 // ── Tipos públicos ─────────────────────────────────────────────────────────────
 
+/** A connected calendar account (OAuth2, CalDAV or iCal feed) that events are synced from. */
 export interface CalendarChannel {
+  /** Unique id of the channel record. */
   objectId: string;
+  /** Display name of the channel. */
   name: string;
+  /** Email address of the calendar account. */
   email: string;
+  /** Calendar provider; selects the registered {@link CalendarAdapterDef} used to sync. */
   provider: "google" | "outlook" | "caldav" | "ical" | "custom";
+  /** Sync state: `error` after a failed fetch, `paused` skips syncing. */
   status: "active" | "error" | "paused";
+  /** IANA time zone of the calendar (for example `Europe/Madrid`). */
   timezone: string;
-  syncInterval: number; // segundos
+  /** Interval between automatic syncs, in seconds. */
+  syncInterval: number;
+  /** ISO 8601 timestamp of the last sync attempt. */
   lastSyncAt?: string;
-  calendarId?: string; // ID del calendario en el proveedor
+  /** Id of the calendar on the provider side. */
+  calendarId?: string;
 }
 
+/** A calendar event synced from (or pushed to) a provider, optionally linked to a CRM record. */
 export interface CalendarEvent {
+  /** Unique id of the event record. */
   objectId: string;
+  /** Id of the {@link CalendarChannel} the event belongs to. */
   channelId: string;
-  externalId: string; // ID en el proveedor (ej. Google Event ID)
+  /** Id of the event on the provider (for example the Google event id). */
+  externalId: string;
+  /** Event title. */
   title: string;
+  /** Free-text description. */
   description?: string;
+  /** Physical location of the event. */
   location?: string;
-  startAt: string; // ISO 8601
+  /** Start time, ISO 8601. */
+  startAt: string;
+  /** End time, ISO 8601. */
   endAt: string;
+  /** Whether the event spans whole days instead of a time range. */
   isAllDay: boolean;
+  /** Event status as reported by the provider. */
   status: "confirmed" | "tentative" | "cancelled";
+  /** Invited people and their response; their emails are matched against CRM records on sync. */
   attendees: Array<
     { email: string; name?: string; status: "accepted" | "declined" | "tentative" | "unknown" }
   >;
-  // Vinculación CRM via Target polimórfico
+  /** Class of the linked CRM record (polymorphic target), for example `Contact` or `Deal`. */
   targetClassName?: string;
+  /** Id of the linked CRM record. */
   targetId?: string;
-  recurrence?: string; // RRULE string (RFC 5545)
-  meetingUrl?: string; // Google Meet / Teams / Zoom link
+  /** Recurrence rule as an RFC 5545 RRULE string. */
+  recurrence?: string;
+  /** Video meeting link (Google Meet, Teams, Zoom). */
+  meetingUrl?: string;
+  /** Reminders to fire before the event starts. */
   reminders?: Array<{ method: "email" | "popup"; minutesBefore: number }>;
+  /** Creation timestamp, ISO 8601. */
   createdAt: string;
+  /** Last update timestamp, ISO 8601. */
   updatedAt: string;
 }
 
+/** An availability slot that an external person can book as a meeting. */
 export interface CalendarSlot {
+  /** Unique id of the slot record. */
   objectId: string;
+  /** Id of the {@link CalendarChannel} the booked event is created in. */
   channelId: string;
+  /** Slot start, ISO 8601. */
   startAt: string;
+  /** Slot end, ISO 8601. */
   endAt: string;
-  duration: number; // minutos
-  title: string; // "30-min Sales Call"
+  /** Meeting length in minutes (defaults to 30). */
+  duration: number;
+  /** Title given to the booked event, for example `"30-min Sales Call"`. */
+  title: string;
+  /** Whether the slot has already been booked. */
   isBooked: boolean;
-  bookedBy?: string; // email del que reservó
-  eventId?: string; // CalendarEvent.objectId una vez confirmado
-  bufferMins: number; // tiempo de buffer antes/después
+  /** Email of the person who booked the slot. */
+  bookedBy?: string;
+  /** `objectId` of the {@link CalendarEvent} created when the slot was booked. */
+  eventId?: string;
+  /** Buffer time kept free before and after the meeting, in minutes. */
+  bufferMins: number;
 }
 
-/** Registro de adaptadores de calendario pluggables */
+/** Registry of pluggable calendar adapters, keyed by provider. */
 const CALENDAR_ADAPTERS = new Map<string, CalendarAdapterDef>();
 
+/**
+ * Contract a calendar provider integration implements (Google, Outlook, CalDAV...).
+ * Registered at runtime with `calendarSync.registerAdapter()`; channels whose `provider`
+ * has no adapter are only marked as synced.
+ */
 export interface CalendarAdapterDef {
+  /** Provider name this adapter handles; matched against {@link CalendarChannel.provider}. */
   provider: string;
+  /** Fetches the provider's events of `channel` between `from` and `to`. */
   fetchEvents: (
     channel: CalendarChannel,
     from: Date,
     to: Date,
   ) => Promise<Partial<CalendarEvent>[]>;
+  /** Creates the event on the provider and returns its external id and meeting link. */
   createEvent: (
     channel: CalendarChannel,
     event: Partial<CalendarEvent>,
   ) => Promise<{ externalId: string; meetingUrl?: string }>;
+  /** Pushes changes of a local event to the provider event `externalId`. */
   updateEvent: (
     channel: CalendarChannel,
     externalId: string,
     event: Partial<CalendarEvent>,
   ) => Promise<void>;
+  /** Deletes the provider event `externalId`. */
   deleteEvent: (channel: CalendarChannel, externalId: string) => Promise<void>;
 }
 
@@ -139,6 +188,12 @@ const CALENDAR_SCHEMA = {
   },
 };
 
+/**
+ * Calendar sync trait: connects calendar channels through pluggable provider adapters, links
+ * synced events to CRM records by attendee email, manages bookable slots, detects conflicts and
+ * serves iCal feeds. Provides the `calendarSync` API and the `/zen/calendar/*` routes; consumes
+ * `cloud` and `db`.
+ */
 export const CalendarSyncTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithCalendarSync",
   provides: ["calendar_routes", "calendarSync"],

@@ -80,8 +80,11 @@ export interface PluginSignature {
  * ```
  */
 export interface SignedPluginManifest {
+  /** Manifest format version; always {@link MANIFEST_VERSION}. */
   readonly manifestVersion: typeof MANIFEST_VERSION;
+  /** The signed artifact: its canonical JSON is exactly what `signature` covers. */
   readonly plugin: PluginArtifact;
+  /** Ed25519 signature of the canonical JSON of `plugin`. */
   readonly signature: PluginSignature;
 }
 
@@ -107,7 +110,9 @@ export interface TrustedAuthorKey {
 
 /** Trust store completo. */
 export interface TrustStore {
+  /** Trust store file format version. */
   readonly version: "1.0";
+  /** Author keys trusted to sign plugins, including revoked ones kept for auditing. */
   readonly keys: TrustedAuthorKey[];
 }
 

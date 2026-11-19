@@ -201,6 +201,10 @@ function recalculateTotals(
 
 // ─── Trait Principal ──────────────────────────────────────────────────────────
 
+/**
+ * ERP trait: products, warehouses, inventory, orders, invoices, payments and employees under
+ * `/zen/erp/*`, with stock adjustments, order fulfilment and an immutable audit log.
+ */
 export const ERPTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithERPTrait",
   provides: ["erp_routes", "erp"],

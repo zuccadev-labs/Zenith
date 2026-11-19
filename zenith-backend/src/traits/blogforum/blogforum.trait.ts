@@ -102,6 +102,10 @@ function readingTime(bodyText?: string): number {
   return Math.max(1, Math.round((bodyText ?? "").split(/\s+/).length / 200));
 }
 
+/**
+ * Blog and forum trait: blog posts (drafts, tags, SEO, paywall) and forum categories, threads,
+ * replies, votes and accepted answers, under `/zen/blog/*`, `/zen/forum/*` and `/zen/content/vote`.
+ */
 export const BlogForumTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithBlogForum",
   provides: ["blogforum_routes", "blog", "forum"],

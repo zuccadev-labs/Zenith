@@ -1,12 +1,12 @@
 /**
  * @module @zenith/core/engine-api
  *
- * Contratos de tipos para el Engine compuesto de Zenith.
- * Cada interfaz describe un servicio que un trait (o grupo de traits)
- * puede exponer bajo una clave específica en el state compuesto.
+ * Type contracts for the composed Zenith Engine.
+ * Each interface describes a service that a trait (or group of traits)
+ * can expose under a specific key of the composed state.
  *
- * Los desarrolladores de Cloud Code NO usan esto directamente.
- * Usan la API pública `Zen.Cloud`, `Zen.DB`, etc. definida en `cloud.ts`.
+ * Cloud Code developers do NOT use this directly.
+ * They use the public `Zen.Cloud`, `Zen.DB`, etc. API defined in `cloud.ts`.
  *
  * @barrits-trait
  * @barrits-summary Engine API contracts — typed service interfaces
@@ -15,67 +15,67 @@
 import type { ZenithConfig } from "./types.ts";
 
 /**
- * Servicio de Cloud Functions.
- * Expuesto por CloudCodeTrait bajo la clave `"cloud-functions"`.
- * Permite cargar cloud code dinámico, definir funciones, ejecutarlas y listarlas.
+ * Cloud Functions service.
+ * Exposed by CloudCodeTrait under the `"cloud-functions"` key.
+ * Loads dynamic cloud code and defines, runs and lists cloud functions.
  */
 export interface CloudFunctionService {
-  /** Carga cloud code desde un archivo .ts via `import()` dinámico */
+  /** Loads cloud code from a .ts file through a dynamic `import()`. */
   loadCloudCode: (cloudCodePath: string) => Promise<void>;
-  /** Define una función cloud programáticamente */
+  /** Registers a cloud function programmatically and returns its name and registration time. */
   define: (
     name: string,
     fn: (request: Record<string, unknown>) => unknown,
   ) => { name: string; registeredAt: string };
-  /** Ejecuta una función cloud por nombre */
+  /** Runs a registered cloud function by name with the given params and request context. */
   run: (
     name: string,
     params: Record<string, unknown>,
     context?: Record<string, unknown>,
   ) => Promise<unknown>;
-  /** Lista todas las funciones cloud registradas */
+  /** Lists the names of every registered cloud function. */
   listFunctions: () => string[];
 }
 
 /**
- * Servicio de Triggers (hooks de ciclo de vida).
- * Expuesto por CloudCodeTrait bajo la clave `"triggers"`.
- * Ejecuta beforeSave, afterSave, beforeFind, afterFind, etc.
+ * Trigger service (object lifecycle hooks).
+ * Exposed by CloudCodeTrait under the `"triggers"` key.
+ * Runs beforeSave, afterSave, beforeFind, afterFind, etc.
  */
 export interface TriggerService {
-  /** Ejecuta triggers beforeSave para una clase */
+  /** Runs the beforeSave triggers registered for a class. */
   runBeforeSave: (className: string, request: Record<string, unknown>) => Promise<void>;
-  /** Ejecuta triggers afterSave para una clase */
+  /** Runs the afterSave triggers registered for a class. */
   runAfterSave: (className: string, request: Record<string, unknown>) => Promise<void>;
-  /** Ejecuta triggers beforeFind para una clase */
+  /** Runs the beforeFind triggers registered for a class. */
   runBeforeFind: (className: string, request: Record<string, unknown>) => Promise<void>;
-  /** Ejecuta triggers afterFind para una clase */
+  /** Runs the afterFind triggers registered for a class. */
   runAfterFind: (className: string, request: Record<string, unknown>) => Promise<void>;
-  /** Ejecuta triggers beforeDelete para una clase */
+  /** Runs the beforeDelete triggers registered for a class. */
   runBeforeDelete: (className: string, request: Record<string, unknown>) => Promise<void>;
-  /** Ejecuta triggers afterDelete para una clase */
+  /** Runs the afterDelete triggers registered for a class. */
   runAfterDelete: (className: string, request: Record<string, unknown>) => Promise<void>;
-  /** Ejecuta triggers de archivo (beforeWrite, afterWrite, beforeDelete, afterDelete) */
+  /** Runs the file triggers of a phase (beforeWrite, afterWrite, beforeDelete, afterDelete). */
   runFileTrigger: (phase: string, request: Record<string, unknown>) => Promise<void>;
 }
 
 /**
- * Servicio de Facturación y Metering.
- * Expuesto por BillingTrait bajo la clave `"billing-metering"`.
+ * Billing and metering service.
+ * Exposed by BillingTrait under the `"billing-metering"` key.
  */
 export interface BillingMeteringService {
-  /** Inyecta el adaptador de pagos (Stripe, etc.) */
+  /** Injects the payments adapter (Stripe, etc.). */
   injectAdapter: (adapter: unknown) => void;
-  /** Consume cuota de un usuario para una métrica específica */
+  /** Consumes `amount` units of a user's quota for the given metric. */
   consumeQuota: (userId: string, metric: string, amount: number) => Promise<void>;
 }
 
 /**
- * Servicio de Realtime Pub/Sub (LiveQuery).
- * Expuesto por RealtimeTrait bajo la clave `"realtime-pubsub"`.
+ * Realtime Pub/Sub service (LiveQuery).
+ * Exposed by RealtimeTrait under the `"realtime-pubsub"` key.
  */
 export interface RealtimePubSubService {
-  /** Maneja la conexión WebSocket de LiveQuery */
+  /** Takes over an accepted LiveQuery WebSocket connection for the given app and session. */
   handleWebSocket: (
     socket: WebSocket,
     authPayload: { appId: string; sessionToken: string | undefined },
@@ -83,83 +83,86 @@ export interface RealtimePubSubService {
 }
 
 /**
- * Servicio de Schema y Migraciones.
- * Expuesto por SchemaManagementTrait y MigrationTrait.
+ * Schema and migrations service.
+ * Exposed by SchemaManagementTrait and MigrationTrait.
  */
 export interface SchemaService {
-  /** Construye el schema a partir de los traits registrados */
+  /** Builds the schema from the registered traits. */
   buildSchema: () => Promise<void>;
-  /** Inicializa el schema con la configuración de la app */
+  /** Initializes the schema with the app configuration. */
   schema_init: (config: ZenithConfig) => Promise<void>;
-  /** Ejecuta migraciones pendientes */
+  /** Runs the migrations that have not been applied yet. */
   runPendingMigrations: (migrations: unknown[]) => Promise<void>;
 }
 
 /**
- * Servicio de Observabilidad (métricas, logs, health checks).
- * Expuesto por ObservabilityTrait.
+ * Observability service (metrics, logs, health checks).
+ * Exposed by ObservabilityTrait.
  */
 export interface ObservabilityService {
-  /** Inicializa el pipeline de observabilidad (OTel, Prometheus) */
+  /** Initializes the observability pipeline (OTel, Prometheus). */
   observability_init: () => void;
-  /** Middleware HTTP que registra métricas por request */
+  /**
+   * HTTP middleware that records per-request metrics around `next`; `routeOf` maps a request to
+   * its route template so metrics are labelled by route instead of raw path.
+   */
   middleware: (
     req: Request,
     next: () => Promise<Response>,
     routeOf?: (method: string, pathname: string) => string | undefined,
   ) => Promise<Response>;
-  /** Health check endpoint /_health */
+  /** Liveness report served at `/_health`. */
   health: () => Promise<Record<string, unknown>>;
-  /** Readiness check endpoint /_ready */
+  /** Readiness report served at `/_ready`. */
   ready: () => Promise<Record<string, unknown>>;
-  /** Logger estructurado */
+  /** Structured logger. */
   log: (...args: unknown[]) => void;
 }
 
 /**
- * Servicio de ACL (Access Control Lists).
- * Expuesto por ACLTrait.
+ * ACL (Access Control Lists) service.
+ * Exposed by ACLTrait.
  */
 export interface AclService {
-  /** Inicializa el sistema de ACLs con la configuración de la app */
+  /** Initializes the ACL system with the app configuration. */
   acl_init: (config: ZenithConfig) => void;
 }
 
 /**
- * Servicio de Rate Limiting.
- * Expuesto por RateLimitTrait.
+ * Rate limiting service.
+ * Exposed by RateLimitTrait.
  */
 export interface RateLimitService {
-  /** Inicializa el rate limiter (Redis, in-memory, etc.) */
+  /** Initializes the rate limiter backend (Redis, in-memory, etc.). */
   ratelimit_init: () => Promise<void>;
 }
 
 /**
- * Servicio de AI/Agentes.
- * Expuesto por AITrait.
+ * AI / agents service.
+ * Exposed by AITrait.
  */
 export interface AiService {
-  /** Inicializa los proveedores de AI */
+  /** Initializes the AI providers from the app configuration. */
   ai_init: (config: ZenithConfig) => void;
 }
 
 /**
- * Servicio de Criptografía (JWT keys).
- * Expuesto por CryptoTrait.
+ * Cryptography service (JWT keys).
+ * Exposed by CryptoTrait.
  */
 export interface CryptoService {
-  /** Inyecta las llaves RSA para firmar/verificar JWTs */
+  /** Injects the RSA key pair (PEM) used to sign and verify JWTs. */
   initKeys: (privateKey: string, publicKey: string) => void;
 }
 
 /**
- * Servicio de Media Streaming (E2EE, SFU).
- * Expuesto por MediaStreamTrait, E2EEKeysTrait, SFrameSignalingTrait.
+ * Media streaming service (E2EE, SFU).
+ * Exposed by MediaStreamTrait, E2EEKeysTrait and SFrameSignalingTrait.
  */
 export interface MediaService {
-  /** Configura el modo E2EE (strict_sframe | hop_by_hop) */
+  /** Sets the E2EE mode (`strict_sframe` or `hop_by_hop`). */
   setE2EEMode: (mode: string) => void;
-  /** Maneja WebSocket de streaming de medios */
+  /** Takes over an accepted media streaming WebSocket for a room. */
   handleWebSocket: (
     socket: WebSocket,
     roomId: string,
@@ -168,18 +171,18 @@ export interface MediaService {
 }
 
 /**
- * Servicio de gRPC.
- * Expuesto por gRPCTrait.
+ * gRPC service.
+ * Exposed by gRPCTrait.
  */
 export interface GrpcService {
-  /** Inicia el servidor gRPC en el puerto especificado */
+  /** Starts the gRPC server on the given port with the given service implementations. */
   startServer: (
     port: number,
     services?: Record<string, unknown>,
   ) => Promise<{ port: number; secure: boolean }>;
-  /** Detiene el servidor gRPC */
+  /** Stops the gRPC server. */
   stopServer: () => Promise<void>;
-  /** Llama a un servicio gRPC remoto */
+  /** Calls a method of a remote gRPC service and resolves with its response. */
   callService: (
     address: string,
     serviceName: string,
@@ -189,12 +192,12 @@ export interface GrpcService {
 }
 
 /**
- * Interfaz compuesta del Engine de Zenith.
- * Es el resultado de `composeTraitDescriptors()` y expone todos los servicios
- * de los traits activos como propiedades opcionales.
+ * Composed interface of the Zenith Engine.
+ * It is the result of composing the active traits and exposes every service
+ * they provide as optional properties.
  *
- * No todos los servicios están disponibles siempre — dependen de la topología
- * y features configurados en `ZenithConfig`.
+ * Not every service is always available: it depends on the topology and
+ * features configured in `ZenithConfig`.
  *
  * @example
  * const engine = composition.traits as unknown as EngineAPI;
@@ -203,51 +206,51 @@ export interface GrpcService {
  * }
  */
 export interface EngineAPI {
-  /** Servicio de Cloud Functions (disponible si CloudCodeTrait está activo) */
+  /** Cloud Functions service (available when CloudCodeTrait is active). */
   "cloud-functions"?: CloudFunctionService;
-  /** Alias del servicio cloud (legacy) */
+  /** Legacy alias of the cloud functions service. */
   "cloud"?: CloudFunctionService;
-  /** Servicio de Triggers (beforeSave, afterSave, etc.) */
+  /** Trigger service (beforeSave, afterSave, etc.). */
   "triggers"?: TriggerService;
-  /** Servicio de facturación/metering */
+  /** Billing and metering service. */
   "billing-metering"?: BillingMeteringService;
-  /** Servicio de LiveQuery / Realtime PubSub */
+  /** LiveQuery / realtime Pub/Sub service. */
   "realtime-pubsub"?: RealtimePubSubService;
-  /** Servicio de gRPC */
+  /** gRPC service. */
   "grpc"?: GrpcService;
 
-  // ─── Servicios planos (alias directos de métodos) ──────────────
+  // ─── Flat services (direct method aliases) ──────────────
 
-  /** Inicializa el schema de datos */
+  /** Initializes the data schema. */
   schema_init?: SchemaService["schema_init"];
-  /** Construye el schema a partir de los traits */
+  /** Builds the schema from the traits. */
   buildSchema?: SchemaService["buildSchema"];
-  /** Ejecuta migraciones de schema pendientes */
+  /** Runs pending schema migrations. */
   runPendingMigrations?: SchemaService["runPendingMigrations"];
-  /** Inicializa el pipeline de observabilidad */
+  /** Initializes the observability pipeline. */
   observability_init?: ObservabilityService["observability_init"];
-  /** Inicializa el sistema de ACLs */
+  /** Initializes the ACL system. */
   acl_init?: AclService["acl_init"];
-  /** Inicializa el rate limiter */
+  /** Initializes the rate limiter. */
   ratelimit_init?: RateLimitService["ratelimit_init"];
-  /** Inicializa los proveedores de AI */
+  /** Initializes the AI providers. */
   ai_init?: AiService["ai_init"];
-  /** Inyecta las llaves RSA para JWT */
+  /** Injects the RSA keys used for JWTs. */
   initKeys?: CryptoService["initKeys"];
-  /** Configura el modo E2EE */
+  /** Sets the E2EE mode. */
   setE2EEMode?: MediaService["setE2EEMode"];
-  /** Maneja WebSocket de medios */
+  /** Takes over a media streaming WebSocket. */
   handleWebSocket?: MediaService["handleWebSocket"];
 
-  /** Obtiene el handler HTTP del engine (router principal) */
+  /** Returns the engine's HTTP handler (main router), or null when no router is composed. */
   getHandler: (config: ZenithConfig) => ((req: Request) => Promise<Response>) | null;
-  /** Rutas dinámicas registradas por los traits */
+  /** Dynamic routes registered by the traits. */
   routes?: {
     method: string;
     path: string;
     handler: (req: Request, ctx: unknown) => Promise<Response> | Response;
   }[];
 
-  /** Index signature para servicios adicionales (plugins, traits custom) */
+  /** Index signature for additional services (plugins, custom traits). */
   [key: string]: unknown;
 }

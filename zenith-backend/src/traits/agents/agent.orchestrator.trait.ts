@@ -12,27 +12,54 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/** An agent registered with the orchestrator (`POST /agents` or `registerAgent`). */
 export interface AgentDefinition {
+  /** Unique agent name; runs address the agent by it. */
   name: string;
+  /** What the agent is for. */
   description: string;
+  /** System prompt sent at the start of every run; the names of the agent's tools are appended. */
   systemPrompt: string;
+  /** Names of the registered tools the agent may call. */
   tools: string[];
+  /** Model identifier for the agent. */
   model: string;
+  /** Sampling temperature passed to the AI provider. */
   temperature?: number;
+  /** Maximum ReAct iterations per run (default 10); a run's own `maxIterations` takes precedence. */
   maxIterations?: number;
 }
 
+/** A tool agents can call during a run. */
 export interface AgentTool {
+  /** Unique tool name, as referenced from {@linkcode AgentDefinition.tools}. */
   name: string;
+  /** What the tool does, for the model. */
   description: string;
+  /** JSON Schema of the tool's input parameters. */
   parameters: Record<string, any>;
+  /**
+   * Executes the tool with the input the model produced and the run's context; the resolved value
+   * is fed back to the model as the observation.
+   */
   handler: (params: any, ctx: any) => Promise<any>;
 }
 
+/** The outcome of an agent run (`POST /agents/:name/run` or `runAgent`). */
 export interface AgentRunResult {
+  /** Name of the agent that ran. */
   agentName: string;
+  /**
+   * Each ReAct step: the model's text (`thought`), the tool call it requested (`action`, if any)
+   * and the tool's result or error (`observation`).
+   */
   iterations: Array<{ thought: string; action?: { tool: string; input: any }; observation?: any }>;
+  /**
+   * The model's answer from the first step without a tool call, or a fixed message when the
+   * iteration limit was reached first.
+   */
   finalAnswer: string;
+  /** Wall-clock duration of the run in milliseconds. */
   durationMs: number;
 }
 

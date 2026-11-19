@@ -30,33 +30,59 @@ import {
   queryParams,
 } from "../../core/trait-utils.ts";
 
+/** Catalog entry describing a plugin that can be installed from the marketplace. */
 export interface PluginManifest {
-  id: string; // @vendor/plugin-name
-  name: string; // Nombre legible
-  version: string; // SemVer
+  /** Scoped package identifier, e.g. `@vendor/plugin-name`. */
+  id: string;
+  /** Human-readable name shown in the catalog. */
+  name: string;
+  /** Semantic version of the plugin. */
+  version: string;
+  /** Short description of what the plugin adds. */
   description: string;
+  /** Author or vendor that publishes the plugin. */
   author: string;
+  /** Optional icon URL for catalog listings. */
   icon?: string;
+  /** Free-form tags matched by the catalog text search. */
   tags: string[];
+  /** Catalog category, usable as a filter in `GET /zen/plugins/catalog`. */
   category: "crm" | "erp" | "analytics" | "integration" | "ai" | "media" | "dev" | "other";
-  entryPoint: string; // Path o URL al módulo principal
-  provides: string[]; // Capabilities que expone (ej: ["email-sync", "slack-notifications"])
-  requires: string[]; // Capabilities requeridas del core (ej: ["db", "events"])
+  /** Path or URL of the plugin's main module. */
+  entryPoint: string;
+  /** Capabilities the plugin exposes, e.g. `["email-sync", "slack-notifications"]`. */
+  provides: string[];
+  /** Core capabilities the plugin needs, e.g. `["db", "events"]`. */
+  requires: string[];
+  /** Optional project homepage URL. */
   homepage?: string;
+  /** Optional source repository URL. */
   repository?: string;
+  /** Optional SPDX license identifier. */
   license?: string;
+  /** Pricing model, usable as a filter in the catalog. */
   pricing: "free" | "freemium" | "paid";
-  price?: number; // USD/mes si pricing=paid
+  /** Monthly price in USD when `pricing` is `"paid"`. */
+  price?: number;
 }
 
+/** A plugin installed in this server, persisted in the `_InstalledPlugin` collection. */
 export interface InstalledPlugin {
+  /** Database object id of the installation record. */
   objectId: string;
+  /** Identifier of the installed plugin (matches {@linkcode PluginManifest.id}). */
   pluginId: string;
+  /** Installed version (`"latest"` when the install config gives none). */
   version: string;
+  /** Whether the plugin is running, turned off by an admin, or failed. */
   status: "active" | "disabled" | "error";
+  /** Plugin-specific configuration given at install time and merged by updates. */
   config: Record<string, any>;
+  /** ISO timestamp of the installation. */
   installedAt: string;
+  /** ISO timestamp of the last enable, disable or config change. */
   updatedAt: string;
+  /** Error message when `status` is `"error"`. */
   error?: string;
 }
 
@@ -65,6 +91,12 @@ const INSTALLED = new Map<string, InstalledPlugin>();
 /** Adaptador: handlers registrados por plugins en runtime */
 const PLUGIN_ADAPTERS = new Map<string, { manifest: PluginManifest; adapter: any }>();
 
+/**
+ * Barrits trait for the server-side plugin marketplace. Provides `marketplace_routes` (the
+ * `/zen/plugins/*` HTTP API used by `zen plugin`: browse the catalog, install, enable, disable,
+ * reconfigure and uninstall) and `pluginRegistry`, where plugins register their adapters at
+ * startup. Installations are persisted through the `db` capability.
+ */
 export const PluginMarketplaceTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithPluginMarketplace",
   provides: ["marketplace_routes", "pluginRegistry"],

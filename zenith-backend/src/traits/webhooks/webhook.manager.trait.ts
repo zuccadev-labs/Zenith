@@ -724,4 +724,8 @@ export function createWebhookManagerTrait(options: WebhookManagerOptions = {}): 
   });
 }
 
+/**
+ * Webhook manager trait: endpoints subscribed to bus events receive them signed (Standard
+ * Webhooks), through a database outbox with retries; managed under `/zen/webhooks`.
+ */
 export const WebhookManagerTrait: AnyTraitDescriptor = createWebhookManagerTrait();

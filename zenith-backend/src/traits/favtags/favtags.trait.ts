@@ -40,6 +40,10 @@ const FAVTAGS_SCHEMAS = {
   },
 } as const;
 
+/**
+ * Favorites and tags trait: per-user favorites on any record and global colored tags assignable
+ * to any record, under `/zen/favorites` and `/zen/tags`.
+ */
 export const FavoritesTagsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithFavoritesTags",
   provides: ["favtags_routes", "favorites", "tags"],

@@ -12,18 +12,34 @@
  */
 import { createTraitDescriptor } from "@zuccadev-labs/barrits";
 
+/** A tenant registered with the tenant trait and persisted in the `_Tenant` class. */
 export interface TenantConfig {
+  /** Unique id of the stored record (a random UUID). */
   objectId: string;
+  /** Tenant identifier used to scope queries (`_tenantId`). */
   tenantId: string;
+  /** Display name of the tenant. */
   name: string;
+  /** Plan the tenant is subscribed to. */
   plan: string;
+  /** Dedicated database connection string, for `database-per-tenant` isolation. */
   databaseURI?: string;
+  /** How the tenant's data is isolated: shared collections, its own schema or its own database. */
   isolationStrategy: "shared" | "schema-per-tenant" | "database-per-tenant";
+  /** Per-tenant feature switches. */
   features: Record<string, boolean>;
+  /** Creation time as an ISO 8601 string. */
   createdAt: string;
+  /** Arbitrary extra data attached to the tenant. */
   metadata?: Record<string, any>;
 }
 
+/**
+ * Barrits trait providing `tenant` / `tenantManager` (create, get and list tenants, and scope
+ * queries to a tenant by adding `_tenantId`) and `tenant-routes` (`POST /tenants`,
+ * `GET /tenants`, `GET /tenants/:tenantId`). The registry is kept in memory and new tenants are
+ * also written to the `_Tenant` class.
+ */
 export const TenantTrait = createTraitDescriptor({
   name: "ZenithTenant",
   provides: ["tenant-routes", "tenant", "tenantManager"],

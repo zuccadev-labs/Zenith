@@ -54,6 +54,10 @@ const VIEWS_SCHEMAS = {
   },
 } as const;
 
+/**
+ * Views trait: saved views (Kanban, table, calendar, list) with their filters, visible fields,
+ * sorts and column layout, under `/zen/views`, so any frontend can restore a view as saved.
+ */
 export const ViewsTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithViews",
   provides: ["views_routes", "views"],

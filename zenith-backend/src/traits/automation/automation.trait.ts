@@ -42,6 +42,12 @@ import {
 
 // ── Tipos del motor ───────────────────────────────────────────────────────────
 
+/**
+ * Comparison operator of an {@link AutoCondition}. `eq`/`neq` use strict equality, `gt`/`gte`/
+ * `lt`/`lte` compare numerically, `in`/`notIn` test membership in an array `value`, `contains`
+ * is a substring match on string fields, and `is`/`isNot` compare truthiness (a missing field
+ * counts as falsy).
+ */
 export type ConditionOp =
   | "eq"
   | "neq"
@@ -55,17 +61,31 @@ export type ConditionOp =
   | "is"
   | "isNot";
 
+/** A single comparison evaluated against the record that triggered a rule. */
 export interface AutoCondition {
+  /** Field of the record to read; dotted paths (`"address.city"`) walk nested objects. */
   field: string;
+  /** How the field value is compared with `value`. */
   op: ConditionOp;
+  /** Value the field is compared with (an array for `in` / `notIn`). */
   value: unknown;
 }
 
+/**
+ * Boolean combination of conditions; groups nest. When both keys are set only `and` is
+ * evaluated, and an empty group always matches.
+ */
 export interface AutoConditionGroup {
+  /** Matches when every entry matches. */
   and?: Array<AutoCondition | AutoConditionGroup>;
+  /** Matches when at least one entry matches. */
   or?: Array<AutoCondition | AutoConditionGroup>;
 }
 
+/**
+ * Built-in action handlers a rule can run, plus `custom` for actions a project registers at
+ * runtime with `automation.registerAction()`.
+ */
 export type ActionType =
   | "create_task"
   | "update_record"
@@ -81,39 +101,74 @@ export type ActionType =
   | "run_sequence"
   | "custom";
 
+/** One step of a rule: the action handler to run and its parameters. */
 export interface AutoAction {
+  /** Name of the registered action handler to run. */
   type: ActionType;
+  /** Handler-specific parameters (for example `title` and `assignTo` for `create_task`). */
   params: Record<string, unknown>;
 }
 
+/** An IF-THEN automation rule, stored in the `AutomationRule` collection. */
 export interface AutomationRule {
+  /** Unique id of the rule. */
   objectId: string;
+  /** Human-readable name. */
   name: string;
+  /** Optional longer explanation of what the rule does. */
   description?: string;
+  /** Inactive rules are ignored when events are dispatched. */
   isActive: boolean;
+  /** When the rule fires. */
   trigger: {
-    event: string; // "Contact.created" | "Deal.*" | "Lead.scoreChanged" | "cron:0 9 * * 1"
-    className?: string; // filtra solo cierta clase
+    /**
+     * Event name to match: an exact name (`"Contact.created"`), a prefix wildcard (`"Deal.*"`),
+     * `"*"` for every event, or a cron expression (`"cron:0 9 * * 1"`).
+     */
+    event: string;
+    /** Only fire for records of this class. */
+    className?: string;
+    /** Extra conditions the triggering record must satisfy. */
     conditions?: AutoConditionGroup;
   };
+  /** Actions run in order when the rule fires. */
   actions: AutoAction[];
+  /** Number of times the rule has run. */
   runCount: number;
+  /** ISO timestamp of the last run. */
   lastRunAt?: string;
+  /** Number of runs whose status was `error`. */
   errorCount: number;
+  /** Error message of the last run, if it failed. */
   lastError?: string;
+  /** ISO timestamp of creation. */
   createdAt: string;
+  /** ISO timestamp of the last update. */
   updatedAt: string;
 }
 
+/** Record of one rule execution, stored in the `AutomationLog` collection. */
 export interface AutomationLog {
+  /** Unique id of the log entry. */
   objectId: string;
+  /** Id of the rule that ran. */
   ruleId: string;
+  /** Event name that triggered the run. */
   triggerEvent: string;
+  /** `objectId` of the triggering record, if any. */
   recordId?: string;
+  /**
+   * `success` when every action ran, `partial` when some failed or were not registered,
+   * `error` when none succeeded.
+   */
   status: "success" | "error" | "partial";
+  /** Number of actions that completed. */
   actionsRun: number;
+  /** Wall-clock duration of the run in milliseconds. */
   durationMs: number;
+  /** Last error message raised by an action. */
   error?: string;
+  /** ISO timestamp of the run. */
   createdAt: string;
 }
 
@@ -345,6 +400,14 @@ function registerBuiltinActions(db: any, events: any, deps: Record<string, any>)
   });
 }
 
+/**
+ * Automation rules engine trait (`ZenithAutomation`). Provides `automation` (dispatch events,
+ * register custom actions, run rules) and `automation_routes` (CRUD for rules and their logs).
+ * Rules react to events on the event bus and run built-in actions (`create_task`,
+ * `update_record`, `send_notification`, `send_email`, `send_webhook`, `run_agent`, tags,
+ * `assign_record`, `create_note`, `wait`, `run_sequence`) or project-registered ones.
+ * Consumes `db`; uses `adkAgents`, `events`, `emailSync` and `notifications` when present.
+ */
 export const AutomationTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithAutomation",
   provides: ["automation_routes", "automation"],

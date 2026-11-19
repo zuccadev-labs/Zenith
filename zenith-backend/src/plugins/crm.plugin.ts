@@ -14,8 +14,10 @@
  *   Zen.Cloud.afterSave("Contact", async (req) => { ... });
  */
 
-// No-op: el ZenithCRMTrait gestiona toda la inicialización del CRM.
-// Este archivo puede importarse para registrar extensiones adicionales.
+/**
+ * No-op kept as the entry point of the CRM plugin: `CRMTrait` already sets up the CRM schemas,
+ * triggers and routes. Extend the CRM from cloud code with `Zen.Cloud` hooks instead.
+ */
 export function installCRMPlugin(_Zen: any): void {
   // La inicialización completa del CRM (schemas, triggers, rutas)
   // se realiza automáticamente a través de ZenithCRMTrait en el motor.

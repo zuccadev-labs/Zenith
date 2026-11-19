@@ -1,24 +1,35 @@
 /**
- * @module @zuccadev-labs/zenith/openapi
- *
  * The OpenAPI 3.1 spec of a Zenith project without starting it: the traits its configuration
  * selects are composed (no database, no network) and the spec is generated from the routes the
  * router would mount (`core/route-collection.ts`). `/openapi.json` on a running server is the same
  * spec plus the project's cloud functions and jobs.
  *
  * Used by `zen generate openapi`.
+ *
+ * @example
+ * ```ts
+ * import { generateProjectOpenApi } from "@zuccadev-labs/zenith/openapi";
+ *
+ * const spec = generateProjectOpenApi({ appId: "my-app", features: { crm: true } });
+ * await Deno.writeTextFile("openapi.json", JSON.stringify(spec, null, 2));
+ * ```
+ *
+ * @module
  */
 import { selectTraits } from "./mod.ts";
 import { composeZenith } from "./core/compose.ts";
 import { generateOpenApiSchema, type OpenApiOptions } from "./core/openapi.ts";
 import type { ZenithConfig } from "./core/types.ts";
 
-export type { OpenApiOptions };
+export type { OpenApiOptions, ZenithConfig };
 
 /** The parts of a project configuration that decide which routes exist. */
 export interface ProjectRoutesConfig {
+  /** App id written into the spec (default: `options.appId`, then `zenith`). */
   appId?: string;
+  /** Feature flags of the project, as in {@link ZenithConfig}. */
   features?: ZenithConfig["features"];
+  /** Node topology of the project, as in {@link ZenithConfig}; default `["http"]`. */
   topology?: ZenithConfig["topology"];
 }
 

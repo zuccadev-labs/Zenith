@@ -86,6 +86,13 @@ async function reserveStock(Zen: any, items: any[]): Promise<void> {
   }
 }
 
+/**
+ * Installs the e-commerce plugin on `Zen`: the Catalog, ProductListing, Cart, Order, Discount,
+ * Review and StoreCountryRule schemas, their triggers, and the `store_*` cloud functions (cart,
+ * discounts, quote, checkout, orders, search, ratings, country rules).
+ *
+ * @param Zen The `Zen` namespace of the running engine.
+ */
 export function installEcommercePlugin(Zen: any) {
   console.log("[Ecommerce Plugin] 🛍️ Installing E-Commerce Core plugin...");
 

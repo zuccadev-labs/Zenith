@@ -24,10 +24,12 @@ import { expandGlob } from "@std/fs/expand-glob";
 import { fromFileUrl, join, relative, resolve } from "@std/path";
 import { commandTable, helpText } from "./commands/registry.ts";
 
+/** Version of this CLI. */
 export const VERSION = "0.2.0";
 
 /** The engine release new projects depend on. Keep in step with zenith-backend/deno.json (a test checks it). */
 export const ENGINE_VERSION = "0.1.0";
+/** JSR specifier of the engine written into new projects' import map. */
 export const ENGINE_JSR = `jsr:@zuccadev-labs/zenith@^${ENGINE_VERSION}`;
 
 /** In the monorepo, the engine next to this CLI. */

@@ -9,29 +9,49 @@
 
 // ─── Configuración del Servidor ───────────────────────────────────────────────
 
+/**
+ * Configuration of one Zenith application (one entry of `apps.config.ts`). It decides which traits
+ * are composed (`features`, `topology`), how clients authenticate and which external services the
+ * engine connects to. Passed to `createZenithApp()`.
+ */
 export interface ZenithConfig {
+  /** Application id; clients send it as `Zen-Application-Id` (or `X-Parse-Application-Id`). */
   readonly appId: string;
+  /** Static master key: grants full access, bypassing ACLs. Keep it server-side only. */
   readonly masterKey: string;
+  /** Parse-compatible client SDK key (`Zen-JavaScript-Key`). Accepted in the config for parity. */
   readonly javascriptKey?: string;
+  /** Parse-compatible REST key (`Zen-Api-Key` / `X-Parse-REST-API-Key`). Accepted for parity. */
   readonly restApiKey?: string;
+  /** Parse-compatible client key (`Zen-Client-Key`). Accepted in the config for parity. */
   readonly clientKey?: string;
+  /** Public URL of the server; used as the `servers` entry of the OpenAPI spec. */
   readonly serverURL: string;
+  /** HTTP port the server listens on (the default server uses 23614). */
   readonly port: number;
+  /** Path of the cloud code module loaded at boot (`Zen.Cloud.define`, triggers, jobs). */
   readonly cloudCodePath?: string;
+  /** Directory of signed plugins verified and loaded at boot. */
   readonly pluginsPath?: string;
+  /** Commands the shell trait may run (default `git`, `vault`, `kubectl`, `lux-db`). */
   readonly allowedShellCommands?: string[];
+  /** Whether clients may create classes by writing to them; false unless explicitly `true`. */
   readonly allowClientClassCreation?: boolean;
+  /** Parse-compatible switch for anonymous users. Reserved; the engine does not read it yet. */
   readonly enableAnonymousUsers?: boolean;
+  /** Zero-trust mode switch. Reserved; the engine does not read it yet. */
   readonly zeroTrustMode?: boolean;
+  /** Lifetime of issued JWTs in seconds. Reserved; the engine does not read it yet. */
   readonly jwtExpirationSeconds?: number;
+  /** RSA modulus size for generated JWT keys. Reserved; the engine does not read it yet. */
   readonly rsaKeySize?: number;
+  /** Maximum session age in seconds. Reserved; the engine does not read it yet. */
   readonly sessionMaxAge?: number;
 
   /**
-   * Lista de IPs de proxies reversos confiables (Nginx, Cloudflare, AWS ALB).
-   * Solo cuando la request proviene de estas IPs se confiará en X-Forwarded-For
-   * para determinar la IP real del cliente. Si está vacío, se usa la IP del socket TCP.
-   * Grado Militar: Previene el bypass de restricciones por IP usando headers manipulados.
+   * IPs of trusted reverse proxies (Nginx, Cloudflare, AWS ALB). X-Forwarded-For is only trusted
+   * to find the real client IP when the request comes from one of them; when empty, the TCP socket
+   * address is used. Prevents bypassing IP restrictions with forged headers.
    */
   readonly trustedProxies?: string[];
 
@@ -49,25 +69,20 @@ export interface ZenithConfig {
    */
   readonly enginePush?: import("../traits/push/engine-push.trait.ts").EnginePushConfig;
 
-  /**
-   * Configuración de Logs y Observabilidad (Parse Parity)
-   */
+  /** Log folder (Parse parity). Reserved; the engine does not read it yet. */
   readonly logsFolder?: string;
+  /** OpenTelemetry exporter: collector `endpoint` and optional `serviceName`. */
   readonly openTelemetry?: {
     readonly endpoint: string;
     readonly serviceName?: string;
   };
 
-  /**
-   * Configuración de LiveQuery (Parse Parity)
-   */
+  /** LiveQuery (Parse parity): the classes whose changes are pushed to subscribers. */
   readonly liveQuery?: {
     readonly classNames: string[];
   };
 
-  /**
-   * Configuración de Media LiveQuery (Zenith Exclusive)
-   */
+  /** Media LiveQuery (Zenith only): classes streamed as media rooms, optionally recorded. */
   readonly mediaLiveQuery?: {
     readonly classNames: string[];
     readonly enableRecording?: boolean;
@@ -80,8 +95,8 @@ export interface ZenithConfig {
   readonly clusterSecret?: string;
 
   /**
-   * Clave API dedicada exclusivamente a la administración de Webhooks Remotos.
-   * Grado Militar: Previene que un atacante con Master Key abuse de SSRF vía Webhooks.
+   * API key dedicated to managing remote webhooks, so that the master key alone is not enough to
+   * register webhook targets (limits SSRF through webhooks).
    */
   readonly webhookKey?: string;
 
@@ -92,16 +107,14 @@ export interface ZenithConfig {
   readonly zmqPort?: number;
 
   /**
-   * Topología del Nodo (Enterprise Architecture Phase 11)
-   * Permite instanciar un servidor especializado o un monolito.
-   * Por defecto: ["http"]
+   * Node topology: the transports and roles this node serves, from a specialized server to a
+   * monolith. Default: `["http"]`.
    */
   readonly topology?: Array<"http" | "grpc" | "zeromq" | "runner" | "ai" | "graphql">;
-  readonly databaseURI?: string; // mongodb://, scylla://, surreal://, etc.
+  /** Database connection URI (`mongodb://`, `scylla://`, `surreal://`, etc.). */
+  readonly databaseURI?: string;
 
-  /**
-   * Configuración Multi-Proveedor para Inteligencia Artificial (Fase 12)
-   */
+  /** Multi-provider AI configuration: default provider and model plus per-provider credentials. */
   readonly aiConfig?: {
     readonly defaultProvider: "openai" | "anthropic" | "gemini" | "ollama" | "custom";
     readonly defaultModel: string;
@@ -113,9 +126,8 @@ export interface ZenithConfig {
   };
 
   /**
-   * Feature Flags (Reducción de Superficie de Ataque) (Fase 19)
-   * Permite activar o desactivar capas de negocio para minimizar riesgos
-   * en instancias de pura infraestructura.
+   * Feature flags (attack surface reduction): turn business layers on or off so pure
+   * infrastructure instances expose only what they need. Each flag maps to the traits it enables.
    */
   readonly features?: {
     readonly saas?: boolean; // Activa BillingTrait (Facturación y Pagos)
@@ -216,21 +228,35 @@ export interface ZenithAuthContext {
 
 // ─── Operaciones CRUD ─────────────────────────────────────────────────────────
 
+/** A Parse-style query on a class. */
 export interface ZenithQuery {
+  /** Filter: field equality or operators such as `$gt`, `$in`, `$regex`. */
   readonly where?: Record<string, unknown>;
+  /** Comma-separated sort keys; a leading `-` sorts descending. */
   readonly order?: string;
+  /** Maximum number of objects returned. */
   readonly limit?: number;
+  /** Number of matching objects skipped before the first one returned. */
   readonly skip?: number;
+  /** Pointer fields to resolve into full objects. */
   readonly include?: string[];
+  /** Fields to return (projection); all fields when omitted. */
   readonly keys?: string[];
+  /** Whether to also return the total number of matches. */
   readonly count?: boolean;
 }
 
+/** A stored object: system fields plus the class's own fields. */
 export interface ZenithObject {
+  /** Unique id within its class, assigned on insert. */
   readonly objectId?: string;
+  /** Creation time, set by the database adapter. */
   readonly createdAt?: Date;
+  /** Last update time, set by the database adapter. */
   readonly updatedAt?: Date;
+  /** Class (collection) the object belongs to. */
   readonly className?: string;
+  /** The class's own fields. */
   readonly [key: string]: unknown;
 }
 
@@ -263,15 +289,21 @@ export interface MediaStreamConfig {
 
 // ─── Adapters (interfaces mínimas) ────────────────────────────────────────────
 
+/** Minimal contract every database adapter (MongoDB, ScyllaDB, SurrealDB…) implements. */
 export interface DatabaseAdapter {
+  /** Opens the connection to the database at `uri`. */
   connect(uri: string): Promise<void>;
+  /** Returns the objects of `collection` that match `query`. */
   find(collection: string, query: ZenithQuery): Promise<ZenithObject[]>;
+  /** Returns the first object of `collection` that matches `query`, or null. */
   findOne(collection: string, query: ZenithQuery): Promise<ZenithObject | null>;
+  /** Inserts `data` into `collection` and returns the stored object (with its id). */
   insert(collection: string, data: ZenithObject): Promise<ZenithObject>;
+  /** Applies `data` to the object `objectId` and returns the updated object. */
   update(collection: string, objectId: string, data: Partial<ZenithObject>): Promise<ZenithObject>;
   /**
-   * Actualiza atómicamente solo si el documento cumple las condiciones (igualdad o `$gte`).
-   * Devuelve null si no se aplicó. Opcional: no todos los motores pueden garantizarlo.
+   * Atomically updates only if the document meets the conditions (equality or `$gte`).
+   * Returns null when it was not applied. Optional: not every engine can guarantee it.
    */
   updateIf?(
     collection: string,
@@ -279,8 +311,11 @@ export interface DatabaseAdapter {
     conditions: Record<string, unknown>,
     data: Partial<ZenithObject>,
   ): Promise<ZenithObject | null>;
+  /** Lists the names of the existing classes (collections), when the engine supports it. */
   listClasses?(): Promise<string[]>;
+  /** Deletes the object `objectId` from `collection`. */
   delete(collection: string, objectId: string): Promise<void>;
+  /** Closes the connection. */
   disconnect(): Promise<void>;
 }
 

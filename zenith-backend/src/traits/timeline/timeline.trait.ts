@@ -26,6 +26,10 @@ const TIMELINE_ICON: Record<string, string> = {
   System: "info",
 };
 
+/**
+ * Timeline trait: the chronological activity feed of one record (notes, tasks, comments,
+ * attachments, activities and system events) at `/zen/timeline/:className/:objectId`.
+ */
 export const TimelineTrait: AnyTraitDescriptor = createTraitDescriptor({
   name: "ZenithTimeline",
   provides: ["timeline_routes", "timeline"],

@@ -1,34 +1,50 @@
 /**
- * @module plugin-signing
+ * Ed25519 chain of trust for Zenith plugins: authors sign a manifest describing the plugin file
+ * (hash, size, permissions) and the backend verifies it against a trust store before loading it.
  *
- * Cadena de confianza Ed25519 para plugins de Zenith.
- *
- * API de alto nivel:
- *
+ * @example
  * ```ts
  * import {
- *   generateKeyPair, buildKeyId, fingerprint,
- *   buildPluginArtifact, signPlugin, parseManifest,
- *   loadMergedTrustStore, addKey, saveTrustStore,
+ *   buildKeyId,
+ *   buildPluginArtifact,
+ *   generateKeyPair,
+ *   loadMergedTrustStore,
+ *   sha256OfFile,
+ *   signPlugin,
  *   verifyPlugin,
- * } from "../security/plugin-signing/mod.ts";
+ * } from "@zuccadev-labs/zenith/plugin-signing";
  *
- * // Generar par de claves
+ * // Generate a key pair
  * const kp = await generateKeyPair();
  * const keyId = buildKeyId("acme-corp", kp.publicKey);
  *
- * // Construir + firmar manifest
- * const artifact = buildPluginArtifact({...});
- * const manifest = await signPlugin({artifact, privateKeyB64: kp.privateKey, authorId: "acme-corp", keyId});
+ * // Build and sign the manifest
+ * const { sha256, size } = await sha256OfFile("./plugins/crm.plugin.ts");
+ * const artifact = buildPluginArtifact({
+ *   name: "crm.plugin.ts",
+ *   version: "1.0.0",
+ *   sha256,
+ *   size,
+ *   permissions: ["data:read"],
+ *   author: { id: "acme-corp", keyId },
+ * });
+ * const manifest = await signPlugin({
+ *   artifact,
+ *   privateKeyB64: kp.privateKey,
+ *   authorId: "acme-corp",
+ *   keyId,
+ * });
  * await Deno.writeTextFile("crm.plugin.ts.manifest.json", JSON.stringify(manifest, null, 2));
  *
- * // En el backend: verificar antes de cargar
+ * // In the backend: verify before loading
  * const trust = await loadMergedTrustStore();
- * const result = await verifyPlugin({pluginPath: "./plugins/crm.plugin.ts", manifest, trust});
+ * const result = await verifyPlugin({ pluginPath: "./plugins/crm.plugin.ts", manifest, trust });
  * if (!result.ok) throw new Error(`Plugin ${result.reason}: ${result.detail}`);
  * ```
  *
- * Ver ADR-004-plugin-signing.md para el threat model completo.
+ * See ADR-004-plugin-signing.md for the full threat model.
+ *
+ * @module
  */
 
 export {
@@ -37,6 +53,7 @@ export {
   type PluginAuthor,
   type PluginPermission,
   type PluginSignature,
+  type SignatureAlgorithm,
   type SignedPluginManifest,
   type TrustedAuthorKey,
   type TrustStore,
