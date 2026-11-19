@@ -17,8 +17,8 @@ engine-auth.
 
 ```bash
 # Servicios
-docker run -d --rm --name zenith-it-mongo   -p 127.0.0.1:27999:27017 --memory 2g mongo:9.0.4
-docker run -d --rm --name zenith-it-mongors -p 127.0.0.1:28000:27017 --memory 2g mongo:9.0.4 --replSet rs0 --bind_ip_all
+docker run -d --rm --name zenith-it-mongo   -p 127.0.0.1:27999:27017 --memory 2g mongo:9.0.8
+docker run -d --rm --name zenith-it-mongors -p 127.0.0.1:28000:27017 --memory 2g mongo:9.0.8 --replSet rs0 --bind_ip_all
 docker exec zenith-it-mongors mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
 
 # engine-auth y libzutool_auth.so, compilados en apps/zutool (cargo build -p engine-auth)
@@ -40,7 +40,7 @@ SurrealDB y Vault (con TLS, como exige el cliente):
 ```bash
 docker run -d --rm --name zenith-it-surreal -p 127.0.0.1:28800:8000 surrealdb/surrealdb:v4.0.1 start --user root --pass root memory
 docker run -d --rm --name zenith-it-vault -p 127.0.0.1:28200:8200 --cap-add IPC_LOCK -e VAULT_DEV_ROOT_TOKEN_ID=root \
-  hashicorp/vault:2.2.1 server -dev -dev-tls -dev-listen-address=0.0.0.0:8200 -dev-tls-san=127.0.0.1
+  hashicorp/vault:2.2.2 server -dev -dev-tls -dev-listen-address=0.0.0.0:8200 -dev-tls-san=127.0.0.1
 docker exec zenith-it-vault sh -c 'cat /tmp/vault-tls*/vault-ca.pem' > $TMPDIR/vault-ca.pem
 export ZENITH_TEST_SURREAL_URL=http://127.0.0.1:28800 VAULT_TEST_ADDR=https://127.0.0.1:28200 VAULT_TEST_TOKEN=root
 export DENO_CERT=$TMPDIR/vault-ca.pem
@@ -64,7 +64,7 @@ docker run -d --rm --name zenith-it-lux -p 127.0.0.1:29079:6379 -e LUX_BIND_HOST
   ghcr.io/lux-db/lux:0.37.1
 docker run -d --rm --name zenith-it-rustfs -p 127.0.0.1:29000:9000 -e "RUSTFS_VOLUMES=/data/rustfs{0..3}" \
   -e RUSTFS_UNSAFE_BYPASS_DISK_CHECK=true -e RUSTFS_ADDRESS=0.0.0.0:9000 -e RUSTFS_ACCESS_KEY=zenithlab \
-  -e RUSTFS_SECRET_KEY=$RSK rustfs/rustfs:1.0.4
+  -e RUSTFS_SECRET_KEY=$RSK rustfs/rustfs:1.0.6
 export ZENITH_MASTER_KEY=$(openssl rand -hex 40) MONGO_URI="mongodb://127.0.0.1:27999/lab?directConnection=true" \
   SCYLLA_URI=127.0.0.1:29042 RUSTFS_URI=http://127.0.0.1:29000 RUSTFS_ACCESS_KEY=zenithlab RUSTFS_SECRET_KEY=$RSK \
   REDIS_URI="redis://:$LUXPW@127.0.0.1:29079"
