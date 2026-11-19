@@ -201,6 +201,10 @@ jobs:
     name: Docker image and Trivy scan
     runs-on: ubuntu-24.04
     needs: engine
+    permissions:
+      contents: read
+      id-token: write # keyless Sigstore signature and GitHub attestations (the workflow's OIDC identity)
+      attestations: write
     env:
       # Optional: with this secret the SBOM and the image ID are signed (docs/architecture/supply-chain.md).
       COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
@@ -238,14 +242,14 @@ jobs:
       - name: Sign SBOM and image ID, attest SLSA provenance (cosign, own key, no public transparency log)
         if: env.COSIGN_PRIVATE_KEY != ''
         run: |
-          # The private repository's name would be published in Sigstore's public log with keyless signing.
+          # Own key, no public log: verifiable offline with zenith-backend/cosign.pub. The keyless signature follows.
           printf '%s' "$COSIGN_PRIVATE_KEY" > "$RUNNER_TEMP/cosign.key"
           for f in zenith-backend.cdx.json zenith-backend.image-id; do
             cosign sign-blob --yes --key "$RUNNER_TEMP/cosign.key" --use-signing-config=false --tlog-upload=false \
               --bundle "$f.sigstore.json" "$f"
             cosign verify-blob --key zenith-backend/cosign.pub --insecure-ignore-tlog=true --bundle "$f.sigstore.json" "$f"
           done
-          # SLSA v1 build provenance (GitHub's attestations need Enterprise on private repositories).
+          # SLSA v1 build provenance signed with our key (GitHub's own attestation is added below, after the push).
           tools/supply-chain/slsa-provenance.sh zenith-backend/Dockerfile > zenith-backend.provenance.json
           cosign attest-blob --yes --key "$RUNNER_TEMP/cosign.key" --type slsaprovenance1 \
             --predicate zenith-backend.provenance.json --use-signing-config=false --tlog-upload=false \
@@ -255,6 +259,7 @@ jobs:
       # Our own registry (Zot, open source; docs/architecture/registry.md): the image is pushed from main, and its
       # signature, SLSA provenance and SBOM are attached to its digest (OCI referrers).
       - name: Publish, sign and attest the image in the registry
+        id: publish
         if: env.COSIGN_PRIVATE_KEY != '' && env.REGISTRY != '' && github.ref == 'refs/heads/main'
         env:
           REGISTRY_USER: ${{ secrets.ZENITH_REGISTRY_USER }}
@@ -274,8 +279,30 @@ jobs:
             --tlog-upload=false --use-signing-config=false "$img"
           cosign verify --key "$pub" --insecure-ignore-tlog=true "$img" > /dev/null
           cosign verify-attestation --key "$pub" --insecure-ignore-tlog=true --type slsaprovenance1 "$img" > /dev/null
+          # Second, keyless signature (the repository is public): Fulcio certificate for this workflow's OIDC
+          # identity, recorded in Sigstore's public transparency log (Rekor). Anyone can verify it without our key.
+          cosign sign --yes "$img"
+          cosign verify "$img" \
+            --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml@refs/heads/main" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
           echo "$img" | tee zenith-backend.image-ref
+          { echo "name=$repo"; echo "digest=${img##*@}"; } >> "$GITHUB_OUTPUT"
           docker logout "$REGISTRY"
+      # GitHub artifact attestations (free on public repositories): SLSA build provenance and the CycloneDX SBOM,
+      # bound to the image digest; `gh attestation verify oci://<image> -R zuccadev-labs/Zenith` checks them.
+      - name: GitHub attestation, build provenance
+        if: steps.publish.outcome == 'success'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.publish.outputs.name }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+      - name: GitHub attestation, SBOM
+        if: steps.publish.outcome == 'success'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.publish.outputs.name }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          sbom-path: zenith-backend.cdx.json
       - name: Remove the signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/cosign.key"
