@@ -1,0 +1,59 @@
+# Publishes the packages from CI with no stored token: JSR and npm both trust this workflow through GitHub OIDC
+# (JSR: the package is linked to this repository; npm: trusted publisher = this repository + release.yml), and npm
+# adds a provenance attestation. Run it by hand after bumping the version in the package's manifest:
+#   gh workflow run release.yml -f package=zenith-client
+# A version already published is refused by the registry, so a re-run cannot overwrite anything.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to publish
+        type: choice
+        options: [zenith, zenith-cli, zenith-client, create-zenith]
+
+permissions:
+  contents: read
+
+env:
+  DENO_VERSION: "2.9.8"
+  NODE_VERSION: "24"
+
+jobs:
+  jsr:
+    if: inputs.package == 'zenith' || inputs.package == 'zenith-cli'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # JSR verifies the run through GitHub OIDC
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Publish to JSR
+        working-directory: ${{ inputs.package == 'zenith' && 'zenith-backend' || 'zenith-cli' }}
+        run: deno publish
+
+  npm:
+    if: inputs.package == 'zenith-client' || inputs.package == 'create-zenith'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Publish to npm (with provenance)
+        working-directory: ${{ inputs.package == 'zenith-client' && 'sdk/Typescript' || 'create-zenith' }}
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; fi
+          npm publish --provenance --access public
