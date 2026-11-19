@@ -2,7 +2,7 @@
  * @module @zenith/traits/cells
  *
  * Cells (ADR-019): the binding surface (Cloudflare Durable Objects API), the `local` and `celld`
- * providers, KV and Queue bindings.
+ * providers, KV and Queue bindings, and the agent conversation cell.
  */
 export * from "./types.ts";
 export { CellId, CellIdFactory } from "./ids.ts";
@@ -50,6 +50,15 @@ export {
   generateCelldProject,
   startCelldDev,
 } from "./celld.ts";
+export {
+  type AgentCellTurnResult,
+  type AgentMessage,
+  type AgentRuntime,
+  AgentSessionCell,
+  type AgentSessionInfo,
+  type AgentTurnOptions,
+  type AgentTurnOutput,
+} from "./agent-cell.ts";
 export { type CellsApi, type CellsConfig, type CellsDeps, createCellsApi } from "./api.ts";
 export {
   type CellDefinition,

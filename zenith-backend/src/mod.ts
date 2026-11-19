@@ -63,8 +63,15 @@ export { SearchTrait } from "./traits/search/search.trait.ts";
 export { TimelineTrait } from "./traits/timeline/timeline.trait.ts";
 export { MetadataTrait } from "./traits/metadata/metadata.trait.ts";
 export { BlogForumTrait } from "./traits/blogforum/blogforum.trait.ts";
-export { ADKAgentsTrait } from "./traits/agents/adk.agents.trait.ts";
+export { ADKAgentsTrait, AGENT_SESSION_CELL } from "./traits/agents/adk.agents.trait.ts";
 export {
+  type AgentCellTurnResult,
+  type AgentMessage,
+  type AgentRuntime,
+  AgentSessionCell,
+  type AgentSessionInfo,
+  type AgentTurnOptions,
+  type AgentTurnOutput,
   type AlarmInvocationInfo,
   type CellClass,
   type CellClassOptions,
