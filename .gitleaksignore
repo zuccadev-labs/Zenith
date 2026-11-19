@@ -2,6 +2,8 @@
 # a new secret, even in the same file, is still reported.
 # test vector published in the Standard Webhooks spec (endpoint-verification.md)
 53d60c54183ec9336602f6f1091da8ea637ee9ce:zenith-backend/tests/unit/webhook-signature.test.ts:generic-api-key:61
+# the same vector in the history before the rewrite for the public repository (local archive branches)
+2e95f050f90b4256b8251dd03aea8c48c80b6bcb:zenith-backend/tests/unit/webhook-signature.test.ts:generic-api-key:61
 # placeholder key of the DR drill script (rk_live_dr_drill)
 f4ce0c498cd7a6152ed998bdecec4f65c36c2132:tools/dr-drill/run-dr-drill.sh:curl-auth-header:59
 # placeholder key of the DR drill script (rk_live_dr_drill)
