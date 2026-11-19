@@ -5,6 +5,37 @@
 
 ---
 
+## Packages — 2026-11-19
+
+`@zuccadev-labs/zenith` 0.2.0 and `@zuccadev-labs/zenith-cli` 0.3.0 (JSR); `@zuccadev-labs/zenith-client` 0.2.0 and
+`@zuccadev-labs/create-zenith` 0.1.0 (npm, first release).
+
+### Added
+
+- **Cells** (ADR-019, `docs/architecture/cells.md`): the cell, a single-writer actor with its own SQLite storage and
+  the Durable Objects API that celld and Cloudflare implement, is the standard unit of stateful work.
+  - `local` provider: input gate, `blockConcurrencyWhile`, KV and `sql.exec` storage, transactions, alarms that
+    survive restarts, hibernation, residency and storage limits.
+  - `KVNamespace` and `Queue` bindings, `Zen.Cells` in Cloud Code, admin routes under `/zen/cells` (master key).
+  - `celld` provider (experimental, `cells.celld.experimental: true`): generated `wrangler.json` and entry, HTTP
+    client with a bearer token; tested end to end against celld 0.6.3 (`celld dev`).
+  - ADK agent sessions run as cells: history reaches the model, one turn at a time per session.
+- Every exported symbol of both JSR packages is documented (`deno doc --lint` clean); types referenced by the public
+  API (`ZenithConfig`, `EngineAPI`, adapters, vector DB types, `EmbedFn`…) are exported.
+- Supply chain: keyless Sigstore signature of the server image (public Rekor log) and GitHub attestations for its
+  build provenance and SBOM, besides the own-key cosign signature; packages released from CI through OIDC with
+  provenance (`release.yml`, one tag per package).
+
+### Changed
+
+- Dependencies, CI tools and lab images at their latest stable versions (24 h minimum age); Node 26 LTS in CI.
+- `create-zenith`: the `bin` path npm 12 rejected on publish.
+
+### Security
+
+- `sql.exec` in a cell cannot leave the cell's database (`ATTACH`, `VACUUM INTO`, writable PRAGMAs and internal
+  tables are rejected).
+
 ## [1.0.0] — 2026-06-06
 
 ### Added — Phase 3 (B–F): production readiness
