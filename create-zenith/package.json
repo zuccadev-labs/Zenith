@@ -4,7 +4,7 @@
   "description": "npm create @zuccadev-labs/zenith <name>: creates a Zenith server project (zen init). Requires Deno.",
   "type": "module",
   "bin": {
-    "create-zenith": "./index.mjs"
+    "create-zenith": "index.mjs"
   },
   "files": [
     "index.mjs",
