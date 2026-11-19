@@ -2,7 +2,7 @@
 # Deploys the Zenith image registry (Zot, open source, OCI 1.1 with referrers for cosign signatures and
 # attestations) on a host that already runs Docker and Caddy, and wires the CI to it.
 #
-#   infra/registry/deploy.sh root@209.38.1.195 registry.example.com
+#   infra/registry/deploy.sh root@<servidor> registry.example.com
 #
 # Additive and reversible (docs/architecture/registry.md, "Rollback"):
 # - on the host: /etc/zot (config + htpasswd), /var/lib/zot (data), a container "zenith-zot" on 127.0.0.1 with a
