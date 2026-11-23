@@ -314,7 +314,7 @@ services:
       - zenith-net
 
   zenith-zitadel:
-    image: ghcr.io/zitadel/zitadel:v4.20.4
+    image: ghcr.io/zitadel/zitadel:v4.20.5
     container_name: zenith-zitadel
     user: "0"
     environment:
@@ -360,7 +360,7 @@ services:
       start_period: 10s
 
   zenith-zitadel-login:
-    image: ghcr.io/zitadel/zitadel-login:v4.20.4
+    image: ghcr.io/zitadel/zitadel-login:v4.20.5
     container_name: zenith-zitadel-login
     ports:
       - "8082:3000"
@@ -476,7 +476,7 @@ services:
       - zenith-net
 
   zenith-postal:
-    image: ghcr.io/postalserver/postal:3.4.0
+    image: ghcr.io/postalserver/postal:3.5.0
     container_name: zenith-postal
     depends_on:
       zenith-postal-mariadb:
@@ -500,7 +500,7 @@ services:
       - zenith-net
 
   zenith-postal-worker:
-    image: ghcr.io/postalserver/postal:3.4.0
+    image: ghcr.io/postalserver/postal:3.5.0
     container_name: zenith-postal-worker
     depends_on:
       zenith-postal-mariadb:
