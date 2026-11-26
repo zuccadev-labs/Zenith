@@ -2,7 +2,7 @@
 
 > **Estado:** Aceptada
 > **Fecha:** 2026-11-11
-> **Sustituye en parte a:** [ADR-016](ADR-016-shared-crypto-and-single-api-keys.md) (el formato de firma de webhooks)
+> **Sustituye en parte a:** [ADR-016](./16-shared-crypto-and-single-api-keys.md) (el formato de firma de webhooks)
 > **Relacionado:** `src/traits/webhooks/`, `src/traits/cloud/hooks.trait.ts`, `src/traits/events/event-bus.trait.ts`,
 > `src/security/outbound-http.ts`, `src/security/webhook-signature.ts`, `src/security/sanitize.ts`, `src/core/net.ts`,
 > `src/core/lifecycle.ts`, `docs/architecture/webhooks-and-hooks.md`

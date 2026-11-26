@@ -1,118 +1,146 @@
-# Zenith Error Codes
+---
+description: "Los códigos de error del motor: los de Parse Server y los rangos propios de Zenith."
+tipo: referencia
+---
 
-The following is a list of all the error codes that can be returned by the Zenith Backend API. This system maintains 100% parity with the [Parse Server Error Codes](https://github.com/parse-community/docs/blob/gh-pages/_includes/common/errors.md) while expanding the namespaces to support Enterprise and Media features.
+# ¿Qué significa cada código de error?
 
-All API responses containing errors will return an HTTP Status Code corresponding to the severity (e.g. 400, 404, 401) alongside a JSON payload:
+Un error llega como `{ "code": <número>, "error": "<mensaje>" }` con un estado HTTP acorde. Los códigos por debajo
+de 300 son los de Parse Server, con el mismo número; del 300 en adelante son rangos propios de Zenith. Están en
+`ZenithErrorCode`, en `zenith-backend/src/core/errors.ts`, y el SDK de cliente exporta el mismo enum.
+
+## Resumen
 
 ```json
-{
-  "code": 142,
-  "error": "Password must be at least 12 characters long..."
+{ "code": 142, "error": "title is required" }
+```
+
+```ts
+import { ZenithError, ZenithErrorCode } from "@zuccadev-labs/zenith-client";
+
+try {
+  await todo.save();
+} catch (e) {
+  if (e instanceof ZenithError && e.code === ZenithErrorCode.VALIDATION_ERROR) { /* … */ }
 }
 ```
 
-## Parse Standard Error Codes (100 - 299)
+## Parse Server: API (1 y 100 a 299)
 
-### API Issues
+| Nombre | Código | Significado |
+|---|---|---|
+| `INTERNAL_SERVER_ERROR` | 1 | Error interno: una excepción sin tratar o un fallo de infraestructura |
+| `CONNECTION_FAILED` | 100 | No se pudo conectar con el backend |
+| `OBJECT_NOT_FOUND` | 101 | El objeto o la sesión no existe, o no tienes permiso de lectura |
+| `INVALID_QUERY` | 102 | Restricción o parámetro de consulta mal formado |
+| `INVALID_CLASS_NAME` | 103 | Nombre de clase no válido: empieza por letra y solo lleva letras, números o guion bajo |
+| `MISSING_OBJECT_ID` | 104 | La operación necesita un `objectId` |
+| `INVALID_KEY_NAME` | 105 | Nombre de campo no válido |
+| `INVALID_POINTER` | 106 | Puntero mal formado |
+| `INVALID_JSON` | 107 | JSON mal formado en el cuerpo |
+| `COMMAND_UNAVAILABLE` | 108 | La operación solo está disponible internamente |
+| `NOT_INITIALIZED` | 109 | El SDK no se inicializó antes de usarlo |
+| `INCORRECT_TYPE` | 111 | El tipo no coincide con el esquema |
+| `INVALID_CHANNEL_NAME` | 112 | Nombre de canal no válido |
+| `PUSH_MISCONFIGURED` | 113 | Faltan credenciales de push |
+| `OBJECT_TOO_LARGE` | 116 | El objeto supera el tamaño máximo |
+| `INVALID_LIMIT_ERROR` | 117 | `limit` no válido |
+| `INVALID_SKIP_ERROR` | 118 | `skip` no válido |
+| `OPERATION_FORBIDDEN` | 119 | Lo impiden los CLP o las ACL. También lo usa una URL firmada inválida o caducada |
+| `CACHE_MISS` | 120 | El elemento no está en la caché |
+| `INVALID_NESTED_KEY` | 121 | Operación no válida sobre un campo anidado |
+| `INVALID_FILE_NAME` | 122 | Nombre de archivo no válido |
+| `INVALID_ACL` | 123 | ACL mal formada |
+| `TIMEOUT` | 124 | La operación superó su tiempo máximo |
+| `INVALID_EMAIL_ADDRESS` | 125 | Email con formato no válido |
+| `FILE_SAVE_ERROR` | 130 | No se pudo guardar el archivo |
+| `DUPLICATE_VALUE` | 137 | Se violó una restricción de unicidad |
+| `INVALID_ROLE_NAME` | 139 | Nombre de rol no válido |
+| `EXCEEDED_COLLECTION_QUOTA` | 140 | Se alcanzó el máximo de clases |
+| `SCRIPT_FAILED` | 141 | Falló una función de Cloud Code o un trigger |
+| `VALIDATION_ERROR` | 142 | Falló una validación: un validador de `Zen.Cloud` o un error lanzado en un trigger `before*` |
+| `WEBHOOK_ERROR` | 143 | Falló un Cloud Code Hook |
+| `INVALID_IMAGE_DATA` | 150 | Imagen no reconocida |
+| `UNSAVED_FILE_ERROR` | 151 | Se adjuntó un archivo sin guardar |
+| `INVALID_PUSH_TIME_ERROR` | 152 | Hora de envío de push no válida |
+| `FILE_DELETE_ERROR` | 153 | No se pudo borrar el archivo |
+| `REQUEST_LIMIT_EXCEEDED` | 155 | Límite de peticiones superado (429) |
+| `INVALID_EVENT_NAME` | 160 | Nombre de evento no válido |
+| `CLASS_NOT_EMPTY` | 255 | No se borra una clase que tiene objetos |
 
-| Name                        | Code | Description                                                                                 |
-|-----------------------------|------|---------------------------------------------------------------------------------------------|
-| `InternalServerError`       | 1    | Internal server error. Indicates an unhandled exception or infrastructure failure.          |
-| `ConnectionFailed`          | 100  | Connection to backend failed.                                                               |
-| `ObjectNotFound`            | 101  | The specified object or session doesn't exist or you don't have read access.                |
-| `InvalidQuery`              | 102  | Malformed query constraint or parameter.                                                    |
-| `InvalidClassName`          | 103  | Class names must start with a letter and contain only alphanumeric characters or underscores.|
-| `MissingObjectId`           | 104  | Object ID is required for this operation.                                                   |
-| `InvalidKeyName`            | 105  | Invalid field name structure.                                                               |
-| `InvalidPointer`            | 106  | A malformed pointer was provided.                                                           |
-| `InvalidJSON`               | 107  | Badly formed JSON in the request body.                                                      |
-| `CommandUnavailable`        | 108  | Command is only available internally.                                                       |
-| `NotInitialized`            | 109  | SDK not properly initialized before usage.                                                  |
-| `IncorrectType`             | 111  | Data type provided does not match schema requirements.                                      |
-| `InvalidChannelName`        | 112  | Invalid push or pubsub channel name.                                                        |
-| `PushMisconfigured`         | 113  | Push notification certificates or credentials missing.                                      |
-| `ObjectTooLarge`            | 116  | Payload or document exceeds maximum size limits.                                            |
-| `InvalidLimitError`         | 117  | Invalid `limit` parameter on query.                                                         |
-| `InvalidSkipError`          | 118  | Invalid `skip` parameter on query.                                                          |
-| `OperationForbidden`        | 119  | Action blocked by Class Level Permissions (CLP) or Access Control Lists (ACL).              |
-| `CacheMiss`                 | 120  | Requested item not found in cache.                                                          |
-| `InvalidNestedKey`          | 121  | Nested key operation is invalid.                                                            |
-| `InvalidFileName`           | 122  | File name violates constraints.                                                             |
-| `InvalidACL`                | 123  | Invalid ACL structure provided.                                                             |
-| `Timeout`                   | 124  | Operation exceeded maximum execution time.                                                  |
-| `InvalidEmailAddress`       | 125  | The email format is invalid.                                                                |
-| `FileSaveError`             | 130  | Error while writing to storage adapter (S3 / Local).                                        |
-| `DuplicateValue`            | 137  | A unique constraint was violated (e.g. unique field).                                       |
-| `InvalidRoleName`           | 139  | Role name is malformed.                                                                     |
-| `ExceededCollectionQuota`   | 140  | Maximum collection/class limit reached.                                                     |
-| `ScriptFailed`              | 141  | Cloud Function or Trigger execution failed.                                                 |
-| `ValidationError`           | 142  | Data validation failed (e.g. password complexity requirements).                             |
-| `WebhookError`              | 143  | Upstream webhook failure.                                                                   |
-| `InvalidImageData`          | 150  | Image processing failed or format unrecognized.                                             |
-| `UnsavedFileError`          | 151  | Attempting to attach an unsaved file to an object.                                          |
-| `InvalidPushTimeError`      | 152  | Invalid schedule time for push notifications.                                               |
-| `FileDeleteError`           | 153  | Failed to delete file from storage.                                                         |
-| `RequestLimitExceeded`      | 155  | Rate limit / DDoS protection triggered.                                                     |
-| `InvalidEventName`          | 160  | Analytics event name is invalid.                                                            |
-| `ClassNotEmpty`             | 255  | Attempting to drop a class that contains records.                                           |
+## Parse Server: usuarios y sesiones (200 a 212)
 
-### Authentication & User Management
+| Nombre | Código | Significado |
+|---|---|---|
+| `USERNAME_MISSING` | 200 | Falta el nombre de usuario |
+| `PASSWORD_MISSING` | 201 | Falta la contraseña |
+| `USERNAME_TAKEN` | 202 | El nombre de usuario ya existe |
+| `EMAIL_TAKEN` | 203 | El email ya está en otra cuenta |
+| `MISSING_EMAIL` | 204 | Falta el email |
+| `AUTH_DATA_ERROR` | 205 | `authData` de un proveedor externo no válida |
+| `SESSION_MISSING` | 206 | La ruta necesita una sesión |
+| `MUST_CREATE_USER` | 207 | El usuario tiene que existir antes |
+| `ACCOUNT_ALREADY_LINKED` | 208 | El proveedor externo ya está vinculado a otra cuenta |
+| `INVALID_SESSION_TOKEN` | 209 | Token de sesión caducado, revocado o no válido |
+| `MFA_REQUIRED` | 210 | Hace falta un segundo factor |
+| `ACCOUNT_LOCKED` | 211 | Cuenta bloqueada |
+| `UNAUTHORIZED` | 212 | Petición no autorizada |
 
-| Name                        | Code | Description                                                                                 |
-|-----------------------------|------|---------------------------------------------------------------------------------------------|
-| `UsernameMissing`           | 200  | Username is required.                                                                       |
-| `PasswordMissing`           | 201  | Password is required.                                                                       |
-| `UsernameTaken`             | 202  | Username is already in use.                                                                 |
-| `EmailTaken`                | 203  | Email is already linked to another account.                                                 |
-| `MissingEmail`              | 204  | Email address required.                                                                     |
-| `AuthDataError`             | 205  | Invalid 3rd party authentication payload (OAuth/SSO).                                       |
-| `SessionMissing`            | 206  | A valid session token is required for this route.                                           |
-| `MustCreateUser`            | 207  | User must be created before this action.                                                    |
-| `AccountAlreadyLinked`      | 208  | The OAuth provider is already linked.                                                       |
-| `InvalidSessionToken`       | 209  | Session token expired, revoked, or invalid.                                                 |
-| `MfaRequired`               | 210  | Multi-factor authentication is required.                                                    |
-| `AccountLocked`             | 211  | Account has been locked due to security policies.                                           |
-| `Unauthorized`              | 212  | Unauthorized request.                                                                       |
+## Zenith: LiveQuery (300 a 349)
 
----
+| Nombre | Código | Significado |
+|---|---|---|
+| `LIVEQUERY_SOCKET_CLOSED` | 300 | Se cerró el WebSocket de LiveQuery |
+| `LIVEQUERY_SUBSCRIPTION_ERROR` | 301 | No se pudo suscribir a la consulta |
+| `LIVEQUERY_UNAUTHORIZED` | 302 | Sin permiso para suscribirse a esa consulta |
+| `LIVEQUERY_QUOTA_EXCEEDED` | 303 | Demasiadas suscripciones en la conexión |
 
-## Zenith Custom Extensions (300 - 599)
+## Zenith: medios (350 a 399)
 
-Zenith extends the core BaaS functionality with Realtime Media, Corporate Identity, and Trait architectures.
+| Nombre | Código | Significado |
+|---|---|---|
+| `STREAM_NOT_FOUND` | 350 | El stream no existe |
+| `STREAM_CODEC_UNSUPPORTED` | 351 | Códec no soportado |
+| `STREAM_QUOTA_EXCEEDED` | 352 | Sala llena |
+| `RECORDING_FAILED` | 353 | Falló la grabación |
+| `SFRAME_KEY_NEGOTIATION_FAILED` | 354 | Se rechazó la negociación de claves E2EE |
+| `MEDIA_UNAUTHORIZED` | 355 | Sin permiso para entrar o emitir en la sala |
 
-### WebSockets & LiveQuery (300 - 349)
+## Zenith: LDAP y OAuth (400 a 449)
 
-| Name                           | Code | Description                                                                                 |
-|--------------------------------|------|---------------------------------------------------------------------------------------------|
-| `LiveQuerySocketClosed`        | 300  | The websocket connection was unexpectedly terminated.                                       |
-| `LiveQuerySubscriptionError`   | 301  | Failed to subscribe to a LiveQuery (e.g. invalid query format).                             |
-| `LiveQueryUnauthorized`        | 302  | Insufficient ACLs or session missing to subscribe to this query.                            |
-| `LiveQueryQuotaExceeded`       | 303  | Reached maximum concurrent active subscriptions per connection.                             |
+| Nombre | Código | Significado |
+|---|---|---|
+| `LDAP_CONNECTION_FAILED` | 400 | No se pudo conectar con el LDAP |
+| `LDAP_BIND_FAILED` | 401 | Credenciales de bind de LDAP no válidas |
+| `LDAP_USER_NOT_FOUND` | 402 | Usuario no encontrado en el LDAP |
+| `OAUTH_PROVIDER_UNAVAILABLE` | 403 | El proveedor OAuth no responde |
 
-### Media & Streaming (350 - 399)
+## Zenith: composición de traits (500 a 599)
 
-| Name                           | Code | Description                                                                                 |
-|--------------------------------|------|---------------------------------------------------------------------------------------------|
-| `StreamNotFound`               | 350  | The media room or WebRTC stream does not exist.                                             |
-| `StreamCodecUnsupported`       | 351  | The client requested an unsupported codec (e.g. requires VP8, client offers H.264).         |
-| `StreamQuotaExceeded`          | 352  | Room capacity reached.                                                                      |
-| `RecordingFailed`              | 353  | Failed to dump or process media recording buffers.                                          |
-| `SFrameKeyNegotiationFailed`   | 354  | End-to-End Encryption (E2EE) key negotiation rejected.                                      |
-| `MediaUnauthorized`            | 355  | Caller is not authorized to join or broadcast in this media room.                           |
+| Nombre | Código | Significado |
+|---|---|---|
+| `TRAIT_CONTRACT_VIOLATION` | 500 | Falta una capacidad obligatoria al componer |
+| `TRAIT_CONFLICT` | 501 | Dos traits proveen la misma capacidad |
+| `MISSING_PROVIDER` | 502 | Ningún trait provee una capacidad que se pidió |
 
-### Enterprise & LDAP (400 - 449)
+## Zenith: shell y plugins (600 a 649)
 
-| Name                           | Code | Description                                                                                 |
-|--------------------------------|------|---------------------------------------------------------------------------------------------|
-| `LdapConnectionFailed`         | 400  | Could not reach corporate LDAP server.                                                      |
-| `LdapBindFailed`               | 401  | Invalid LDAP bind credentials.                                                              |
-| `LdapUserNotFound`             | 402  | User not found in Corporate Active Directory.                                               |
-| `OAuthProviderUnavailable`     | 403  | Auth adapter provider is currently offline.                                                 |
+| Nombre | Código | Significado |
+|---|---|---|
+| `SHELL_COMMAND_NOT_ALLOWED` | 600 | Comando de shell fuera de la lista permitida |
+| `SHELL_EXECUTION_FAILED` | 601 | Falló el comando de shell |
+| `PLUGIN_INITIALIZATION_ERROR` | 602 | Falló la inicialización de un plugin |
 
-### Zenith Barrits Trait Engine (500 - 599)
+## Valores y restricciones
 
-| Name                           | Code | Description                                                                                 |
-|--------------------------------|------|---------------------------------------------------------------------------------------------|
-| `TraitContractViolation`       | 500  | A required capability is missing during runtime composition.                                |
-| `TraitConflict`                | 501  | Multiple traits attempt to inject the same strict dependency.                               |
-| `MissingProvider`              | 502  | Dependency Injection failed due to an unresolved provider interface.                        |
+- El estado HTTP no es el código: un `VALIDATION_ERROR` responde 400 y un `REQUEST_LIMIT_EXCEEDED`, 429.
+- `response.error(código, mensaje)` en Cloud Code responde 400 con ese código.
+- El SDK de cliente no tiene todavía los tres códigos del rango 600 (`SHELL_COMMAND_NOT_ALLOWED`,
+  `SHELL_EXECUTION_FAILED` y `PLUGIN_INITIALIZATION_ERROR`).
+- Los rangos propios están definidos, pero hoy el motor solo emite unos pocos (los de shell, entre otros). No he
+  revisado código por código cuáles llegan de verdad a un cliente.
+
+## Ver también
+
+- [Acceso y API keys](./04-acceso-y-api-keys.md#errores): 401, 403 y 429.
+- [Webhooks y Cloud Code Hooks](./06-webhooks-y-hooks.md): errores de validadores y triggers.

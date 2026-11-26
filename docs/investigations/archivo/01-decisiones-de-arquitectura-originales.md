@@ -1,6 +1,6 @@
 # Architecture Decision Record (ADR): Media Streaming & WebRTC Scalability
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](index.md).
+> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../../users/README.md).
 
 ## Contexto y Problema
 Zenith requiere capacidades nativas de streaming de audio y video en tiempo real, operando sobre WebRTC (WHIP/WHEP) para lograr latencias ultra bajas. 

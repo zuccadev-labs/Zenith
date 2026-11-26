@@ -1,6 +1,6 @@
 # 05 — API Outage (Zenith Backend)
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../../users/README.md).
 
 > **Owner:** On-call SRE
 > **Trigger:** `GET /health` returns 5xx for > 1 min, or error rate > 5 % on any route.

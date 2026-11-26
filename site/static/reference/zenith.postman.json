@@ -1302,6 +1302,37 @@
           "response": []
         },
         {
+          "name": "Current session (Parse Server)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Sign up (engine-auth account + Parse profile)",
           "request": {
             "method": "POST",
@@ -2350,6 +2381,85 @@
                 "agents",
                 "{agentId}",
                 "sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Historial de una sesión de conversación",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/agents/{agentId}/sessions/{sessionId}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "agents",
+                "{agentId}",
+                "sessions",
+                "{sessionId}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Un turno de la sesión (uno a la vez por sesión, con su historial)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/agents/{agentId}/sessions/{sessionId}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "agents",
+                "{agentId}",
+                "sessions",
+                "{sessionId}",
+                "messages"
               ]
             }
           },
@@ -4186,6 +4296,161 @@
                 "slots",
                 "{objectId}",
                 "book"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cells",
+      "item": [
+        {
+          "name": "Cells provider, classes and counters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/cells",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "cells"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cells of a class that exist (local provider)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zen/cells/{binding}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "cells",
+                "{binding}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hibernate the cell called :name now, if idle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/cells/{binding}/{name}/hibernate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "cells",
+                "{binding}",
+                "{name}",
+                "hibernate"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Call a method of the cell called :name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Parse-Application-Id",
+                "value": "{{appId}}"
+              },
+              {
+                "key": "X-Parse-Session-Token",
+                "value": "{{sessionToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/zen/cells/{binding}/{name}/rpc/{method}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zen",
+                "cells",
+                "{binding}",
+                "{name}",
+                "rpc",
+                "{method}"
               ]
             }
           },

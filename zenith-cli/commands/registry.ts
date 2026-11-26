@@ -113,7 +113,7 @@ export const COMMANDS: readonly AnyTraitDescriptor[] = [
   command(
     "generate",
     "Operaciones",
-    "Genera documentación y especificaciones  openapi | docs | postman",
+    "Genera documentación y especificaciones  docs | openapi | schema | sdk",
     () => import("./generate.ts"),
   ),
   command(

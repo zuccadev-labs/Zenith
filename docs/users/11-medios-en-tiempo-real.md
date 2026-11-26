@@ -1,150 +1,41 @@
-# WebRTC Media Integration & Resiliency
+---
+description: "Lo que hay hoy de medios en Zenith: streams HLS, señalización SFrame, claves E2EE y la sala WebRTC del SDK, que aún no tiene servidor."
+tipo: explicacion
+---
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../index.md).
+# ¿Qué hay hoy de vídeo, audio y streaming?
 
-This document outlines the architecture, integration patterns, and best practices for implementing Real-Time Communication (WebRTC) using the Zenith Cloud Functions and the Zenith React SDK. 
+Hay rutas de streams HLS y, con la pieza `e2eeMedia`, claves E2EE y salas SFrame. La sala WebRTC del SDK de cliente
+(`ZenithMediaRoom`, `useZenithMedia`) todavía no tiene servidor que la atienda. No conviene construir una
+videollamada sobre esto sin leer antes la última sección.
 
-The Zenith Media framework is designed to provide enterprise-grade reliability, including automatic exponential backoff reconnection, seamless peer lifecycle management, and blind Selective Forwarding Unit (SFU) signaling for Zero-Knowledge architectures (Strict SFrame).
+## Contexto
 
-## 1. Cloud Infrastructure (Backend Interception)
+Quería que una app pudiera hacer llamadas cifradas de extremo a extremo con el mismo backend que guarda sus datos.
+El diseño está a medias: hay piezas en el motor y en el SDK, pero no están conectadas entre sí.
 
-The Zenith Media orchestrator (`SFrameSignalingTrait`) is designed with a strict Separation of Concerns (SoC). The underlying WebRTC signaling logic is handled automatically, but critical lifecycle events are bubbled up to the Zenith Cloud Functions engine. 
+## Cómo funciona
 
-This architecture allows DevOps and Backend Engineering teams to implement business logic, access control, and auditing without modifying the underlying real-time transport layer.
+| Pieza | Qué expone | Acceso |
+|---|---|---|
+| `mediaStream` (encendida por defecto) | `POST /streams/:channelId/start`, `POST /streams/:channelId/stop`, `GET /streams/:channelId/manifest.m3u8` | `master` |
+| `e2eeMedia` (apagada por defecto; `features.e2ee_media`) | `/e2ee/keys`, `/e2ee/keys/:userId`, `/sframe/rooms`, `/sframe/rooms/:roomId/join` | Las declara el trait |
+| SDK de cliente | `ZenithMediaRoom` y, en React, `useZenithMedia({ roomId, userId, mode, audio, video })`. `mode` es `strict_sframe` (cifrado en el cliente) o `hop_by_hop` | Abre `ws://<servidor>/media/<sala>?appId=…` |
+| Cloud Code | `Zen.Cloud.onStreamEvent`, `beforePublish`, `beforeWatch` | Se registran, pero no se ejecutan |
 
-### Example: Enforcing Access Control via Cloud Functions
+## Límites
 
-To intercept WebRTC signaling events and enforce business rules (e.g., restricting access to premium rooms), developers can register an event handler using `ZenithCloud.onStreamEvent`.
+- **La sala del SDK no conecta con nada.** El servidor entrega los WebSocket de `/media/` a
+  `engine.handleWebSocket`, pero ningún trait lo implementa. Lo leí en el código (`zenith-backend/src/mod.ts` y
+  `src/core/engine-api.ts`); no lo he probado con dos navegadores.
+- **No hay SFU conectado.** La señalización SFrame existe como rutas, pero no hay un servidor de medios detrás.
+- **Los triggers de medios no corren.** `onStreamEvent`, `beforePublish` y `beforeWatch` avisan en el log al
+  registrarse.
+- Las rutas de `e2eeMedia` no las he revisado con la pieza encendida.
 
-```typescript
-// zenith-backend/src/cloud/main.ts
-import { ZenithCloud } from "@zenith/core";
+Todo está anotado en [Lo que falta](../development/10-lo-que-falta.md). La versión anterior de este documento,
+que describía un marco de medios completo, está en el [archivo](./archivo/04-medios-webrtc-original.md).
 
-/**
- * Intercepts WebRTC signaling events before they are broadcasted to the room.
- */
-ZenithCloud.onStreamEvent("signal_received", async (request) => {
-  const { roomId, senderId, ctx } = request;
-  
-  // Retrieve the authenticated user context
-  const user = await ctx.user();
-  
-  if (!user) {
-    throw new Error("Unauthorized: Access denied to media room.");
-  }
-  
-  // Implement Business Logic: Enforce premium role requirements
-  if (roomId.startsWith("premium-") && user.get("role") !== "premium") {
-    // Throwing an error aborts the SDP exchange, effectively 
-    // preventing the WebRTC connection from being established.
-    throw new Error("Forbidden: Subscription required for premium rooms.");
-  }
+## Para seguir
 
-  console.log(`[Security Audit] Media signaling authorized for ${user.get("username")} in room ${roomId}`);
-});
-```
-
-## 2. Client SDK (Frontend Integration)
-
-The Zenith React SDK abstracts the complexity of `RTCPeerConnection` negotiation, ICE Candidate queuing, cryptographic token handling, and WebSocket reconnection strategies.
-
-The SDK implements a Zero-Touch UX philosophy. Developers only need to invoke the `useZenithMedia` hook and bind the resulting media streams to the DOM.
-
-### Example: Implementing a Resilient Video Room
-
-```tsx
-// frontend/src/components/EnterpriseVideoRoom.tsx
-import React, { useEffect } from 'react';
-import { useZenithMedia, useZenithUser } from '@zenith/react-sdk';
-
-interface VideoRoomProps {
-  roomId: string;
-}
-
-export const EnterpriseVideoRoom: React.FC<VideoRoomProps> = ({ roomId }) => {
-  const { user } = useZenithUser();
-  
-  // 1. Initialize the Zenith Media SDK Hook
-  const {
-    join, 
-    leave, 
-    localStream, 
-    remoteStreams, 
-    connectionState, 
-    toggleAudio, 
-    isAudioEnabled
-  } = useZenithMedia({
-    roomId: roomId,
-    userId: user?.id,
-    username: user?.get('username'),
-    mode: "strict_sframe", // Enforces End-to-End Encryption (E2EE)
-    audio: true,
-    video: true
-  });
-
-  // 2. Automate Room Lifecycle
-  useEffect(() => {
-    join().catch(err => console.error("Failed to join room:", err.message));
-    
-    // Ensure hardware tracks are released and memory is cleared on unmount
-    return () => leave();
-  }, [join, leave]);
-
-  // 3. Render the UI Elements
-  return (
-    <div className="video-room-container">
-      <h2>Room: {roomId}</h2>
-      
-      {/* Network Resiliency Indicator */}
-      {connectionState === "reconnecting" && (
-        <div className="alert-warning">
-          ⚠️ Network instability detected. Restoring secure connection...
-        </div>
-      )}
-
-      <div className="video-grid">
-        {/* Local Hardware Stream */}
-        {localStream && (
-          <div className="video-card local-video">
-            <video 
-              autoPlay 
-              playsInline 
-              muted // Always mute local video to prevent feedback loops
-              ref={el => { if(el) el.srcObject = localStream; }}
-            />
-            <p>You (Microphone {isAudioEnabled ? 'ON' : 'OFF'})</p>
-          </div>
-        )}
-
-        {/* Dynamic Remote Streams Mapping */}
-        {remoteStreams.map(([peerId, meta]) => (
-          <div key={peerId} className="video-card remote-video">
-            <video 
-              autoPlay 
-              playsInline
-              ref={el => { if(el) el.srcObject = meta.stream; }}
-            />
-            <p>Participant: {meta.username || peerId}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Hardware Controls */}
-      <div className="controls">
-        <button onClick={() => toggleAudio(!isAudioEnabled)}>
-          {isAudioEnabled ? 'Mute Microphone' : 'Unmute Microphone'}
-        </button>
-        <button onClick={leave}>
-          Disconnect
-        </button>
-      </div>
-    </div>
-  );
-};
-```
-
-## Architectural Highlights
-
-1. **Hardware Resource Management:** The `leave()` lifecycle method guarantees that all underlying `MediaStreamTrack` instances are properly stopped. This prevents memory leaks and ensures device activity indicators (e.g., webcam LEDs) turn off immediately, complying with strict privacy standards.
-2. **Exponential Backoff Reconnection:** The SDK implements an enterprise-grade reconnection engine. In the event of a WebSocket drop, the SDK silently attempts to reconnect using an exponential backoff strategy (up to 30 seconds). During this phase, the `connectionState` flag is updated to `reconnecting`, allowing the UI to react gracefully without requiring developer intervention.
-3. **Ghost Peer Prevention:** The framework proactively manages peer lifecycles. When an existing peer drops and reconnects abruptly, the SDK performs an automatic "Cleanup and Replace" operation, destroying stale `RTCPeerConnection` objects to prevent "black screen" artifacts.
+- [Piezas y motores](./05-piezas-y-motores.md): encender `e2eeMedia`.

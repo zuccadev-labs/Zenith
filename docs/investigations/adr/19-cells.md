@@ -5,8 +5,8 @@
 > **Deciders:** product owner de Zenith, equipo de backend
 > **Supersedes:** none
 > **Related:** `zenith-backend/src/traits/cells/*`, `src/traits/agents/adk.agents.trait.ts`,
-> `tests/unit/cells-*.test.ts`, [docs/architecture/cells.md](../architecture/cells.md),
-> [ADR-013](ADR-013-composition-and-access.md), [ADR-017](ADR-017-webhooks-hooks-event-bus.md);
+> `tests/unit/cells-*.test.ts`, [docs/architecture/cells.md](../../users/07-celdas.md),
+> [ADR-013](./13-composition-and-access.md), [ADR-017](./17-webhooks-hooks-event-bus.md);
 > celld 0.6.3 (https://celld.dev, https://github.com/denoland/celld, Apache-2.0)
 
 ## Contexto
@@ -41,7 +41,7 @@ El product owner pidió que celld sea el motor de uso y el estándar de todo en 
 | Hibernación y desalojo por inactividad                              | —                                                              | Hibernación tras `hibernateAfterMs`; vuelve desde SQLite                                                                   |
 | Límites de residencia y por objeto                                  | —                                                              | `maxResidentCells` (LRU), `maxStorageBytesPerCell`, 30 s en `blockConcurrencyWhile`                                        |
 | Propiedad por escritura condicional en bucket, época, _failover_    | `federation` (CRDT LWW) y gRPC/ZeroMQ, sin escritor único      | Un proceso por directorio en `local`. Lo distribuido es `celld`                                                            |
-| Replicación LTX y RPO 0                                             | Copias de Mongo ([ADR-010](ADR-010-backup-strategy.md))        | `local`: WAL con `synchronous=FULL` en disco local. `celld`: el bucket                                                     |
+| Replicación LTX y RPO 0                                             | Copias de Mongo ([ADR-010](./10-backup-strategy.md))        | `local`: WAL con `synchronous=FULL` en disco local. `celld`: el bucket                                                     |
 | KV                                                                  | `cache` (LRU/Redis) y `Zen.Config` (Deno KV)                   | Binding `KVNamespace` sobre una celda por espacio, como celld                                                              |
 | Queues                                                              | `queue` (`_Job`, reintentos, DLQ)                              | Binding `Queue` y consumidor `queue(batch, env)` sobre `queue`                                                             |
 | R2                                                                  | `storage`/`files` (RustFS/S3)                                  | Pendiente: binding R2 sobre `storage`                                                                                      |
@@ -194,7 +194,7 @@ Una interfaz de Zenith distinta de la de Durable Objects.
 ### Negativas
 
 - **`local` no es distribuido:** dos procesos no deben compartir `dir`. Para varios nodos hace falta celld.
-- **Semántica más débil que la de celld** (ver [cells.md](../architecture/cells.md#diferencias)):
+- **Semántica más débil que la de celld** (ver [cells.md](../../users/07-celdas.md#diferencias)):
   - no hay _output gate_ porque no hace falta: cada escritura ya está en disco al volver;
   - el _input gate_ es por macrotarea;
   - la durabilidad es la del disco local, no la de un bucket.
@@ -227,4 +227,4 @@ Una interfaz de Zenith distinta de la de Durable Objects.
   [limitaciones](https://github.com/denoland/celld/blob/main/docs/limitations.md)
 - Cloudflare: [Durable Objects](https://developers.cloudflare.com/durable-objects/),
   [reglas de Durable Objects](https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/)
-- Guía: [docs/architecture/cells.md](../architecture/cells.md)
+- Guía: [docs/architecture/cells.md](../../users/07-celdas.md)

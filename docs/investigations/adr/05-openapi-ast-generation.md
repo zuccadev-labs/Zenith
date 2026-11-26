@@ -4,7 +4,7 @@
 - **Fecha:** 2026-06-06
 - **Decisores:** Zenith Core Team
 - **Sprint:** Phase 1.F (cierra H-6)
-- **Prerrequisito:** [ADR-004-plugin-signing.md](./ADR-004-plugin-signing.md)
+- **Prerrequisito:** [ADR-004-plugin-signing.md](./04-plugin-signing.md)
 
 ## Contexto
 
@@ -341,8 +341,8 @@ no cambia.
 
 - OpenAPI 3.1.0 Specification: https://spec.openapis.org/oas/v3.1.0
 - Barrits `composeTraitDescriptors`: la fuente del state.
-- [ADR-003 — API Keys](file:///D:/zuccadev/Documentos/Programacion/labs-packages/Zenith/docs/architecture-decisions/ADR-003-api-keys.md): scopes compatibles con `security` schemes
-- [ADR-004 — Plugin Signing](file:///D:/zuccadev/Documentos/Programacion/labs-packages/Zenith/docs/architecture-decisions/ADR-004-plugin-signing.md): `PluginManifest` schema
+- [ADR-003 — API Keys](./03-api-keys.md): scopes compatibles con `security` schemes
+- [ADR-004 — Plugin Signing](./04-plugin-signing.md): `PluginManifest` schema
 
 ## Apéndice: ejemplo completo
 

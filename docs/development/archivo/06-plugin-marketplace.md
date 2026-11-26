@@ -1,6 +1,6 @@
 # Zenith Plugin Marketplace — Design
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../users/README.md).
 
 > **Status:** Phase 4.0 design, not yet implemented.
 > **Owner:** Platform lead, Product lead.

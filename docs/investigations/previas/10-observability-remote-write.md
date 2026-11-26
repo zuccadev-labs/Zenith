@@ -1,6 +1,6 @@
 # Investigación 10: Observability Push (Prometheus remote_write + Loki Shipper)
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 **Fecha**: 2026-06-06
 **Autor**: @zuccadev (Zenith Core Team)

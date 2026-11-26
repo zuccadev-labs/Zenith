@@ -1,6 +1,6 @@
 # Zenith — Total Cost of Ownership (TCO) Calculator
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+> **Archivado el 2026-11-26.** Calcula el coste de un servicio alojado que no existe, con precios que nunca se fijaron.
 
 > **Date:** 2026-06-06
 > **Audience:** Finance, Sales Engineering, Customer Success.

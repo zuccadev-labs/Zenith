@@ -1,6 +1,6 @@
 # Diseño del Sistema de Esquemas y Soporte Blockchain
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 Este documento detalla la arquitectura de inferencia y validación de tipos del motor Zenith, combinando la flexibilidad de Parse Server con soporte de primera clase para la Web3 y la era de la IA.
 

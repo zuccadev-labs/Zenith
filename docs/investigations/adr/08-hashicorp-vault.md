@@ -148,8 +148,8 @@ VAULT_TEST_ADDR=https://localhost:8200 VAULT_TEST_TOKEN=root \
 
 ## Referencias
 
-- [Investigación 11: HashiCorp Vault como gestor de secretos](../investigations/11_hashicorp_vault_secrets.md)
+- [Investigación 11: HashiCorp Vault como gestor de secretos](../previas/11-hashicorp-vault-secrets.md)
 - [Vault docs oficiales](https://developer.hashicorp.com/vault/docs)
-- [H-4 en auditoría de seguridad](../investigations/06_security_microservices_audit.md)
-- [00_intro.md](../investigations/00_intro.md) — Stack target
-- [stack.txt](../../stack.txt) — Integraciones confirmadas
+- [H-4 en auditoría de seguridad](../previas/06-security-microservices-audit.md)
+- [00_intro.md](../previas/00-intro.md) — Stack target
+- `stack.txt` — Integraciones confirmadas

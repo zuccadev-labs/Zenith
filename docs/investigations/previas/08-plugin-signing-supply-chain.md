@@ -1,13 +1,13 @@
 # 08 — Plugin Manifest Signing: Defensa de Supply Chain con Ed25519 y Trust on First Use
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 > **Fase**: Sprint 2 — Phase 1.E (Enterprise Hardening)
 > **Autor**: Equipo Zenith — @zuccadev-labs
 > **Fecha**: 2026-06-06
 > **Estado**: Implementado v1.0 — 34/34 tests pasando
 > **Cierra**: H-5 (Plugin lockfile sin firma criptográfica)
-> **Prerrequisito**: [06_security_microservices_audit.md](./06_security_microservices_audit.md)
+> **Prerrequisito**: [06_security_microservices_audit.md](./06-security-microservices-audit.md)
 
 ---
 
@@ -868,8 +868,8 @@ message de `importPublicRaw`.
 
 ### Internas
 
-- [ADR-003 — API Keys](file:///D:/zuccadev/Documentos/Programacion/labs-packages/Zenith/docs/architecture-decisions/ADR-003-api-keys.md) — scopes compatibles con `plugin.permissions`
-- [ADR-002 — mTLS](file:///D:/zuccadev/Documentos/Programacion/labs-packages/Zenith/docs/architecture-decisions/ADR-002-mtls.md) — formato PEM similar
+- [ADR-003 — API Keys](../adr/03-api-keys.md) — scopes compatibles con `plugin.permissions`
+- [ADR-002 — mTLS](../adr/02-mtls.md) — formato PEM similar
 - `src/mod.ts:427-477` — código del loader modificado
 - `src/security/api-keys/types.ts:31-44` — scopes reutilizables
 

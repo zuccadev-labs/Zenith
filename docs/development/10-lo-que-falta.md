@@ -76,6 +76,27 @@ debe filtrar cada evento por ACL, como ya hace el CRUD.
 No deben abrirse nunca a usuarios: `/shell/*`, `/runner/*`, `/secrets/*`, `/edge/deploy`, `/ratelimit/*`,
 `/schemas` y `/migrations`.
 
+### Una API key que pasa su límite no recibe 429 (encontrado el 2026-11-26)
+`extractAndVerifyKey` devuelve `reason: "rate_limited"` y la petición sigue como anónima: `ctx.apiKeyRejected`
+lleva el motivo, pero nadie lo lee. Una ruta `user` responde entonces como si faltara la credencial. Debería
+responder 429 con `retry-after`, como el límite por IP. Lo vi leyendo el código; falta una prueba que lo fije.
+
+### La sala de medios del SDK de cliente no tiene servidor (encontrado el 2026-11-26)
+`ZenithMediaRoom` y `useZenithMedia` abren `ws://…/media/<sala>`. `mod.ts` entrega ese socket a
+`engine.handleWebSocket`, pero ningún trait lo implementa, así que la conexión no llega a nada. Ver
+[Medios en tiempo real](../users/11-medios-en-tiempo-real.md).
+
+### LiveQuery no tiene quien atienda el WebSocket (encontrado el 2026-11-26)
+`mod.ts` toma el manejador de `engine["realtime-pubsub"].handleWebSocket`, pero `RealtimeTrait` provee
+`realtime`, `realtimeServer` y `liveQuery`, no `realtime-pubsub`, y ningún otro trait lo provee. Leído así, toda
+conexión WebSocket recibe `{ code: 107, error: "WebSocket endpoint not found or disabled." }`. No hay pruebas de
+LiveQuery por WebSocket que lo hubieran detectado. Antes de abrirlo a usuarios, además, cada evento tiene que
+filtrarse por ACL.
+
+### Credenciales por defecto de RustFS (encontrado el 2026-11-26)
+Sin `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`, `mod.ts` crea el cliente S3 con `admin`/`admin`. En producción
+debería fallar al arrancar en lugar de usar unas credenciales conocidas.
+
 ### El adaptador de Mongo y `$inQuery`
 `$inQuery` ejecuta su subconsulta sin ACL ni CLP sobre cualquier colección. El CRUD lo rechaza a los usuarios. Si
 se quiere ofrecer, el adaptador tiene que pasar la subconsulta por las mismas comprobaciones.

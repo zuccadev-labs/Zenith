@@ -1,8 +1,14 @@
-# Webhooks y Cloud Code Hooks
+---
+description: "Webhooks salientes con Standard Webhooks, Cloud Code Hooks de Parse Server y los validadores de Zen.Cloud."
+tipo: guia
+---
 
-> Vigente a 2026-11-11. Decisión: [ADR-017](../architecture-decisions/ADR-017-webhooks-hooks-event-bus.md).
+# ¿Cómo aviso a otros sistemas y cómo dejo que una URL externa resuelva Cloud Code?
 
-Zenith habla con URLs externas de dos formas:
+Con webhooks para avisar de lo que ya pasó, y con Cloud Code Hooks para que una URL externa conteste durante la
+petición. La decisión está en [ADR-017](../investigations/adr/17-webhooks-hooks-event-bus.md).
+
+Las dos formas, una al lado de la otra:
 
 | | Webhooks (`/zen/webhooks`) | Cloud Code Hooks (`/hooks`, Parse Server) |
 |---|---|---|
@@ -152,6 +158,6 @@ Una función inexistente responde como una cerrada.
 también lo que engine-auth ya había emitido. El logout no se bloquea nunca.
 
 Los de LiveQuery, media y `beforePasswordResetRequest` todavía no corren: al registrarlos se avisa en el log (ver
-`zenith-backend/docs/pending.md`).
+[Lo que falta](../development/10-lo-que-falta.md)).
 
 Funcionan igual en `zen dev` y en una app compilada, porque se leen del registro global en el momento de ejecutarse.

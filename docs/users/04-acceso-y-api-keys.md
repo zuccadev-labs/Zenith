@@ -1,110 +1,121 @@
-# API Rate Limiting Policy
+---
+description: "El modelo de acceso por ruta (public, user, master), las API keys con scopes y lista de IP, y los límites de peticiones."
+tipo: referencia
+---
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../index.md).
+# ¿Quién puede llamar a cada ruta y con qué credencial?
 
-> **Effective:** 2026-06-06
-> **Owner:** API lead, Security lead.
+Cada ruta declara un acceso: `public`, `user` o `master`. Una ruta que no declara nada es `master`. La OpenAPI de
+cada servidor lo documenta en la `security` de cada operación.
 
-## 1. Per-key rate limits
+## Resumen
 
-| Key type | Default | Burst | Headers                                 |
-| -------- | ------: | ----: | --------------------------------------- |
-| `pk_*`   | 6 000 / min | 200 / s | `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` |
-| `sk_*`   | 1 000 / min | 50 / s | same                                    |
-| `rk_*`   | 60 / min    | 10 / s | same                                    |
-| session  | 60 / min    | 10 / s | same                                    |
+| Acceso | Quién entra | Ejemplos |
+|---|---|---|
+| `public` | Cualquiera, sin credenciales | `/health`, `/openapi.json`, `/login`, `POST /users`, una URL firmada de `/files` |
+| `user` | Una sesión de usuario, o una API key cuyos scopes cubran el de la ruta | `/classes`, `/batch`, funciones con `requireUser` |
+| `master` | La master key, solo desde localhost | `/schemas`, `/files`, `/zen/*`, los módulos de negocio |
 
-Custom limits can be set per-key (Enterprise tier).
+Lo decidí así en [ADR-013](../investigations/adr/13-composition-and-access.md): denegar por defecto y abrir ruta por
+ruta. Hoy están abiertas a usuarios `/classes` y `/batch` ([ADR-014](../investigations/adr/14-classes-for-users.md));
+el resto se abre trait por trait ([Lo que falta](../development/10-lo-que-falta.md)).
 
-## 2. Per-IP rate limits (anonymous)
+## Credenciales
 
-| Path pattern       | Limit            | Notes                       |
-| ------------------ | ---------------- | --------------------------- |
-| `/login`           | 10 / min / IP    | brute-force protection      |
-| `/users` (signup)  | 5 / hour / IP    | prevents mass signup        |
-| `/requestPasswordReset` | 3 / hour / IP | prevents email bombing      |
-| `/health`          | unlimited        | liveness probes             |
-| `/metrics`         | 60 / min / IP    | Prometheus scraping         |
+| Cabecera | Qué lleva |
+|---|---|
+| `X-Parse-Application-Id` (o `Zen-Application-Id`) | El `appId`. Siempre |
+| `X-Parse-Session-Token` (o `Zen-Session-Token`) | Token de sesión `r:…` |
+| `Authorization: Bearer <valor>` | Un token de sesión, un token de acceso de engine-auth o una API key |
+| `X-API-Key`, `Zen-API-Key` o `X-Parse-REST-API-Key` | Una API key |
+| `X-Parse-Master-Key` (o `Zen-Master-Key`) | La master key. Fuera de localhost se rechaza y se avisa en el log |
 
-## 3. Per-tenant rate limits
+Si una petición se autentica con una API key, la master key que traiga no se tiene en cuenta.
 
-| Tier        | Aggregate RPS | Notes                          |
-| ----------- | ------------: | ------------------------------ |
-| Starter     | 100           | shared across all keys         |
-| Growth      | 5 000         | shared across all keys         |
-| Enterprise  | 100 000+      | per-tenant, custom             |
+## API keys
 
-## 4. Response on limit exceeded
+Se gestionan con `zen api-keys` o con `/zen/api-keys`, solo con la master key: ninguna API key puede crear, rotar
+ni revocar otra, tampoco una `*` ([ADR-015](../investigations/adr/15-api-key-access-policy.md)).
 
-```http
-HTTP/1.1 429 Too Many Requests
-Content-Type: application/json
-Retry-After: 30
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1717670400
-X-RateLimit-Policy: per-key
-
-{
-  "code": "rate_limited",
-  "message": "Rate limit exceeded: 1000 requests per minute per key.",
-  "retryAfter": 30
-}
+```bash
+zen api-keys create --name ci --env test --allowed-ips 203.0.113.10
+zen api-keys create --name lectura --prefix pk --scopes "data:read"
+zen api-keys create --name deploy --scopes "*" --allowed-ips 203.0.113.10 --expires 30d
+zen api-keys list
+zen api-keys rotate --id <keyId> --grace 24h
+zen api-keys revoke --id <keyId> --reason "filtrada"
 ```
 
-## 5. Algorithm
+La key completa solo se muestra al crearla.
 
-We use a **token bucket** with a per-key refill rate:
+### Tipos
 
-```
-tokens = min(capacity, tokens + (now - lastRefill) * refillRate)
-if tokens >= 1:
-  tokens -= 1
-  allow
-else:
-  deny
-```
+| Prefijo | Para | Scopes por defecto | Peticiones por minuto |
+|---|---|---|---|
+| `sk_` | Backends de confianza | `data:read`, `data:write`, `data:create`, `data:delete`, `users:read`, `users:write`, `files:read`, `files:write`, `files:delete`, `functions:invoke`, `functions:deploy`, `push:send`, `analytics:read` | 1000 |
+| `pk_` | Clientes públicos | `data:read`, `users:read`, `files:read`, `analytics:read` | 6000 |
+| `rk_` | Un uso concreto | `analytics:read` | 60 |
 
-Implementation: in-memory LRU + Redis for shared state across pods.
+`--rpm` cambia el límite de una key. `--env live|test` marca el entorno en el propio prefijo (`sk_live_…`).
 
-## 6. Exemptions
+### Scopes
 
-- **Master key:** rate limits can be bypassed (audit logged).
-- **Health checks:** always allowed.
-- **Webhooks (inbound):** allow 1 000 / min per tenant (customers may
-  receive bursts from us).
+- `recurso:acción` concede una operación; `recurso:*`, todas las de ese recurso; `*`, todo.
+- Una ruta `user` solo acepta API keys si declara un scope. Si no lo declara, las rechaza.
+- En el CRUD: leer pide `data:read`; crear, `data:create`; modificar o incrementar, `data:write`; borrar,
+  `data:delete`. En `_User`, `users:read` y `users:write`. `/batch` comprueba cada suboperación.
 
-## 7. Customer visibility
+### Lista de IP (`allowedIps`)
 
-- Per-key usage in the admin dashboard.
-- Per-tenant aggregate in the admin dashboard.
-- Webhook when a key approaches its limit (90 %, 100 %).
-- Slack notification for Enterprise customers.
+- Cualquier key puede llevarla: hasta 100 direcciones IPv4 o IPv6, o rangos CIDR.
+- Fuera de la lista, la key se rechaza con 401 y el intento queda en la auditoría
+  (`key.rejected`, `reason: ip_not_allowed`).
+- La IP es la del socket. `X-Forwarded-For` solo cuenta si el socket es un proxy declarado en `trustedProxies`.
 
-## 8. Adjustments
+### Keys `*`
 
-Customers can request a limit increase via:
+Una key con scope `*` equivale a la master key, así que le exijo lo mismo que a ella:
 
-- **Self-service** (in dashboard) for up to 2x the default.
-- **Support ticket** for higher; requires justification + business case.
-- **Sales** for permanent increases or custom limits.
+- solo puede ser `sk_`;
+- `--allowed-ips` es obligatoria y no admite `0.0.0.0/0` ni `::/0`;
+- caduca en 90 días como máximo; se renueva rotándola.
 
-## 9. DDoS protection
+Un despliegue sin IP fija (autoescalado, serverless) no puede usar keys `*`: usa keys con scopes concretos o sale
+por una IP fija.
 
-Beyond the per-key limits, the WAF enforces:
+### Rotación
 
-- 10 000 / s per IP for the entire Zenith platform.
-- 100 / s per IP for unauthenticated routes.
-- 1 000 / s per CIDR /16.
+La key nueva conserva los scopes, la lista de IP y la duración de la anterior. La anterior sigue valiendo durante
+el periodo de gracia: 24 h por defecto y 30 días como máximo.
 
-When these are exceeded, the WAF returns 429 with a Cloudflare challenge
-page (CAPTCHA or JS challenge).
+## Límites de peticiones
 
-## 10. Abuse handling
+| Límite | Cuánto | Respuesta al pasarlo |
+|---|---|---|
+| Por IP, en `/login` y `POST /users` | 10 por minuto | 429, código 155 |
+| Por IP, en el resto de rutas | 100 por minuto | 429, código 155 |
+| Por API key | El de su tipo, o `--rpm` | Ver abajo |
 
-Repeated rate-limit violations (3+ in 24 h) trigger:
+La master key no tiene límite por IP.
 
-- Email to the customer.
-- 1-hour cooldown.
-- Repeated violations → 24 h cooldown → key revocation.
-- Severe abuse → tenant suspension (manual review).
+Cuando una key pasa su límite, durante ese minuto deja de autenticar: la petición sigue como anónima y una ruta
+`user` la rechaza por falta de credenciales, no con 429. Así lo leo en el código (`security/api-keys/middleware.ts`
+y `core/pipeline.ts`, donde nadie lee `apiKeyRejected`); no lo he comprobado con una prueba. Está anotado en
+[Lo que falta](../development/10-lo-que-falta.md).
+
+No hay cabeceras `X-RateLimit-*` en las respuestas normales, ni planes con límites distintos.
+
+## Errores
+
+| Respuesta | Cuándo |
+|---|---|
+| 401 | Credencial ausente, inválida, caducada, revocada o fuera de su lista de IP |
+| 403 | Credencial válida sin el scope de la ruta; una `pk_` que intenta escribir; una API key en `/zen/api-keys` |
+| 429 | Límite por IP |
+
+## Ver también
+
+- [Usuarios y sesiones](./02-usuarios-y-sesiones.md).
+- [ADR-015](../investigations/adr/15-api-key-access-policy.md) y
+  [ADR-016](../investigations/adr/16-shared-crypto-and-single-api-keys.md): las decisiones y sus fuentes.
+- Código: `zenith-backend/src/security/api-keys/`.

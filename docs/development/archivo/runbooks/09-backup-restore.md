@@ -1,6 +1,6 @@
 # 09 — Backup & Restore
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../index.md).
+> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../../users/README.md).
 
 > **Owner:** Database SRE
 > **Tooling:** `mongodump`/`mongorestore`, AWS S3, AWS Backup, HashiCorp Vault Raft snapshots.

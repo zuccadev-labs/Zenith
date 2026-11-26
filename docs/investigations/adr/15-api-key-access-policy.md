@@ -4,7 +4,7 @@
 > **Fecha:** 2026-11-10
 > **Relacionado:** `zenith-backend/src/security/api-keys/policy.ts`, `scopes.ts`, `manager.ts`, `routes.ts`,
 > `bootstrap.ts`, `src/core/router.ts`, `src/traits/rest/crud.trait.ts`, ADR-003, ADR-013, ADR-014
-> **Ampliada por:** [ADR-016](ADR-016-shared-crypto-and-single-api-keys.md): un solo sistema de API keys (se retiró `/zen/apikeys` del trait workspace)
+> **Ampliada por:** [ADR-016](./16-shared-crypto-and-single-api-keys.md): un solo sistema de API keys (se retiró `/zen/apikeys` del trait workspace)
 
 ## Contexto
 

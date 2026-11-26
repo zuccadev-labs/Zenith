@@ -1,12 +1,12 @@
 # 02 — Integración de Barrits en Zenith: Traits y Orquestación Determinista
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 > **Fase**: Investigación & Diseño Arquitectónico  
 > **Autor**: Equipo Zenith — @zuccadev-labs  
 > **Fecha**: 2026-05-21  
 > **Estado**: Draft v1.0  
-> **Prerrequisito**: [01_parse_server_architecture_analysis.md](./01_parse_server_architecture_analysis.md)
+> **Prerrequisito**: [01_parse_server_architecture_analysis.md](./01-parse-server-architecture-analysis.md)
 
 ---
 

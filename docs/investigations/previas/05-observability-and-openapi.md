@@ -1,12 +1,12 @@
 # 05 — Observabilidad Corporativa (OpenTelemetry) y Documentación Viva (OpenAPI)
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 > **Fase**: Diseño Arquitectónico (System Design)  
 > **Autor**: Equipo Zenith — @zuccadev-labs  
 > **Fecha**: 2026-05-22  
 > **Estado**: Draft v1.0  
-> **Prerrequisito**: [03_zenith_architecture.md](./03_zenith_architecture.md)
+> **Prerrequisito**: [03_zenith_architecture.md](./03-zenith-architecture.md)
 
 ---
 

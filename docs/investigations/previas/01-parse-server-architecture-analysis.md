@@ -1,12 +1,12 @@
 # 01 — Análisis Arquitectónico de Parse Server y Mapeo a Zenith
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 > **Fase**: Investigación & Análisis  
 > **Autor**: Equipo Zenith — @zuccadev-labs  
 > **Fecha**: 2026-05-21  
 > **Estado**: Draft v1.0  
-> **Prerrequisito**: [00_intro.md](./00_intro.md)
+> **Prerrequisito**: [00_intro.md](./00-intro.md)
 
 ---
 

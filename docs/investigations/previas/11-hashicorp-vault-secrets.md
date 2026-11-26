@@ -1,12 +1,12 @@
 # Investigación 11: HashiCorp Vault como gestor de secretos (H-4)
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 **Autor**: Zenith Core Team
 **Fecha**: 2026-06-06
 **Status**: Cerrado
-**ADR relacionado**: [ADR-008](../architecture-decisions/ADR-008-hashicorp-vault.md)
-**Auditoría**: [06_security_microservices_audit.md](../investigations/06_security_microservices_audit.md) → H-4
+**ADR relacionado**: [ADR-008](../adr/08-hashicorp-vault.md)
+**Auditoría**: [06_security_microservices_audit.md](./06-security-microservices-audit.md) → H-4
 
 ---
 

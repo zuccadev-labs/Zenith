@@ -1,89 +1,69 @@
-# Tutorial 03 — File upload
+---
+description: "Subir, descargar y borrar archivos con /files, y compartirlos con URLs firmadas que caducan."
+tipo: guia
+---
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../index.md).
+# ¿Cómo subo, sirvo y comparto archivos?
 
-> **Goal:** upload a file to Zenith and download it via a signed URL.
+Con `/files/:filename`, la ruta de Parse Server, usando la master key. Para que alguien sin credenciales descargue
+un archivo, el servidor genera una URL firmada que caduca.
 
-## 1. Upload a file
+## Requisitos
 
-```bash
-curl -X POST https://api.zenith.io/v1/files/photo.jpg \
-  -H "X-Parse-Application-Id: acme-corp-prod" \
-  -H "Authorization: Bearer sk_live_***" \
-  -H "Content-Type: image/jpeg" \
-  --data-binary @photo.jpg
-```
+- La master key, desde localhost: las rutas de `/files` son `master`
+  ([ADR-013](../investigations/adr/13-composition-and-access.md)).
+- `FILE_SIGNING_KEY` en el entorno si vas a usar URLs firmadas. Sin ella, cada proceso inventa una clave aleatoria
+  y avisa en el log: las URLs dejan de valer al reiniciar y no valen en otra réplica.
 
-Response (201 Created):
+## Pasos
 
-```json
-{
-  "name": "abc123-photo.jpg",
-  "url": "https://files.zenith.io/v1/acme-corp/abc123-photo.jpg",
-  "contentType": "image/jpeg",
-  "size": 12345
-}
-```
+1. **Subir:** los bytes tal cual, con su `Content-Type`.
 
-The file is encrypted at rest with SSE-KMS using a customer-managed key.
+   ```bash
+   curl -X POST http://localhost:1337/files/informe.pdf \
+     -H "X-Parse-Application-Id: miapp" -H "X-Parse-Master-Key: $ZENITH_MASTER_KEY" \
+     -H "Content-Type: application/pdf" --data-binary @informe.pdf
+   ```
 
-## 2. Download
+2. **Descargar:** `GET /files/informe.pdf`, con la master key.
 
-```bash
-curl -O https://files.zenith.io/v1/acme-corp/abc123-photo.jpg \
-  -H "X-Parse-Application-Id: acme-corp-prod" \
-  -H "Authorization: Bearer sk_live_***"
-```
+3. **Compartir:** pide una URL firmada. `expiresIn` va en segundos, de 1 a 7 días; por defecto, una hora.
 
-## 3. Delete
+   ```bash
+   curl "http://localhost:1337/zen/files/informe.pdf/url?expiresIn=86400" \
+     -H "X-Parse-Application-Id: miapp" -H "X-Parse-Master-Key: $ZENITH_MASTER_KEY"
+   ```
 
-```bash
-curl -X DELETE https://api.zenith.io/v1/files/abc123-photo.jpg \
-  -H "X-Parse-Application-Id: acme-corp-prod" \
-  -H "Authorization: Bearer sk_live_***"
-```
+   La URL apunta a `GET /files/:objectId/:filename?expires=…&sig=…`, que es pública. El tope de 7 días es el mismo
+   que el de las URLs prefirmadas de S3 (SigV4).
 
-## 4. SDK examples
+4. **Borrar:** `DELETE /files/informe.pdf`, con la master key.
 
-### TypeScript
+## Dónde se guardan
 
-```typescript
-const file = await zenith.files.upload({
-  name: "photo.jpg",
-  data: fs.readFileSync("photo.jpg"),
-  contentType: "image/jpeg",
-});
-console.log(file.url);
+El contenido va al disco, en `ZENITH_FILES_DIR` (por defecto `./.zenith-storage`), con un nombre aleatorio. El
+registro va a la clase `_File` de la base de datos. En varias réplicas, esa carpeta tiene que ser compartida.
 
-const downloaded = await zenith.files.download(file.name);
-fs.writeFileSync("downloaded.jpg", downloaded.data);
+El motor también compone un adaptador S3 para RustFS (pieza `objectStorage`), pero `/files` no lo usa hoy.
 
-await zenith.files.delete(file.name);
-```
+## Triggers
 
-### Python
+`Zen.Cloud.beforeSaveFile`, `afterSaveFile`, `beforeDeleteFile` y `afterDeleteFile` se ejecutan alrededor de la
+subida y el borrado, como en Parse Server.
 
-```python
-file = zenith.files.upload(
-    name="photo.jpg",
-    data=open("photo.jpg", "rb").read(),
-    content_type="image/jpeg",
-)
-print(file["url"])
+## Problemas frecuentes
 
-downloaded = zenith.files.download(file["name"])
-open("downloaded.jpg", "wb").write(downloaded.data)
+| Síntoma | Causa | Solución |
+|---|---|---|
+| 403 `{ "code": 119, "error": "Invalid or expired signed URL." }` | Firma inválida, URL caducada o archivo que no existe. La respuesta es la misma en los tres casos para que la URL no revele nada | Pedir otra URL |
+| Las URLs firmadas dejan de valer al reiniciar | Falta `FILE_SIGNING_KEY` | Fijarla, igual en todas las réplicas |
+| `ZenithFile.save()` falla desde el SDK de cliente | El SDK sube con la sesión del usuario y la ruta solo acepta la master key | Subir desde un backend de confianza, o exponer una función de Cloud Code que lo haga |
 
-zenith.files.delete(file["name"])
-```
+Lo último lo deduzco del código (`sdk/Typescript/src/objects/ZenithFile.ts` frente a
+`zenith-backend/src/traits/storage/storage.trait.ts`); no lo he probado contra un servidor.
 
-## 5. Limits
+## Relacionado
 
-| Limit                        | Default        |
-| ---------------------------- | -------------- |
-| Max file size                | 50 MB          |
-| Allowed content types        | any (no enforcement by default) |
-| Max files per tenant         | 1 000 000      |
-| Max total storage per tenant | 10 TB          |
-
-Custom limits can be set per-tenant via the admin API.
+- [Acceso y API keys](./04-acceso-y-api-keys.md).
+- [Lo que falta](../development/10-lo-que-falta.md): abrir a usuarios las rutas que siguen siendo solo `master`,
+  `/files` entre ellas, está pendiente trait por trait.

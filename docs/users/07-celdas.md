@@ -1,7 +1,12 @@
-# Celdas (Durable Objects)
+---
+description: "Celdas (Durable Objects): actores con SQLite propio para el estado de una sola cosa; proveedores local y celld."
+tipo: guia
+---
 
-> Vigente a 2026-11-19. Decisión: [ADR-019](../architecture-decisions/ADR-019-cells.md). Código:
-> `zenith-backend/src/traits/cells/`.
+# ¿Dónde guardo el estado que pertenece a una sola cosa?
+
+En una celda. La decisión está en [ADR-019](../investigations/adr/19-cells.md) y el código, en
+`zenith-backend/src/traits/cells/`.
 
 Una **celda** es un actor de un solo hilo con su propia base de datos SQLite, al que se llega por nombre o por id.
 Tiene la API de los Durable Objects de Cloudflare, que también implementa [celld](https://celld.dev). Úsala para

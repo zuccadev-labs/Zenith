@@ -177,6 +177,9 @@ jobs:
         run: deno test --allow-all --no-check --unstable-kv --frozen
       - name: JSR package (dry run)
         run: deno publish --dry-run --allow-dirty
+      - name: Documentation covers the code (routes, commands, pieces, errors, versions, links)
+        working-directory: .
+        run: deno run -A --unstable-kv --frozen --config zenith-backend/deno.json tools/docs-coverage.ts
 
   sdk:
     name: client SDK

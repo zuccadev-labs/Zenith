@@ -44,6 +44,20 @@
 
 ---
 
+## `GET /sessions/me`
+**Current session (Parse Server)**
+
+### Respuestas
+- **200**: OK
+- **400**: Bad Request - parámetros inválidos
+- **401**: Unauthorized - falta API key, JWT o session token
+- **403**: Forbidden - ACL/CLP denied
+- **404**: Not Found - el recurso no existe
+- **429**: Too Many Requests - rate limit exceeded
+- **500**: Internal Server Error
+
+---
+
 ## `POST /users`
 **Sign up (engine-auth account + Parse profile)**
 

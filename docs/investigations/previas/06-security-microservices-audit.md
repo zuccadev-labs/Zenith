@@ -1,12 +1,12 @@
 # 06 — Hardening de Seguridad, Microservicios y Auditoría Corporativa
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 > **Fase**: Implementación Enterprise  
 > **Autor**: Equipo Zenith — @zuccadev-labs  
 > **Fecha**: 2026-05-22  
 > **Estado**: Implementado v1.0  
-> **Prerrequisito**: [05_observability_and_openapi.md](./05_observability_and_openapi.md)
+> **Prerrequisito**: [05_observability_and_openapi.md](./05-observability-and-openapi.md)
 
 ---
 

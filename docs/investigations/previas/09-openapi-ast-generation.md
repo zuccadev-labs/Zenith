@@ -1,13 +1,13 @@
 # 09 — OpenAPI 3.1 desde el AST Compuesto de Barrits: Generación Automática de la Superficie de Ataque
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../index.md).
+> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
 
 > **Fase**: Sprint 2 — Phase 1.F (Enterprise Hardening)
 > **Autor**: Equipo Zenith — @zuccadev-labs
 > **Fecha**: 2026-06-06
 > **Estado**: Implementado v1.0 — 24/24 tests pasando
 > **Cierra**: H-6 (OpenAPI incompleto / desincronizado con el router)
-> **Prerrequisito**: [08_plugin_signing_supply_chain.md](./08_plugin_signing_supply_chain.md)
+> **Prerrequisito**: [08_plugin_signing_supply_chain.md](./08-plugin-signing-supply-chain.md)
 
 ---
 
@@ -726,8 +726,8 @@ fields opcionales que el caller controla.
 
 ### Internas
 
-- [ADR-003 — API Keys](file:///D:/zuccadev/Documentos/Programacion/labs-packages/Zenith/docs/architecture-decisions/ADR-003-api-keys.md): compat de scopes con security schemes
-- [ADR-004 — Plugin Signing](file:///D:/zuccadev/Documentos/Programacion/labs-packages/Zenith/docs/architecture-decisions/ADR-004-plugin-signing.md): `PluginManifest` schema
+- [ADR-003 — API Keys](../adr/03-api-keys.md): compat de scopes con security schemes
+- [ADR-004 — Plugin Signing](../adr/04-plugin-signing.md): `PluginManifest` schema
 - `src/core/openapi-generator.ts` — implementación completa (~500 LOC)
 - `src/core/openapi.ts` — wrapper de compatibilidad
 - `tests/unit/openapi-generator.test.ts` — 24 tests
