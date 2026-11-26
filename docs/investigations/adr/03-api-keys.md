@@ -1,3 +1,9 @@
+---
+description: "ADR-003: API Keys estilo Stripe con Argon2id."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-003: API Keys estilo Stripe con Argon2id
 
 **Status:** Accepted (Phase 0.D) — ampliado por [ADR-015](./15-api-key-access-policy.md) (2026-11-10): los scopes se aplican de verdad, política de IP, keys `*` acotadas y gestión solo con master key.

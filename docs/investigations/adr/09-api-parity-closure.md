@@ -1,6 +1,13 @@
+---
+description: "ADR-009 — Phase 4.0 API Parity Closure."
+tipo: adr
+estado: sustituida
+---
+
 # ADR-009 — Phase 4.0 API Parity Closure
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** Superada: `/batch` y `/jobs`, que aquí figuran como pendientes, ya existen, y varias rutas
+> que da por hechas (`/config`, `/serverInfo`) no. Lo vigente: [Migrar desde Parse Server](../../users/10-migrar-desde-parse-server.md).
 
 > **Status:** Accepted
 > **Date:** 2026-06-06

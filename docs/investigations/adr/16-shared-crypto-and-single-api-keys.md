@@ -1,3 +1,9 @@
+---
+description: "ADR-016 — Primitivas criptográficas compartidas, firma de webhooks y un solo sistema de API keys."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-016 — Primitivas criptográficas compartidas, firma de webhooks y un solo sistema de API keys
 
 > **Estado:** Aceptada

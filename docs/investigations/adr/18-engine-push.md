@@ -1,3 +1,9 @@
+---
+description: "ADR-018 — Los avisos a personas salen por engine-push (zutool), por su socket."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-018 — Los avisos a personas salen por engine-push (zutool), por su socket
 
 > **Estado:** Aceptada

@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: 06 — Hardening de Seguridad, Microservicios y Auditoría Corporativa."
+tipo: investigacion
+estado: histórica
+---
+
 # 06 — Hardening de Seguridad, Microservicios y Auditoría Corporativa
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 > **Fase**: Implementación Enterprise  
 > **Autor**: Equipo Zenith — @zuccadev-labs  

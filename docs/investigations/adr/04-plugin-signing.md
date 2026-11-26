@@ -1,3 +1,9 @@
+---
+description: "ADR-004: Plugin Manifest Signing con Ed25519."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-004: Plugin Manifest Signing con Ed25519
 
 - **Estado:** Accepted

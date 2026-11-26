@@ -1,6 +1,9 @@
-# Architecture Decision Record (ADR): Media Streaming & WebRTC Scalability
+# Decisiones de arquitectura originales
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../../users/README.md).
+## Architecture Decision Record (ADR): Media Streaming & WebRTC Scalability
+
+> **Archivado el 2026-11-26.** El primer documento de decisiones. `ZENITH_TOPOLOGY` y el CLI `zenith-agent` no
+> existen (lo real es `config.topology` y `zen agent`), y el SFU que describe no está conectado.
 
 ## Contexto y Problema
 Zenith requiere capacidades nativas de streaming de audio y video en tiempo real, operando sobre WebRTC (WHIP/WHEP) para lograr latencias ultra bajas. 
@@ -36,7 +39,7 @@ Como ingenieros de sistemas a escala corporativa, el **Single Responsibility Pri
 
 ---
 
-# Architecture Decision Record (ADR): Orquestación Modular e Inteligencia Artificial AIOps (Fase 9 - 14)
+## Architecture Decision Record (ADR): Orquestación Modular e Inteligencia Artificial AIOps (Fase 9 - 14)
 
 ## Contexto y Problema
 En las fases avanzadas de desarrollo, surgió la necesidad de dotar a Zenith de las siguientes capacidades de grado corporativo:

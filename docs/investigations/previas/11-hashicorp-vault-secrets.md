@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: Investigación 11: HashiCorp Vault como gestor de secretos (H-4)."
+tipo: investigacion
+estado: histórica
+---
+
 # Investigación 11: HashiCorp Vault como gestor de secretos (H-4)
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 **Autor**: Zenith Core Team
 **Fecha**: 2026-06-06

@@ -1,3 +1,9 @@
+---
+description: "ADR-007: Production Readiness Cleanup (Phase 2.H)."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-007: Production Readiness Cleanup (Phase 2.H)
 
 **Status**: Accepted

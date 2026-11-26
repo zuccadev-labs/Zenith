@@ -1,3 +1,9 @@
+---
+description: "ADR-014 — El CRUD `/classes` abierto a usuarios."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-014 — El CRUD `/classes` abierto a usuarios
 
 > **Estado:** Aceptada

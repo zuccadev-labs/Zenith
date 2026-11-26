@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: 09 — OpenAPI 3.1 desde el AST Compuesto de Barrits: Generación Automática de la Superficie de Ataque."
+tipo: investigacion
+estado: histórica
+---
+
 # 09 — OpenAPI 3.1 desde el AST Compuesto de Barrits: Generación Automática de la Superficie de Ataque
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 > **Fase**: Sprint 2 — Phase 1.F (Enterprise Hardening)
 > **Autor**: Equipo Zenith — @zuccadev-labs

@@ -1,3 +1,9 @@
+---
+description: "ADR-005: OpenAPI 3.1 Generado desde el AST Compuesto de Barrits."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-005: OpenAPI 3.1 Generado desde el AST Compuesto de Barrits
 
 - **Estado:** Accepted

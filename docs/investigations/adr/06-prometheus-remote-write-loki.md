@@ -1,3 +1,9 @@
+---
+description: "ADR-006: Prometheus remote_write + Loki Logs Shipper."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-006: Prometheus remote_write + Loki Logs Shipper
 
 **Status**: Accepted

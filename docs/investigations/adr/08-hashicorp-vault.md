@@ -1,3 +1,9 @@
+---
+description: "ADR-008: HashiCorp Vault como gestor centralizado de secretos."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-008: HashiCorp Vault como gestor centralizado de secretos
 
 - **Status**: Aceptado

@@ -1,3 +1,9 @@
+---
+description: "ADR-015 — Scopes y política de acceso de las API keys."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-015 — Scopes y política de acceso de las API keys
 
 > **Estado:** Aceptada

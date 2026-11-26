@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: 05 — Observabilidad Corporativa (OpenTelemetry) y Documentación Viva (OpenAPI)."
+tipo: investigacion
+estado: histórica
+---
+
 # 05 — Observabilidad Corporativa (OpenTelemetry) y Documentación Viva (OpenAPI)
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 > **Fase**: Diseño Arquitectónico (System Design)  
 > **Autor**: Equipo Zenith — @zuccadev-labs  

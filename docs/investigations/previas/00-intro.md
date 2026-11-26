@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: Proyecto Zenith: El BaaS de la Era de la Inteligencia Artificial."
+tipo: investigacion
+estado: histórica
+---
+
 # Proyecto Zenith: El BaaS de la Era de la Inteligencia Artificial
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 Estoy construyendo el BaaS de la era de la Inteligencia Artificial. Reducir la fricción para que un LLM no alucine código de backend y orqueste todo mediante AST y Traits declarativos es un enfoque disruptivo.
 Aquí tienes una propuesta de descripción profesional, el análisis de tu arquitectura y una nueva ronda de nombres ultra-específicos para esta visión.

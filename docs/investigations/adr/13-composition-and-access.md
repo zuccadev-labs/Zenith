@@ -1,3 +1,9 @@
+---
+description: "ADR-013 — Composición por capacidades y acceso denegado por defecto."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-013 — Composición por capacidades y acceso denegado por defecto
 
 > **Estado:** Aceptada

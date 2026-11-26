@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: Diseño del Sistema de Esquemas y Soporte Blockchain."
+tipo: investigacion
+estado: histórica
+---
+
 # Diseño del Sistema de Esquemas y Soporte Blockchain
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 Este documento detalla la arquitectura de inferencia y validación de tipos del motor Zenith, combinando la flexibilidad de Parse Server con soporte de primera clase para la Web3 y la era de la IA.
 

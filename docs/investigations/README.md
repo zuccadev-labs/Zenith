@@ -7,6 +7,12 @@ description: "Las decisiones de arquitectura de Zenith (ADR) y las investigacion
 Aquí están las decisiones de arquitectura (ADR) y las notas de investigación de antes de escribir el código. Un ADR
 no se reescribe: si la decisión cambia, escribo otro y el anterior pasa a sustituido.
 
+## Notas de investigación
+
+| Nota | Pregunta que responde |
+|---|---|
+| [La documentación, contrastada](./01-la-documentacion-contrastada.md) | ¿Cuánto se parecía la documentación al código? (2026-11-26) |
+
 ## Decisiones (ADR)
 
 Las de 012 en adelante están escritas contra el código actual. Las anteriores son de otra etapa del proyecto; el
@@ -22,9 +28,9 @@ estado dice cuánto se sostienen hoy.
 | [006](./adr/06-prometheus-remote-write-loki.md) | Prometheus `remote_write` y envío de logs a Loki | Aceptada |
 | [007](./adr/07-production-readiness.md) | Limpieza para producción | Aceptada; no la he verificado a fondo contra el código |
 | [008](./adr/08-hashicorp-vault.md) | HashiCorp Vault para los secretos | Aceptada |
-| [009](./adr/09-api-parity-closure.md) | Cerrar la paridad con la API de Parse Server | Superada: `/batch` y `/jobs` ya existen |
-| [010](./adr/10-backup-strategy.md) | Copias de seguridad y recuperación | Diseño para un servicio alojado que no existe |
-| [011](./adr/11-security-hardening.md) | Endurecimiento y cumplimiento | Diseño para un servicio alojado que no existe |
+| [009](./adr/09-api-parity-closure.md) | Cerrar la paridad con la API de Parse Server | Sustituida: `/batch` y `/jobs` ya existen |
+| [010](./adr/10-backup-strategy.md) | Copias de seguridad y recuperación | No aplicada: servicio alojado que no existe |
+| [011](./adr/11-security-hardening.md) | Endurecimiento y cumplimiento | No aplicada: servicio alojado que no existe |
 | [012](./adr/12-engine-auth.md) | Usuarios y sesiones delegados en engine-auth | Aceptada |
 | [013](./adr/13-composition-and-access.md) | Composición por capacidades y acceso denegado por defecto | Aceptada |
 | [014](./adr/14-classes-for-users.md) | `/classes` abierto a usuarios | Aceptada |

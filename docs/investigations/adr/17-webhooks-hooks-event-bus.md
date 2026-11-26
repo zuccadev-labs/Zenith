@@ -1,3 +1,9 @@
+---
+description: "ADR-017 — Webhooks (Standard Webhooks), Cloud Code Hooks de Parse y bus de eventos en el núcleo."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-017 — Webhooks (Standard Webhooks), Cloud Code Hooks de Parse y bus de eventos en el núcleo
 
 > **Estado:** Aceptada

@@ -1,3 +1,9 @@
+---
+description: "ADR-019 — La celda (Durable Object) como unidad estándar de trabajo con estado, local o sobre celld."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-019 — La celda (Durable Object) como unidad estándar de trabajo con estado, local o sobre celld
 
 > **Estado:** Aceptada (fase 1 implementada; proveedor `celld` experimental)

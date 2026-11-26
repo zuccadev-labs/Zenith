@@ -1,3 +1,9 @@
+---
+description: "ADR-012 — Usuarios y sesiones delegados en engine-auth."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-012 — Usuarios y sesiones delegados en engine-auth
 
 > **Estado:** Aceptada

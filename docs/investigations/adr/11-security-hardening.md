@@ -1,6 +1,12 @@
+---
+description: "ADR-011 — Security Hardening & Compliance Posture."
+tipo: adr
+estado: no aplicada
+---
+
 # ADR-011 — Security Hardening & Compliance Posture
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** No aplicada: describe endurecimiento y certificaciones de un servicio alojado que no existe.
 
 > **Status:** Accepted
 > **Date:** 2026-06-06

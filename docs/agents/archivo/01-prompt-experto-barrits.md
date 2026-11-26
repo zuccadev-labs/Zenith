@@ -1,5 +1,8 @@
 # Prompt Maestro para el Agente Zenith (Experto en Barrits y Deno)
 
+> **Archivado el 2026-11-26.** Nota interna anterior a la guía de agentes. Sus rutas e imports no son los del
+> código actual; lo vigente es [Agentes](../README.md).
+
 **Ubicación sugerida para el Agente**: System Prompt de cualquier LLM asignado al desarrollo de Zenith.
 
 ---

@@ -1,6 +1,12 @@
+---
+description: "ADR-001 — Unificación de Carpetas Duplicadas del Monorepo."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-001 — Unificación de Carpetas Duplicadas del Monorepo
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La decisión se aplicó, pero las rutas de carpetas que cita ya no son las del repositorio.
 
 > **Estado**: Accepted
 > **Fecha**: 2026-06-06

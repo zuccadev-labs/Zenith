@@ -1,3 +1,9 @@
+---
+description: "ADR-002: mTLS with SPKI Pinning for Inter-Node Federation."
+tipo: adr
+estado: aceptada
+---
+
 # ADR-002: mTLS with SPKI Pinning for Inter-Node Federation
 
 **Status:** Accepted (Phase 0.C)

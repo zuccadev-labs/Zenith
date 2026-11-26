@@ -1,6 +1,12 @@
+---
+description: "ADR-010 — Backup & Disaster Recovery Strategy."
+tipo: adr
+estado: no aplicada
+---
+
 # ADR-010 — Backup & Disaster Recovery Strategy
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** No aplicada: describe copias y recuperación para un servicio alojado que no existe.
 
 > **Status:** Accepted
 > **Date:** 2026-06-06

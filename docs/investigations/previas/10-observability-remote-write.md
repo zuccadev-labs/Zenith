@@ -1,6 +1,14 @@
+---
+description: "Investigación previa al código actual: Investigación 10: Observability Push (Prometheus remote_write + Loki Shipper)."
+tipo: investigacion
+estado: histórica
+---
+
 # Investigación 10: Observability Push (Prometheus remote_write + Loki Shipper)
 
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 **Fecha**: 2026-06-06
 **Autor**: @zuccadev (Zenith Core Team)

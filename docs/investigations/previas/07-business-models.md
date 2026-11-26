@@ -1,4 +1,14 @@
-> ℹ️ **Estado: histórico.** Investigación previa al diseño actual; sus imports y rutas (`@zenith/core`, `src/cli/`…) no son los del código. Índice vigente: [docs/index.md](../../users/README.md).
+---
+description: "Investigación previa al código actual: Modelos de negocio para Zenith."
+tipo: investigacion
+estado: histórica
+---
+
+# Modelos de negocio para Zenith
+
+> **Nota del 2026-11-26.** La escribí antes del código actual: sus imports y rutas (`@zenith/core`, `src/cli/`…)
+> no son los de hoy. La dejo porque explica de dónde salen varias decisiones. Lo vigente está en
+> [Usar Zenith](../../users/README.md).
 
 ## 🤖 El Nuevo Paradigma: Agentes y Computación Inteligente
 
