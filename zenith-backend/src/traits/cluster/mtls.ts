@@ -337,7 +337,7 @@ async function buildAndSignCert(_opts: {
     "[mTLS] Inline X.509 generation is not implemented in this build. " +
       "Use one of: (1) HashiCorp Vault PKI engine, (2) cert-manager, " +
       "(3) 'zenith mtls:gen-dev' which shells out to openssl. " +
-      "See docs/architecture-decisions/ADR-002-mtls.md",
+      "See docs/investigations/adr/02-mtls.md",
   );
 }
 

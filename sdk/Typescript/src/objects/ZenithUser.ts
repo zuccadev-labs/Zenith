@@ -156,7 +156,7 @@ export class ZenithUser extends ZenithObject {
 
   /**
    * Asks the server to send the verification email again (`POST /verificationEmailRequest`).
-   * Today the server answers 501: email verification belongs to engine-auth (zenith-backend/docs/pending.md).
+   * Today the server answers 501: email verification belongs to engine-auth (docs/development/10-lo-que-falta.md).
    */
   public static async requestEmailVerification(email: string): Promise<void> {
     await RESTController.request("POST", "/verificationEmailRequest", { email });

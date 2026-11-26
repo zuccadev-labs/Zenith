@@ -3,7 +3,7 @@
 # - engine:      format, lint, typecheck and unit tests of zenith-backend with deno.lock frozen; JSR dry-run.
 # - integration: integration tests against MongoDB 9.0.4 (standalone, and a one-node replica set for
 #                change streams), SurrealDB 4 and Vault 2 (TLS). The ones that also need engine-auth
-#                (boot, pieces-e2e) need its binary and are run locally: see zenith-backend/docs/testing.md.
+#                (boot, pieces-e2e) need its binary and are run locally: see docs/development/02-pruebas.md.
 # - cli:         typecheck and tests of zenith-cli with its lock frozen; JSR dry-run.
 # - sdk:         clean install (npm ci) and typecheck of @zuccadev-labs/zenith-client.
 # - image:       Docker build, Trivy scan (CRITICAL/HIGH with a fix available fail the build) and SBOM.
@@ -206,7 +206,7 @@ jobs:
       id-token: write # keyless Sigstore signature and GitHub attestations (the workflow's OIDC identity)
       attestations: write
     env:
-      # Optional: with this secret the SBOM and the image ID are signed (docs/architecture/supply-chain.md).
+      # Optional: with this secret the SBOM and the image ID are signed (docs/development/05-cadena-de-suministro.md).
       COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
       COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
       # Optional: the registry the image is published to from main (repository variable).
@@ -256,7 +256,7 @@ jobs:
             --bundle zenith-backend.image-id.provenance.sigstore.json zenith-backend.image-id
           cosign verify-blob-attestation --key zenith-backend/cosign.pub --insecure-ignore-tlog=true \
             --type slsaprovenance1 --bundle zenith-backend.image-id.provenance.sigstore.json zenith-backend.image-id
-      # Our own registry (Zot, open source; docs/architecture/registry.md): the image is pushed from main, and its
+      # Our own registry (Zot, open source; docs/development/06-registro-de-imagenes.md): the image is pushed from main, and its
       # signature, SLSA provenance and SBOM are attached to its digest (OCI referrers).
       - name: Publish, sign and attest the image in the registry
         id: publish

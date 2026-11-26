@@ -10,7 +10,7 @@ image:
   pullPolicy: IfNotPresent
   # Empty: the chart's appVersion (never "latest", which is mutable).
   tag: ""
-  # sha256:… of the signed image: pins exactly what was built and verified (docs/architecture/supply-chain.md).
+  # sha256:… of the signed image: pins exactly what was built and verified (docs/development/05-cadena-de-suministro.md).
   digest: ""
 
 imagePullSecrets: []

@@ -4,7 +4,7 @@
 #
 #   infra/registry/deploy.sh root@<servidor> registry.example.com
 #
-# Additive and reversible (docs/architecture/registry.md, "Rollback"):
+# Additive and reversible (docs/development/06-registro-de-imagenes.md, "Rollback"):
 # - on the host: /etc/zot (config + htpasswd), /var/lib/zot (data), a container "zenith-zot" on 127.0.0.1 with a
 #   memory cap, and one site block appended to the Caddyfile after a timestamped backup and `caddy validate`;
 # - in GitHub (gh): the variable ZENITH_REGISTRY and the secrets ZENITH_REGISTRY_USER/PASSWORD for the CI.

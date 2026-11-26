@@ -16,4 +16,4 @@ Only the latest release of each package receives security fixes while the projec
 ## Supply chain
 
 Releases are built by CI from this repository. The server image is signed with cosign (`zenith-backend/cosign.pub`)
-and carries SLSA provenance and a CycloneDX SBOM; see `docs/architecture/supply-chain.md`.
+and carries SLSA provenance and a CycloneDX SBOM; see `docs/development/05-cadena-de-suministro.md`.

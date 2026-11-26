@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/zuccadev-labs/zuix/main/zudocs/zudocs.schema.json",
+  "name": "Zenith",
+  "tagline": "Backend como servicio para Deno, compatible con los SDK de Parse Server y compuesto con traits de barrits.",
+  "brand": "zenith",
+  "defaultTheme": "dark",
+  "locale": "es",
+  "logo": { "src": "img/logo.svg", "alt": "Zenith" },
+  "docs": {
+    "path": "../docs",
+    "areas": [
+      { "id": "users", "label": "Uso", "icon": "book", "description": "Crear un backend con zen, usarlo desde una app y la referencia de la API." },
+      { "id": "agents", "label": "Agentes", "icon": "sparkles", "description": "Reglas, patrones y verificación para agentes de IA que trabajan en Zenith." },
+      { "id": "development", "label": "Desarrollo", "icon": "wrench-screwdriver", "description": "Pruebas, CI, OpenAPI, métricas, cadena de suministro y laboratorio." },
+      { "id": "investigations", "label": "Investigación", "icon": "beaker", "description": "Decisiones de arquitectura (ADR) y notas de investigación." },
+      { "id": "package", "label": "Publicación", "icon": "archive-box", "description": "Versionado, publicación en JSR y npm, y contrato público." }
+    ]
+  },
+  "home": { "eyebrow": "Backend como servicio para Deno", "title": "Zenith.", "emphasis": "Un backend que se compone." },
+  "markdown": { "mermaid": true },
+  "search": { "enabled": true, "languages": ["es", "en"] },
+  "navbar": [{ "label": "API (Redoc)", "href": "pathname:///reference/index.html" }],
+  "repository": "https://github.com/zuccadev-labs/Zenith",
+  "cta": { "label": "Empezar", "to": "/docs/users" },
+  "footer": "Zenith · licencia MIT"
+}
