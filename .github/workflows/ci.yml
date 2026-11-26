@@ -1,10 +1,11 @@
 # Zenith CI: the same gates that pass locally, so a red CI means a real regression.
 #
 # - engine:      format, lint, typecheck and unit tests of zenith-backend with deno.lock frozen; JSR dry-run.
-# - integration: integration tests against MongoDB 9.0.4 (standalone, and a one-node replica set for
-#                change streams), SurrealDB 4 and Vault 2 (TLS). The ones that also need engine-auth
-#                (boot, pieces-e2e) need its binary and are run locally: see docs/development/02-pruebas.md.
-# - cli:         typecheck and tests of zenith-cli with its lock frozen; JSR dry-run.
+# - integration: integration tests against MongoDB 9.0.8 (standalone, and a one-node replica set for
+#                change streams), SurrealDB 4 and Vault 2 (TLS).
+# - e2e-engine-auth: the tests that also need engine-auth (boot, pieces-e2e…), only with ZUTOOL_E2E=true:
+#                see docs/development/02-pruebas.md.
+# - cli:         typecheck and tests of zenith-cli with its lock frozen; JSR dry-run; docs coverage.
 # - sdk:         clean install (npm ci) and typecheck of @zuccadev-labs/zenith-client.
 # - image:       Docker build, Trivy scan (CRITICAL/HIGH with a fix available fail the build) and SBOM.
 # - chart:       Helm lint/render, kubeconform, promtool on the alert rules, and the rules copy in sync.

@@ -1,4 +1,12 @@
-# Zenith Lab Infrastructure — Guía de Configuración DNS
+---
+description: "El dominio interno zen.ll del laboratorio, su CoreDNS y cómo apuntar a él desde el equipo de trabajo."
+tipo: guia
+---
+
+# ¿Cómo se configura el DNS del laboratorio?
+
+El laboratorio resuelve sus servicios bajo `zen.ll` con un CoreDNS dentro de la VM; el equipo de trabajo lo usa
+como servidor DNS o añade las entradas a su archivo `hosts`. La zona está en `lab-infra/docker/configs/zen.ll.zone`.
 
 ## Dominio de Laboratorio: `zen.ll`
 

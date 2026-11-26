@@ -13,6 +13,7 @@ lo que planeé; ninguno sirve como guía.
 | [Versionado de la API](./05-api-versioning.md) | Versionado por URL (`/v1`) que no se aplica |
 | [Marketplace de plugins](./06-plugin-marketplace.md) | Diseño del servicio alojado |
 | [Multirregión](./07-multi-region.md) | Diseño del servicio alojado |
+| [Plan de rendimiento original](./08-plan-de-rendimiento-original.md) | Objetivos de latencia que nunca se midieron |
 | [Runbooks](./runbooks/00-index.md) | Operación de un servicio alojado |
 | [Seguridad](./seguridad/01-threat-model.md) | Modelo de amenazas, alcance de pentest, controles y centro de confianza del servicio alojado |
 | [Cumplimiento](./cumplimiento/01-sli-slo.md) | SLI, SLO y plantilla de DPA del servicio alojado |

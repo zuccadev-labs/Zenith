@@ -1,7 +1,14 @@
-# OpenAPI y Swagger en Zenith
+---
+description: "Cómo sale la especificación OpenAPI de la misma lista de rutas que monta el router, y cómo se comprueba."
+tipo: explicacion
+---
 
-> Vigente a 2026-11-10. Sustituye a la versión anterior, que afirmaba que el servidor y el generador
-> compartían la misma fuente. No era cierto: el generador perdía entre el 26 % y el 38 % de las rutas.
+# ¿Cómo se genera la especificación de la API?
+
+De la misma lista de rutas que monta el router, así que la especificación no puede documentar una ruta que no
+existe ni callar una que sí. Una versión anterior de este documento afirmaba que el servidor y el generador ya
+compartían la fuente; no era cierto, y el generador perdía entre el 26 % y el 38 % de las rutas. Lo corregí el
+2026-11-10.
 
 ## Una sola lista de rutas
 
@@ -14,12 +21,12 @@
 
 Esa lista la usan tanto el router (`buildDynamicRouter`) como el generador
 (`generateOpenApiFromState`). La prueba `tests/unit/openapi-parity.test.ts` compara lo que monta el
-router con lo que documenta la spec. Lo hace con las features por defecto (234 rutas) y con todas
-(278). Falla si sobra o falta una ruta, o si la seguridad documentada no coincide con la exigida.
+router con lo que documenta la spec: con las piezas por defecto, 241 rutas; con 285 rutas con todas las piezas.
+Falla si sobra o falta una ruta, o si la seguridad documentada no coincide con la exigida.
 
 ## Seguridad documentada = seguridad aplicada
 
-Cada operación toma su `security` del `access` de la ruta, igual que la aplica el pipeline (ADR-013):
+Cada operación toma su `security` del `access` de la ruta, igual que la aplica el pipeline ([ADR-013](../investigations/adr/13-composition-and-access.md)):
 
 | `access` | `security` en la spec |
 |---|---|

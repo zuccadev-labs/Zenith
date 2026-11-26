@@ -1,16 +1,33 @@
-# Pruebas de Zenith
+---
+description: "Los niveles de prueba de Zenith, cómo ejecutarlos en local contra servicios reales y qué cubre el CI."
+tipo: guia
+---
 
-Una funcionalidad no está terminada hasta que pasa contra servicios reales, no solo en pruebas unitarias. Este
-documento es la receta. El CI (`.github/workflows/ci.yml`) ejecuta todo menos lo que necesita el binario de
-engine-auth.
+# ¿Cómo se prueba Zenith y qué cubre el CI?
+
+Por niveles, de las unitarias al chart desplegado en un Kubernetes real. Para mí una funcionalidad no está terminada
+hasta que pasa contra servicios reales, no solo en pruebas unitarias; este documento es la receta.
+
+## Qué ejecuta el CI
+
+| Trabajo de `.github/workflows/ci.yml` | Qué hace |
+|---|---|
+| `engine` | Formato, lint, tipos y pruebas unitarias del motor con `deno.lock` congelado; publicación simulada en JSR |
+| `integration` | Integración contra MongoDB 9.0.8 (standalone y replica set), SurrealDB 4 y Vault 2 con TLS; también la prueba de carga |
+| `e2e-engine-auth` | Punta a punta con engine-auth real. Solo corre con la variable de repositorio `ZUTOOL_E2E=true` y una deploy key de solo lectura del repositorio de zutool, que es privado |
+| `cli` | Formato, tipos y pruebas del CLI, `zen init` y `zen dev` de punta a punta, publicación simulada y `tools/docs-coverage.ts` |
+| `sdk` | `npm ci` y tipos del SDK de cliente |
+| `image` | Build de la imagen, Trivy, SBOM, firma y publicación en el registro propio |
+| `chart` | Helm lint y render, kubeconform, promtool sobre las alertas |
+| `security` | gitleaks sobre todo el historial, Semgrep, zizmor, actionlint, hadolint, Trivy config, Checkov y OSV-Scanner |
 
 ## Niveles
 
 | Nivel | Qué prueba | Dónde |
 |---|---|---|
 | Unitarias | Módulos aislados, con dobles (`tests/unit/_fake_db.ts`) | Local y CI |
-| Integración | Adaptadores contra MongoDB 9.0.4 (standalone y replica set) | Local y CI |
-| Punta a punta | `createZenithApp` con MongoDB y engine-auth reales, peticiones HTTP y comprobación en la base (`tests/integration/pieces-e2e.test.ts`, `boot.test.ts`, `engine-auth.test.ts`, `classes.test.ts`) | Local (necesita el binario de engine-auth) |
+| Integración | Adaptadores contra MongoDB 9.0.8 (standalone y replica set), SurrealDB y Vault | Local y CI |
+| Punta a punta | `createZenithApp` con MongoDB y engine-auth reales, peticiones HTTP y comprobación en la base (`tests/integration/pieces-e2e.test.ts`, `boot.test.ts`, `engine-auth.test.ts`, `classes.test.ts`) | Local, y CI con `ZUTOOL_E2E` (necesita el binario de engine-auth) |
 | Imagen | Build, escaneo de Trivy y arranque del contenedor con MongoDB y ScyllaDB | CI (build y Trivy) y local (arranque) |
 
 ## Todo en local
@@ -21,12 +38,12 @@ docker run -d --rm --name zenith-it-mongo   -p 127.0.0.1:27999:27017 --memory 2g
 docker run -d --rm --name zenith-it-mongors -p 127.0.0.1:28000:27017 --memory 2g mongo:9.0.8 --replSet rs0 --bind_ip_all
 docker exec zenith-it-mongors mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
 
-# engine-auth y libzutool_auth.so, compilados en apps/zutool (cargo build -p engine-auth)
-export ENGINE_AUTH_BIN=…/apps/zutool/target/debug/engine-auth ZUTOOL_LIB_DIR=…/apps/zutool/target/debug
+# engine-auth y libzutool_auth.so, compilados en un clon de zutool (cargo build -p engine-auth -p zutool-auth)
+export ENGINE_AUTH_BIN=<zutool>/target/debug/engine-auth ZUTOOL_LIB_DIR=<zutool>/target/debug
 export ZENITH_TEST_MONGO=mongodb://127.0.0.1:27999
 export ZENITH_TEST_MONGO_URI="mongodb://127.0.0.1:27999/?directConnection=true"
 export MONGO_TEST_URI="mongodb://127.0.0.1:28000/?replicaSet=rs0&directConnection=true"
-export TMPDIR=/home/$USER/.cache/zenith-tests-tmp   # /tmp es pequeño en esta máquina
+export TMPDIR=$HOME/.cache/zenith-tests-tmp   # si /tmp es pequeño: las pruebas escriben bases y binarios
 
 cd zenith-backend
 deno lint src/ && deno check --frozen src/mod.ts
@@ -85,7 +102,7 @@ Durante la pausa el driver de MongoDB espera en lugar de fallar, y el trabajo co
 
 ```bash
 docker build -t zenith-backend:local zenith-backend/
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.69.3 image \
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.2 image \
   --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 zenith-backend:local
 docker run -d --rm --name zenith-it-scylla -p 127.0.0.1:29042:9042 --memory 3g scylladb/scylla:2026.1.15 \
   --smp 1 --memory 1G --overprovisioned 1 --developer-mode 1

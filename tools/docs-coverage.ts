@@ -80,11 +80,25 @@ if (added.length || removed.length) {
   );
 }
 
-// 2. Route counts in current documents.
+// 2. Route counts in current documents: "N rutas" is the default features; "N rutas con todas las piezas", every
+// feature that scripts/generate-openapi.ts --all-features turns on. A count inside a dated note ("el 2026-11-10…")
+// tells the past and is written as "N rutas de entonces", which is not checked.
+const allSrc = read("zenith-backend/scripts/generate-openapi.ts");
+const allStart = allSrc.indexOf("{", allSrc.indexOf("const ALL_FEATURES"));
+const allFeatures = Function(
+  `return (${allSrc.slice(allStart, allSrc.indexOf("};", allStart) + 1)})`,
+)();
+const liveAll = routesOf(generateProjectOpenApi({ appId: "miapp", features: allFeatures }));
 for (const [f, t] of Object.entries(text)) {
-  for (const m of t.matchAll(/(\d{3}) rutas/g)) {
-    if (Number(m[1]) !== live.size) {
-      fail(`${f}: dice "${m[0]}"; con las features por defecto son ${live.size}`);
+  for (const m of t.matchAll(/(\d{3}) rutas( con todas las piezas| de entonces)?/g)) {
+    if (m[2] === " de entonces") continue;
+    const expected = m[2] ? liveAll.size : live.size;
+    if (Number(m[1]) !== expected) {
+      fail(
+        `${f}: dice "${m[0]}"; son ${expected}${
+          m[2] ? " con todas las piezas" : " con las piezas por defecto"
+        }`,
+      );
     }
   }
 }

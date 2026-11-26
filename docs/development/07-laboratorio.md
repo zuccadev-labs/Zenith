@@ -1,4 +1,11 @@
-# Recrear el laboratorio desde cero (versiones de noviembre de 2026)
+---
+description: "Cómo se recrea el laboratorio de Zenith (Proxmox, Packer y Docker Compose) con las versiones de noviembre de 2026."
+tipo: guia
+---
+
+# ¿Cómo se recrea el laboratorio desde cero?
+
+Reconstruyendo la plantilla y volviendo a clonar la VM. Las versiones son las de noviembre de 2026.
 
 El laboratorio está pensado para ser desechable: `start.sh` destruye la VM 902 y la vuelve a clonar desde la
 plantilla 901, que Packer construye con el `docker-compose.yml` y el `.env` dentro. Empezar de cero es, por tanto,

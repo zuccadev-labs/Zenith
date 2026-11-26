@@ -1,7 +1,13 @@
-# Cadena de suministro: análisis, SBOM y firma
+---
+description: "Lo que analiza el CI en cada ejecución, el SBOM y la firma y atestación de la imagen del servidor."
+tipo: explicacion
+---
 
-> Vigente a 2026-11-19 (repositorio público). Todo lo de esta página funciona con el plan gratuito de GitHub. Lo que exige un plan de
-> pago está al final.
+# ¿Cómo se analizan, firman y atestiguan las imágenes?
+
+El CI analiza secretos, código, flujos de trabajo, Dockerfile, configuración y dependencias en cada ejecución;
+genera el SBOM de la imagen y la firma dos veces, con clave propia y sin clave (Sigstore). Todo funciona con el plan
+gratuito de GitHub desde que el repositorio es público (2026-11-19).
 
 ## Qué hace el CI en cada ejecución
 
@@ -96,7 +102,7 @@ La firma con clave propia se mantiene: sirve sin conexión y sin depender de Sig
 |---|---|
 | CodeQL (licencia: solo código abierto) | Semgrep OSS, Trivy, Checkov, hadolint, zizmor, actionlint, OSV-Scanner, `deno audit` |
 | Atestaciones de GitHub (Enterprise) | Provenance SLSA v1 firmada con cosign y clave propia, sin log público |
-| Registro con espacio (GHCR: 500 MB) | Zot propio (`docs/architecture/registry.md`). La imagen comprimida pesa ~97 MB |
+| Registro con espacio (GHCR: 500 MB) | Zot propio ([Registro de imágenes](./06-registro-de-imagenes.md)). La imagen comprimida pesa ~97 MB |
 | Protección de ramas / rulesets | `.githooks/pre-push` + `tools/ship.sh` (push → CI de ese commit → veredicto) |
 | CI en cada push | `tools/ship.sh` lanza el CI del commit empujado y espera su resultado |
 

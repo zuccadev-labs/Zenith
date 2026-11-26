@@ -1,7 +1,14 @@
-# Métricas, alertas y dashboard
+---
+description: "El listener de métricas de Zenith, el catálogo de métricas y etiquetas, las alertas y el dashboard."
+tipo: referencia
+---
 
-> Vigente a 2026-11-11. Probado de punta a punta: imagen de Zenith con MongoDB y ScyllaDB, Prometheus 3.16 raspando
-> el puerto de métricas con las reglas canónicas y Grafana 13.3 con el dashboard (ver «Cómo se probó»).
+# ¿Qué métricas expone el motor y qué alertas hay?
+
+Un listener de Prometheus aparte del tráfico de la API, un catálogo de métricas con etiquetas acotadas, reglas de
+alerta canónicas y un dashboard de Grafana. Lo probé de punta a punta el 2026-11-11: la imagen de Zenith con
+MongoDB y ScyllaDB, Prometheus 3.16 raspando el puerto de métricas con las reglas canónicas y Grafana 13.3 con el
+dashboard (ver «Cómo se probó»).
 
 ## Cómo se raspa
 
@@ -39,7 +46,7 @@ raspaba nada.
 | `zenith_master_key_usage_total` | counter | — | `core/pipeline.ts` (`onMasterKey`), solo la master key estática |
 | `zenith_api_key_requests_total` | counter | `env` (`live`/`test`) | `core/pipeline.ts` (`onApiKey`) |
 | `zenith_circuit_breaker_state` | gauge (1 el estado actual, 0 los demás) | `circuit`, `state` (`CLOSED`/`OPEN`/`HALF_OPEN`) | `resilience/circuit.breaker.trait.ts` |
-| `zenith_jobs_total` | counter | `type`, `result` | cola duradera (ADR-017) |
+| `zenith_jobs_total` | counter | `type`, `result` | cola duradera ([ADR-017](../investigations/adr/17-webhooks-hooks-event-bus.md)) |
 | `zenith_job_duration_ms` | summary (count y sum) | `type`, `result` | ídem |
 | `zenith_jobs` | gauge | `status` (`pending`, `failed`) | ídem, `reportBacklog()` |
 | `zenith_webhook_attempts_total` | counter | `result` | webhooks |
@@ -99,7 +106,7 @@ muestran 100 % y 0, en lugar de quedarse sin datos.
 
 ```bash
 docker build -t zenith-backend:local zenith-backend/
-# MongoDB y ScyllaDB como en zenith-backend/docs/testing.md; luego:
+# MongoDB y ScyllaDB como en docs/development/02-pruebas.md; luego:
 docker run -d --name zenith-smoke --network host ... -e ZENITH_METRICS_PORT=29090 zenith-backend:local
 # Prometheus 3.16.0 con job "zenith" -> 127.0.0.1:29090 y rule_files con zenith-alerts.yaml
 # Grafana 13.3.1 con el dashboard provisionado (${DS_PROMETHEUS} -> uid del datasource)

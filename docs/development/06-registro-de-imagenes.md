@@ -1,8 +1,14 @@
-# Registro de imágenes propio (Zot)
+---
+description: "El registro de imágenes propio (Zot): por qué existe, cómo se despliega, cómo se publica y verifica una imagen y cómo se deshace."
+tipo: guia
+---
 
-> Vigente a 2026-11-12. Desplegado en `registry.vemar.app` (Zot 2.1.23 en un droplet de DigitalOcean; DNS en Cloudflare,
-> registro A sin proxy, porque el proxy gratuito corta las subidas de más de 100 MB). La contraseña de `reader` está
-> en `~/.config/zenith/registry-reader.env` (0600) de la máquina que lo desplegó.
+# ¿Cómo funciona el registro propio (Zot)?
+
+Zot guarda la imagen del servidor con sus firmas y atestaciones de cosign. Está desplegado desde el 2026-11-12 en
+`registry.vemar.app`: Zot 2.1.23 en un droplet de DigitalOcean, con el DNS en Cloudflare y el registro A sin
+proxy, porque el proxy gratuito corta las subidas de más de 100 MB. La contraseña de `reader` está en
+`~/.config/zenith/registry-reader.env` (0600) de la máquina que lo desplegó.
 
 ## Por qué
 
