@@ -1,6 +1,8 @@
 # Zenith AWS Infrastructure (Terraform)
 
-> ⚠️ **Estado (2026-11-10): diseño aspiracional.** Describe un servicio alojado (dominios `zenith.io`, regiones, planes, certificaciones, equipos de guardia) que no existe. No es una guía de uso; lo vigente está en [docs/index.md](../../docs/index.md).
+> **Not deployed.** A design for an AWS deployment of a hosted Zenith service that does not exist (`zenith.io`
+> domains, regions). Nothing here is running; the current deployment paths are the Helm chart (`k8s/helm/zenith`)
+> and the lab (`lab-infra/`).
 
 Production-grade Terraform module for deploying Zenith on AWS.
 

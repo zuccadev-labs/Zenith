@@ -35,7 +35,8 @@ cada manifiesto.
 El trabajo comprueba que la versión de la etiqueta es la del manifiesto. Una versión ya publicada la rechaza el
 registro, así que no se puede sobrescribir nada.
 
-## Lo que no he documentado todavía
+## Documentos
 
-El contrato público de cada paquete (qué entradas de `exports` son estables) y la política de versiones previas a
-la 1.0 están por escribir en esta área.
+| Documento | Pregunta que responde |
+|---|---|
+| [Contrato público](./01-contrato-publico.md) | ¿Qué exporta cada paquete y qué cuenta como cambio incompatible? |

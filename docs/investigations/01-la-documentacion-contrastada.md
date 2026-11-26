@@ -32,7 +32,7 @@ Todo lo que se puede comprobar sin un servidor quedó en `tools/docs-coverage.ts
 | La ayuda de `zen generate` anunciaba `openapi \| docs \| postman` | El comando acepta `docs \| openapi \| schema \| sdk`. Corregí la ayuda |
 | La guía de pruebas decía que el CI no ejecuta las pruebas con engine-auth | Las ejecuta el trabajo `e2e-engine-auth`, con `ZUTOOL_E2E=true` |
 | El documento de pendientes daba por roto `updatedAt` en MongoDB, por no publicados los paquetes y por manual el CI | Los tres ya no eran ciertos; pasaron al archivo del documento con su motivo |
-| Seis enlaces `file:///` con la ruta de una unidad local, y una sección que nombraba carpetas privadas de mi equipo | Enlaces relativos, y la sección fuera. El repositorio es público |
+| Seis enlaces con el esquema `file:` y la ruta de una unidad local, y una sección que nombraba carpetas privadas de mi equipo | Enlaces relativos, y la sección fuera. El repositorio es público |
 
 ## Lo que no era de documentación
 

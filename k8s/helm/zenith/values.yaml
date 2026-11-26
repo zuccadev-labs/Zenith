@@ -134,8 +134,10 @@ env:
 # ── Secret References (Kubernetes Secrets) ───────────────────────────────────
 # Crea el secret con:
 #   kubectl create secret generic zenith-secrets \
-#     --from-literal=MASTER_KEY=<key> \
-#     --from-literal=JWT_SECRET=<secret> \
+#     --from-literal=APP1_MASTER_KEY=<64+ chars> \
+#     --from-literal=APP2_MASTER_KEY=<64+ chars> \
+#     --from-literal=MONGO_URI=<uri> \
+#     --from-literal=SCYLLA_URI=<uri> \
 #     --from-literal=SURREAL_PASS=<pass> \
 #     --from-literal=QDRANT_API_KEY=<key> \
 #     --from-literal=FILE_SIGNING_KEY=$(openssl rand -hex 32) \

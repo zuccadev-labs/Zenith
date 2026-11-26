@@ -1,16 +1,16 @@
 # Zenith Helm Chart
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../../../docs/index.md).
+> The chart is not published to a chart repository: install it from this folder. Tested on kind with Calico on
+> 2026-11-11 (`docs/development/02-pruebas.md`).
 
 Production-grade Helm chart for deploying Zenith BaaS on Kubernetes.
 
 ## TL;DR
 
 ```bash
-helm repo add zenith https://charts.zenith.io
-helm install zenith zenith/zenith \
+helm install zenith k8s/helm/zenith \
   --namespace zenith --create-namespace \
-  --values values-prod.yaml
+  --values k8s/helm/zenith/values-prod.yaml
 ```
 
 ## Prerequisites
@@ -44,18 +44,23 @@ See `values.yaml` for the full list of options. Common overrides:
 # 1. Create namespace + secrets
 kubectl create namespace zenith
 kubectl -n zenith create secret generic zenith-secrets \
-  --from-literal=MASTER_KEY=$(openssl rand -hex 32) \
-  --from-literal=JWT_SECRET=$(openssl rand -hex 64) \
-  --from-literal=SURREAL_PASS=$(openssl rand -hex 32) \
-  --from-literal=QDRANT_API_KEY=$(openssl rand -hex 32)
+  --from-literal=APP1_MASTER_KEY=$(openssl rand -hex 40) \
+  --from-literal=APP2_MASTER_KEY=$(openssl rand -hex 40) \
+  --from-literal=MONGO_URI='mongodb://…' \
+  --from-literal=SCYLLA_URI='…' \
+  --from-literal=FILE_SIGNING_KEY=$(openssl rand -hex 32) \
+  --from-literal=AUDIT_SIGNING_KEY=$(openssl rand -hex 32) \
+  --from-literal=WEBHOOK_SECRETS_KEY=$(openssl rand -hex 32)
 
 # 2. Install with production values
-helm install zenith ./zenith \
+helm install zenith k8s/helm/zenith \
   --namespace zenith \
   --values values-prod.yaml
 ```
 
-See `docs/runbooks/01_production_deployment.md` for the full procedure.
+The image reads `APP1_MASTER_KEY` and `APP2_MASTER_KEY` (64 characters or more, `zenith-backend/apps.config.ts`)
+and the database URIs from the environment. Deploying the full `values-prod.yaml` (ingress-nginx, Vault,
+cert-manager) on a test cluster is still pending (`docs/development/10-lo-que-falta.md`).
 
 ## Upgrading
 

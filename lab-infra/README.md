@@ -1,6 +1,7 @@
 # Zenith Lab Infrastructure
 
-> ⚠️ **Estado (2026-11-10): no coincide con el código.** Partes de este documento son obsoletas o incorrectas (rutas, comandos, paquetes). Lo vigente y la lista de diferencias están en [docs/index.md](../docs/index.md).
+> Recrearlo desde cero: [Laboratorio](../docs/development/07-laboratorio.md). DNS:
+> [DNS del laboratorio](../docs/development/08-dns-del-laboratorio.md).
 
 Infraestructura como código para el laboratorio de desarrollo Zenith.
 Stack completo de servicios corriendo en una VM Debian 13 sobre Proxmox.
@@ -47,39 +48,34 @@ Stack completo de servicios corriendo en una VM Debian 13 sobre Proxmox.
 
 ```
 lab-infra/
-├── .env                    # Variables de entorno (NO subir al git)
-├── .env.example            # Plantilla de variables (subir al git)
+├── .env.example            # Plantilla de variables (el .env no se sube a git)
 ├── .gitignore
 ├── README.md
+├── start.sh                # Arranca el laboratorio en Linux
+├── start.ps1               # Arranca el laboratorio en Windows
+├── qa-check.sh             # Comprobaciones tras el arranque
+├── vendor-data.yaml        # cloud-init de la VM
 ├── ansible/
 │   └── postal-init.yml     # Playbook de inicialización de Postal
 ├── docker/
-│   ├── docker-compose.yml          # Entorno LOCAL (Windows/dev)
-│   ├── docker-compose.proxmox.yml  # Entorno VM Proxmox (producción lab)
+│   ├── docker-compose.yml  # Todos los servicios
 │   └── configs/
-│       ├── Corefile                # Configuración CoreDNS
-│       ├── zen.ll.zone             # Zona DNS zen.ll (IP: 192.168.14.50)
-│       └── otel-config.yml         # OpenTelemetry Collector
-├── docs/
-│   └── dns-setup.md        # Guía de configuración DNS
+│       ├── Corefile        # CoreDNS
+│       ├── zen.ll.zone     # Zona DNS zen.ll
+│       └── otel-config.yml # OpenTelemetry Collector
 ├── packer/
-│   ├── zenith-lab.pkr.hcl          # Build de la golden image
-│   ├── variables.pkr.hcl           # Definición de variables
-│   ├── secrets.auto.pkrvars.hcl    # Valores (NO subir al git)
+│   ├── zenith-lab.pkr.hcl  # Build de la plantilla (VM 901)
+│   ├── variables.pkr.hcl
 │   └── scripts/
-│       ├── setup.sh        # Instala Docker + Ansible dentro de la VM
-│       └── finalize.sh     # Configura systemd para autoarranque
+│       ├── setup.sh        # Instala Docker y Ansible dentro de la VM
+│       └── finalize.sh     # Autoarranque con systemd
 ├── pulumi/
-│   ├── Pulumi.yaml         # Definición del proyecto Pulumi
-│   ├── package.json        # Dependencias (proxmox provider)
-│   └── index.ts            # Aprovisionamiento de VM 902 con IP fija
-├── repos/
-│   ├── luxdb/              # Repositorio de LuxDB (build local)
-│   └── postal-config/
-│       └── postal.yml      # Config de Postal (template con envsubst)
-└── scripts/
-    ├── start-lab.sh        # Arrancar servicios en Linux
-    └── start-lab.ps1       # Arrancar servicios en Windows
+│   ├── Pulumi.yaml
+│   ├── package.json
+│   └── index.ts            # Aprovisionamiento de la VM 902 con IP fija
+└── repos/                  # No se versiona: se prepara en la máquina del laboratorio
+    └── postal-config/
+        └── postal.yml      # Configuración de Postal (plantilla con envsubst)
 ```
 
 ## Servicios y Puertos
@@ -113,7 +109,7 @@ lab-infra/
 | **Qdrant** gRPC | `192.168.14.50:56334` | `56334` | Vector DB gRPC |
 | **EMQX** MQTT/TCP | `mqtt://192.168.14.50:51883` | `51883` | MQTT 3.1.1/5.0 (IoT) |
 | **EMQX** MQTT/WS | `ws://192.168.14.50:58083/mqtt` | `58083` | MQTT sobre WebSocket |
-| **EMQX** Dashboard | `http://192.168.14.50:58080` | `58080` | Broker UI (admin/zenithemqx) |
+| **EMQX** Dashboard | `http://192.168.14.50:58080` | `58080` | Broker UI (usuario `admin`, contraseña `EMQX_ADMIN_PASS` del `.env`) |
 
 ### Zenith Backend
 
@@ -122,12 +118,11 @@ lab-infra/
 | **REST API** | `http://192.168.14.50:1337` | `1337` |
 | **OpenAPI/Swagger** | `http://192.168.14.50:1337/openapi.json` | — |
 | **Health** | `http://192.168.14.50:1337/health` | — |
-| **Metrics** (Prometheus) | `http://192.168.14.50:1337/metrics` | — |
+| **Metrics** (Prometheus) | `http://192.168.14.50:1337/metrics` (master key) o el listener de métricas ([Métricas](../docs/development/04-metricas.md)) | — |
 | **GraphQL** | `http://192.168.14.50:1337/graphql` | — |
 | **TimeSeries** (Grafana DS) | `http://192.168.14.50:1337/timeseries` | — |
 | **IoT Devices** | `http://192.168.14.50:1337/iot/devices` | — |
 | **Workflows** | `http://192.168.14.50:1337/workflows` | — |
-| **Feature Plans** | `http://192.168.14.50:1337/plans` | — |
 | **Audit Log** | `http://192.168.14.50:1337/compliance/audit` | — |
 
 ## Primeros pasos
@@ -142,7 +137,7 @@ cp .env.example .env
 ### 2. Configurar DNS en tu PC
 
 Apuntar DNS primario a `192.168.14.50`.
-Ver guía completa: [docs/dns-setup.md](docs/dns-setup.md)
+Ver la guía completa: [DNS del laboratorio](../docs/development/08-dns-del-laboratorio.md)
 
 **PowerShell (Windows):**
 ```powershell

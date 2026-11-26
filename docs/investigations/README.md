@@ -65,3 +65,6 @@ dónde salen varias decisiones.
 [Decisiones de arquitectura originales](./archivo/01-decisiones-de-arquitectura-originales.md): el primer documento
 de decisiones. `ZENITH_TOPOLOGY` y el CLI `zenith-agent`, que aparecen en él, no existen; lo real es
 `config.topology` y `zen agent`.
+
+[Roadmap del servicio alojado](./archivo/02-roadmap-del-servicio-alojado.md): el roadmap público que tenía en la raíz, con
+fechas y planes de un servicio que no existe.

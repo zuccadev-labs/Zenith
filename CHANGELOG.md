@@ -5,6 +5,24 @@
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Documentation moved from MkDocs to zudocs, in areas (`docs/users`, `development`, `investigations`, `agents`,
+  `package`), and rewritten against the code. Documents that described a hosted service that does not exist are in
+  each area's `archivo/`.
+- API reference regenerated: 241 routes with the default pieces (it listed 234 and missed `/sessions/me`,
+  `/zen/cells` and the agent session messages).
+- `tools/docs-coverage.ts`, in CI: fails when the API reference is stale or a route count, `zen` command, catalog
+  piece, error code, package version or link outside `docs/` does not match the code.
+
+### Fixed
+
+- `zen generate --help` listed `openapi | docs | postman`; the subcommands are `docs | openapi | schema | sdk`.
+- Helm chart: the README and `values.yaml` asked for `MASTER_KEY` and `JWT_SECRET`; the image reads
+  `APP1_MASTER_KEY` and `APP2_MASTER_KEY`.
+
 ## Packages — 2026-11-19
 
 `@zuccadev-labs/zenith` 0.2.0 and `@zuccadev-labs/zenith-cli` 0.3.0 (JSR); `@zuccadev-labs/zenith-client` 0.2.0 and
@@ -12,7 +30,7 @@
 
 ### Added
 
-- **Cells** (ADR-019, `docs/architecture/cells.md`): the cell, a single-writer actor with its own SQLite storage and
+- **Cells** (ADR-019, `docs/users/07-celdas.md`): the cell, a single-writer actor with its own SQLite storage and
   the Durable Objects API that celld and Cloudflare implement, is the standard unit of stateful work.
   - `local` provider: input gate, `blockConcurrencyWhile`, KV and `sql.exec` storage, transactions, alarms that
     survive restarts, hibernation, residency and storage limits.
@@ -35,6 +53,10 @@
 
 - `sql.exec` in a cell cannot leave the cell's database (`ATTACH`, `VACUUM INTO`, writable PRAGMAs and internal
   tables are rejected).
+
+> The entries below are from an earlier stage of the project. Version 1.0.0 was never published (the first
+> release is 2026-11-19, above), and the documents they cite were moved: the hosted-service ones are archived in
+> `docs/*/archivo/`.
 
 ## [1.0.0] — 2026-06-06
 
